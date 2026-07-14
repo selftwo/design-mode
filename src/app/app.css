@@ -248,6 +248,12 @@ button[aria-pressed="true"] {
   border: 1px solid #dfe3e9;
 }
 
+.board-save-error,
+.board-reset-error {
+  margin: 0.5rem 1rem;
+  color: #8b1e1e;
+}
+
 .board-status {
   z-index: 50;
   display: flex;

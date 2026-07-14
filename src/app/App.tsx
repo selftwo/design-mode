@@ -4,9 +4,11 @@ import { ReviewToolbar } from '@/features/review-board/ReviewToolbar'
 import type { CanvasEngineProps } from '@/features/review-board/engines/canvas-engine'
 import { readAllowedBoardHostOrigins } from '@/features/review-board/host/board-host-origin-config'
 import { createWindowBoardHost } from '@/features/review-board/host/window-board-host'
+import { ReviewBoardResetDialog } from '@/features/review-board/ReviewBoardResetDialog'
 import { exportAgentAnnotation } from '@/features/review-board/model/export-agent-annotation'
-import { restoreBoard, saveBoard, STORAGE_KEY } from '@/features/review-board/model/board-local-storage'
+import { loadBoardFromHostStorage } from '@/features/review-board/model/load-board-from-host-storage'
 import type { BoardDocument, EngineName, ReviewAnnotation, ToolMode } from '@/features/review-board/model/board-document.schema'
+import { useReviewBoardPersistence } from '@/features/review-board/use-review-board-persistence'
 
 const ReactFlowReviewBoard = lazy(() => import('@/features/review-board/engines/react-flow/ReactFlowReviewBoard'))
 const ExcalidrawReviewBoard = lazy(() => import('@/features/review-board/engines/excalidraw/ExcalidrawReviewBoard'))
@@ -15,16 +17,6 @@ function selectedEngine(): EngineName {
   return new URLSearchParams(window.location.search).get('engine') === 'excalidraw'
     ? 'excalidraw'
     : 'reactflow'
-}
-
-function restoreHostBoard(hostBoard: BoardDocument): BoardDocument {
-  try {
-    const restored = restoreBoard(hostBoard)
-    return restored.boardId === hostBoard.boardId ? restored : hostBoard
-  } catch {
-    localStorage.removeItem(STORAGE_KEY)
-    return hostBoard
-  }
 }
 
 export default function App() {
@@ -40,8 +32,19 @@ export default function App() {
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ frameId: string; token: string } | null>(null)
   const [exported, setExported] = useState('')
-  const [saved, setSaved] = useState(false)
   const [readyMs, setReadyMs] = useState<number | null>(null)
+  const {
+    saveStatus,
+    saveError,
+    resetDialogOpen,
+    resetError,
+    setBaseline,
+    save: persistBoard,
+    requestReset,
+    cancelReset,
+    confirmReset,
+    applyImmediateReset,
+  } = useReviewBoardPersistence()
 
   useEffect(() => {
     const unsubscribe = host.subscribe((result) => {
@@ -50,8 +53,10 @@ export default function App() {
         return
       }
       if (result.status !== 'loaded') return
+      const loaded = loadBoardFromHostStorage(result.board)
       setHostBoard(result.board)
-      setDocument(restoreHostBoard(result.board))
+      setDocument(loaded.document)
+      setBaseline(loaded.lastSaved)
       setBoardLoadError(null)
       setSelectedFrameId(null)
       setSelectedAnnotationId(null)
@@ -61,7 +66,7 @@ export default function App() {
     })
     host.requestBoard()
     return unsubscribe
-  }, [host])
+  }, [host, setBaseline])
 
   const handleCanvasReady = useCallback(() => {
     requestAnimationFrame(() => setReadyMs((current) => current ?? Math.round(performance.now())))
@@ -96,22 +101,32 @@ export default function App() {
     setFocus(null)
   }
 
-  const handleSave = () => {
-    if (!document) return
-    saveBoard(document)
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 1200)
-  }
-
-  const handleReset = () => {
-    if (!hostBoard) return
-    localStorage.removeItem(STORAGE_KEY)
-    setDocument(hostBoard)
+  const applyHostBoard = useCallback((board: BoardDocument) => {
+    setDocument(board)
     setSelectedFrameId(null)
     setSelectedAnnotationId(null)
     setFocus(null)
     setExported('')
     setTool('select')
+  }, [])
+
+  const handleSave = () => {
+    if (!document) return
+    persistBoard(document)
+  }
+
+  const handleReset = () => {
+    if (!hostBoard || !document) return
+    const outcome = requestReset(document)
+    if (!outcome?.immediate) return
+    const result = applyImmediateReset(hostBoard)
+    if (result.ok) applyHostBoard(result.hostBoard)
+  }
+
+  const handleConfirmReset = () => {
+    if (!hostBoard) return
+    const result = confirmReset(hostBoard)
+    if (result.ok) applyHostBoard(result.hostBoard)
   }
 
   const handleExport = () => {
@@ -184,7 +199,7 @@ export default function App() {
   const Canvas = engine === 'reactflow' ? ReactFlowReviewBoard : ExcalidrawReviewBoard
   const boardDiagnostics = JSON.stringify({
     camera: document.camera,
-    frames: document.frames.map(({ id, x, y, width, height, aspectRatio, revision }) => ({
+    frames: document.frames.map(({ id, x, y, width, height, aspectRatio, revision, captureHash }) => ({
       id,
       x,
       y,
@@ -192,13 +207,24 @@ export default function App() {
       height,
       aspectRatio,
       revision,
+      captureHash,
     })),
-    annotations: document.annotations.map(({ id, frameId, instruction, anchor, mark }) => ({
+    annotations: document.annotations.map(({
       id,
       frameId,
       instruction,
       anchor,
       mark,
+      madeAgainstCaptureHash,
+      madeAgainstRevision,
+    }) => ({
+      id,
+      frameId,
+      instruction,
+      anchor,
+      mark,
+      madeAgainstCaptureHash,
+      madeAgainstRevision,
     })),
   })
 
@@ -232,6 +258,17 @@ export default function App() {
         ) : null}
       </div>
       {boardLoadError ? <p className="board-load-error" role="alert" data-testid="board-load-error">{boardLoadError}</p> : null}
+      {saveError ? (
+        <p className="board-save-error" role="alert" data-testid="board-save-error">{saveError}</p>
+      ) : null}
+      {resetError ? (
+        <p className="board-reset-error" role="alert" data-testid="board-reset-error">{resetError}</p>
+      ) : null}
+      <ReviewBoardResetDialog
+        open={resetDialogOpen}
+        onCancel={cancelReset}
+        onConfirm={handleConfirmReset}
+      />
       <footer className="board-status" data-testid="board-status">
         <span>{document.frames.length} screens</span>
         <span data-testid="annotation-count">{document.annotations.length} annotations</span>
@@ -239,7 +276,7 @@ export default function App() {
         <span data-testid="selected-annotation">{selectedAnnotationId ?? 'none selected'}</span>
         <span data-testid="focus-state">{focus ? `live ${focus.frameId}` : 'screenshot mode'}</span>
         <span data-testid="ready-ms">{readyMs === null ? 'measuring' : `${readyMs} ms`}</span>
-        {saved ? <span role="status">Saved</span> : null}
+        {saveStatus === 'saved' ? <span role="status" data-testid="board-save-status">Saved</span> : null}
       </footer>
       <output className="export-output" data-testid="export-output">{exported}</output>
       <output className="board-diagnostics" data-testid="board-diagnostics">{boardDiagnostics}</output>

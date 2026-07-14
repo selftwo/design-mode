@@ -15,6 +15,10 @@ export function saveBoard(document: BoardDocument, storage: Pick<Storage, 'setIt
   storage.setItem(STORAGE_KEY, serializeBoard(document))
 }
 
+export function clearStoredBoard(storage: Pick<Storage, 'removeItem'> = localStorage): void {
+  storage.removeItem(STORAGE_KEY)
+}
+
 export function restoreBoard(
   fallback: BoardDocument,
   storage: Pick<Storage, 'getItem'> = localStorage,
