@@ -1,10 +1,11 @@
+import type { LiveReviewFrameConfig } from '@/features/live-review/LiveReviewFrame'
 import type { BoardDocument, ReviewAnnotation, ScreenFrame, ToolMode } from '../model/board-document.schema'
 
 export interface CanvasEngineProps {
   document: BoardDocument
   tool: ToolMode
   focusedFrameId: string | null
-  focusToken: string | null
+  liveFrameConfig: LiveReviewFrameConfig | null
   selectedFrameId: string | null
   selectedAnnotationId: string | null
   onDocumentChange: (update: BoardDocument | ((current: BoardDocument) => BoardDocument)) => void

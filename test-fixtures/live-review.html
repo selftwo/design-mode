@@ -20,6 +20,7 @@
     <script>
       const allowedParents = new Set(['http://127.0.0.1:5173', 'http://127.0.0.1:4173'])
       const token = new URLSearchParams(location.hash.slice(1)).get('token')
+      const frameId = new URLSearchParams(location.hash.slice(1)).get('frameId') ?? 'frame-01'
       let count = 0
       document.querySelector('#increment').addEventListener('click', () => {
         count += 1
@@ -29,8 +30,15 @@
         if (!allowedParents.has(event.origin)) return
         if (event.source !== parent) return
         if (!token || event.data?.token !== token) return
-        if (event.data?.type !== 'design-review/hello') return
-        parent.postMessage({ type: 'design-review/ready', token }, event.origin)
+        if (event.data?.type !== 'design-review/live-hello') return
+        if (event.data?.schemaVersion !== 1) return
+        if (event.data?.frameId !== frameId) return
+        parent.postMessage({
+          type: 'design-review/live-ready',
+          schemaVersion: 1,
+          frameId,
+          token,
+        }, event.origin)
       })
     </script>
   </body>

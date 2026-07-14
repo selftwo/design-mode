@@ -25,6 +25,15 @@
   font-size: 13px;
 }
 
+.annotation-stale {
+  padding: 2px 6px;
+  border: 1px solid #f4a9a2;
+  border-radius: 4px;
+  background: #fff8f7;
+  color: #b42318;
+  font-weight: 600;
+}
+
 .annotation-incomplete {
   margin-left: auto;
   color: #b42318;

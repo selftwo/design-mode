@@ -1,9 +1,12 @@
 import { memo, useRef } from 'react'
 import { NodeResizer, type Node, type NodeProps } from '@xyflow/react'
+import type { LiveReviewFrameConfig } from '@/features/live-review/LiveReviewFrame'
+import { LiveFrameHostConnecting } from '@/features/live-review/LiveFrameHostConnecting'
+import { LiveReviewFrame } from '@/features/live-review/LiveReviewFrame'
 import type { NormalizedPoint, ReviewAnnotation, ScreenFrame, ToolMode } from '../../model/board-document.schema'
 import { normalizeLocalPoint } from '../../model/board-geometry'
 import { pickAnnotationAtClientPoint } from '../../model/pick-annotation-at-point'
-import { LiveReviewFrame } from '@/features/live-review/LiveReviewFrame'
+import { isAnnotationStale } from '../../model/is-annotation-stale'
 import '../../FrameAnnotationMarks.css'
 import './ScreenFrameSurface.css'
 
@@ -12,7 +15,7 @@ export interface ScreenFrameNodeData extends Record<string, unknown> {
   annotations: ReviewAnnotation[]
   tool: ToolMode
   focused: boolean
-  focusToken: string | null
+  liveFrameConfig: LiveReviewFrameConfig | null
   selectedAnnotationId: string | null
   onCircle: (frameId: string, start: NormalizedPoint, end: NormalizedPoint) => void
   onComment: (frameId: string, at: NormalizedPoint) => void
@@ -23,10 +26,12 @@ export interface ScreenFrameNodeData extends Record<string, unknown> {
 
 function AnnotationSvg({
   annotations,
+  frame,
   tool,
   selectedAnnotationId,
 }: {
   annotations: ReviewAnnotation[]
+  frame: ScreenFrame
   tool: ToolMode
   selectedAnnotationId: string | null
 }) {
@@ -45,7 +50,12 @@ function AnnotationSvg({
     >
       {paintOrder.map((annotation) => {
         const selected = annotation.id === selectedAnnotationId
-        const className = selected ? 'annotation-mark selected' : 'annotation-mark'
+        const stale = isAnnotationStale(annotation, frame)
+        const className = [
+          'annotation-mark',
+          selected ? 'selected' : '',
+          stale ? 'stale' : '',
+        ].filter(Boolean).join(' ')
         if (annotation.mark) {
           const [start, end] = annotation.mark.points
           return (
@@ -54,6 +64,7 @@ function AnnotationSvg({
               className={className}
               data-testid={`mark-${annotation.id}`}
               data-annotation-id={annotation.id}
+              data-stale={String(stale)}
               cx={(start[0] + end[0]) / 2}
               cy={(start[1] + end[1]) / 2}
               rx={Math.abs(end[0] - start[0]) / 2}
@@ -68,6 +79,7 @@ function AnnotationSvg({
             className={className}
             data-testid={`mark-${annotation.id}`}
             data-annotation-id={annotation.id}
+            data-stale={String(stale)}
           >
             <circle
               cx={annotation.anchor[0]}
@@ -146,8 +158,10 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
         minWidth={120}
         onResizeEnd={(_, parameters) => node.onResize(frame.id, parameters.width)}
       />
-      {node.focused && node.focusToken ? (
-        <LiveReviewFrame frameId={frame.id} token={node.focusToken} />
+      {node.focused && node.liveFrameConfig ? (
+        <LiveReviewFrame config={node.liveFrameConfig} />
+      ) : node.focused ? (
+        <LiveFrameHostConnecting frameId={frame.id} />
       ) : (
         <div
           className={`screen-content ${node.tool !== 'select' ? 'draw-active nodrag nopan' : ''}`}
@@ -163,6 +177,7 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
           />
           <AnnotationSvg
             annotations={node.annotations}
+            frame={frame}
             tool={node.tool}
             selectedAnnotationId={node.selectedAnnotationId}
           />

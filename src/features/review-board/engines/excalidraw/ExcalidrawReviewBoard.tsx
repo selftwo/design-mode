@@ -11,6 +11,7 @@ import type { AppState, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/t
 import type { NormalizedPoint, ReviewAnnotation } from '../../model/board-document.schema'
 import { containingFrame, normalizeLocalPoint } from '../../model/board-geometry'
 import type { CanvasEngineProps } from '../canvas-engine'
+import { LiveFrameHostConnecting } from '@/features/live-review/LiveFrameHostConnecting'
 import { LiveReviewFrame } from '@/features/live-review/LiveReviewFrame'
 import {
   frameIdFromElement,
@@ -40,7 +41,7 @@ export default function ExcalidrawReviewBoard({
   document,
   tool,
   focusedFrameId,
-  focusToken,
+  liveFrameConfig,
   selectedFrameId: _selectedFrameId,
   selectedAnnotationId: _selectedAnnotationId,
   onDocumentChange,
@@ -228,10 +229,14 @@ export default function ExcalidrawReviewBoard({
       {selectionRect && tool === 'select' ? (
         <div className="excal-selection" style={selectionRect} data-testid="excal-selection" />
       ) : null}
-      {focusedFrameId && focusToken ? (
+      {focusedFrameId ? (
         <div className="excal-live-overlay" data-testid="excal-live-overlay">
           <p>Excalidraw requires a fixed live view outside its rendered scene.</p>
-          <LiveReviewFrame frameId={focusedFrameId} token={focusToken} />
+          {liveFrameConfig ? (
+            <LiveReviewFrame config={liveFrameConfig} />
+          ) : (
+            <LiveFrameHostConnecting frameId={focusedFrameId} />
+          )}
         </div>
       ) : null}
       <output className="scene-diagnostics" data-testid="excal-scene-diagnostics">

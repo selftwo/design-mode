@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Delayed live review fixture</title>
+  </head>
+  <body>
+    <p data-testid="delayed-fixture">silent until late ready</p>
+    <script>
+      const allowedParents = new Set(['http://127.0.0.1:5173', 'http://127.0.0.1:4173'])
+      const token = new URLSearchParams(location.hash.slice(1)).get('token')
+      const frameId = new URLSearchParams(location.hash.slice(1)).get('frameId') ?? 'frame-01'
+      let helloCount = 0
+      let lateReadySent = false
+      const LATE_READY_MS = 11_000
+
+      addEventListener('message', (event) => {
+        if (!allowedParents.has(event.origin)) return
+        if (event.source !== parent) return
+        if (!token || event.data?.token !== token) return
+        if (event.data?.type !== 'design-review/live-hello') return
+        if (event.data?.schemaVersion !== 1) return
+        if (event.data?.frameId !== frameId) return
+        helloCount += 1
+        if (helloCount >= 2) {
+          parent.postMessage({
+            type: 'design-review/test-live-hello-count',
+            count: helloCount,
+          }, event.origin)
+        }
+        if (lateReadySent) return
+        if (helloCount < 2) return
+        lateReadySent = true
+        window.setTimeout(() => {
+          parent.postMessage({
+            type: 'design-review/live-ready',
+            schemaVersion: 1,
+            frameId,
+            token,
+          }, event.origin)
+        }, LATE_READY_MS)
+      })
+    </script>
+  </body>
+</html>

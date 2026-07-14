@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { PNG } from 'pngjs'
-import { createPressureTestBoard } from '../../src/test-support/create-pressure-test-board'
+import { installFakeBoardHost } from './install-fake-board-host'
 
 type CanvasEngine = 'reactflow' | 'excalidraw'
 
@@ -16,6 +16,7 @@ interface Diagnostics {
     height: number
     aspectRatio: number
     revision: number
+    captureHash: string
   }>
   annotations: Array<{
     id: string
@@ -23,20 +24,6 @@ interface Diagnostics {
     anchor: readonly [number, number]
     mark: null | { points: readonly [readonly [number, number], readonly [number, number]] }
   }>
-}
-
-async function installFakeBoardHost(page: Page) {
-  const pressureBoard = createPressureTestBoard()
-  await page.addInitScript((boardDocument) => {
-    window.addEventListener('message', (event) => {
-      if (event.source !== window || event.data?.type !== 'design-review/request-board') return
-      window.postMessage({
-        type: 'design-review/load-board',
-        schemaVersion: 1,
-        board: boardDocument,
-      }, window.location.origin)
-    })
-  }, pressureBoard)
 }
 
 async function board(page: Page): Promise<Diagnostics> {
@@ -280,14 +267,20 @@ for (const engine of ['reactflow', 'excalidraw'] as const) {
     await page.getByTestId('tool-select').click()
     await selectFrame(page, engine, 'frame-01')
     await page.getByTestId('focus-selected').click()
-    await expect(page.getByTestId('focus-state')).toHaveText('live frame-01')
-    await expect(page.getByTestId('live-state-frame-01')).toHaveText('Live ready', { timeout: 10_000 })
+    await expect(page.getByTestId('focus-state')).toHaveText('live frame-01', { timeout: 15_000 })
+    await expect(page.getByTestId('live-state-frame-01')).toHaveText('Live ready', { timeout: 15_000 })
     const liveFrame = page.frameLocator('[data-testid="live-iframe-frame-01"]')
     await liveFrame.locator('#increment').click()
     await expect(liveFrame.locator('#count')).toHaveText('1')
     await page.getByTestId('exit-focus').click()
     await expect(page.getByTestId('focus-state')).toHaveText('screenshot mode')
-    await expect.poll(async () => (await board(page)).frames.find((item) => item.id === 'frame-01')?.revision).toBe(2)
+    if (engine === 'reactflow') {
+      await page.getByTestId(`mark-${annotation!.id}`).click()
+      await expect(page.getByTestId('annotation-stale')).toBeVisible()
+    }
+    const refreshedFrame = (await board(page)).frames.find((item) => item.id === 'frame-01')
+    expect(refreshedFrame?.revision).toBe(2)
+    expect(refreshedFrame?.captureHash).toContain('revision-2-host')
     await page.getByTestId('export-annotation').click()
     const afterRefreshExport = JSON.parse(await page.getByTestId('export-output').textContent() ?? '') as {
       madeAgainst: { captureHash: string }

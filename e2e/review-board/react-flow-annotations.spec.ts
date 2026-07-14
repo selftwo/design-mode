@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { createPressureTestBoard } from '../../src/test-support/create-pressure-test-board'
+import { installFakeBoardHost } from './install-fake-board-host'
 
 interface Diagnostics {
   camera: { worldX: number; worldY: number; zoom: number }
@@ -11,20 +11,6 @@ interface Diagnostics {
     anchor: readonly [number, number]
     mark: null | { points: readonly [readonly [number, number], readonly [number, number]] }
   }>
-}
-
-async function installFakeBoardHost(page: Page) {
-  const pressureBoard = createPressureTestBoard()
-  await page.addInitScript((boardDocument) => {
-    window.addEventListener('message', (event) => {
-      if (event.source !== window || event.data?.type !== 'design-review/request-board') return
-      window.postMessage({
-        type: 'design-review/load-board',
-        schemaVersion: 1,
-        board: boardDocument,
-      }, window.location.origin)
-    })
-  }, pressureBoard)
 }
 
 async function board(page: Page): Promise<Diagnostics> {

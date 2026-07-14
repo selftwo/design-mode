@@ -1,60 +1,45 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { LiveReviewReadyMessageSchema, type LiveReviewHelloMessage } from './live-review-message.schema'
+import { useRef } from 'react'
+import { useLiveReviewConnection } from './use-live-review-connection'
+import type { LiveConnectionState } from './use-live-review-connection'
+import './LiveReviewFrame.css'
 
-export const LIVE_FIXTURE_ORIGIN = 'http://127.0.0.1:5199'
+export type { LiveConnectionState }
 
-export function createFocusToken(): string {
-  return crypto.randomUUID()
+export interface LiveReviewFrameConfig {
+  frameId: string
+  liveUrl: string
+  allowedOrigin: string
+  focusToken: string
 }
 
-export function LiveReviewFrame({ frameId, token }: { frameId: string; token: string }) {
+export function LiveReviewFrame({ config }: { config: LiveReviewFrameConfig }) {
+  const { frameId, liveUrl } = config
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const [ready, setReady] = useState(false)
-  const source = useMemo(() => {
-    const url = new URL('/live-review.html', LIVE_FIXTURE_ORIGIN)
-    url.hash = new URLSearchParams({ token }).toString()
-    return url.toString()
-  }, [token])
+  const { connectionState, sendHello } = useLiveReviewConnection(config, iframeRef)
 
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const iframe = iframeRef.current
-      if (!iframe) return
-      if (event.origin !== LIVE_FIXTURE_ORIGIN) return
-      if (event.source !== iframe.contentWindow) return
-      const message = LiveReviewReadyMessageSchema.safeParse(event.data)
-      if (!message.success || message.data.token !== token) return
-      setReady(true)
-    }
-    window.addEventListener('message', onMessage)
-    const retry = window.setInterval(() => {
-      if (ready) return
-      const message: LiveReviewHelloMessage = { type: 'design-review/hello', token }
-      iframeRef.current?.contentWindow?.postMessage(message, LIVE_FIXTURE_ORIGIN)
-    }, 1000)
-    return () => {
-      window.removeEventListener('message', onMessage)
-      window.clearInterval(retry)
-    }
-  }, [ready, token])
-
-  const sendHello = () => {
-    const message: LiveReviewHelloMessage = { type: 'design-review/hello', token }
-    iframeRef.current?.contentWindow?.postMessage(message, LIVE_FIXTURE_ORIGIN)
-  }
+  const stateLabel = connectionState === 'ready'
+    ? 'Live ready'
+    : connectionState === 'unavailable'
+      ? 'Live unavailable'
+      : 'Connecting'
 
   return (
-    <div className="live-frame" data-testid={`live-frame-${frameId}`} data-ready={String(ready)}>
+    <div
+      className="live-frame"
+      data-testid={`live-frame-${frameId}`}
+      data-ready={String(connectionState === 'ready')}
+      data-connection-state={connectionState}
+    >
       <iframe
         ref={iframeRef}
         className="nodrag nopan nowheel"
-        src={source}
+        src={liveUrl}
         title={`Live ${frameId}`}
         onLoad={sendHello}
         data-testid={`live-iframe-${frameId}`}
       />
       <span className="live-state" data-testid={`live-state-${frameId}`}>
-        {ready ? 'Live ready' : 'Connecting'}
+        {stateLabel}
       </span>
     </div>
   )

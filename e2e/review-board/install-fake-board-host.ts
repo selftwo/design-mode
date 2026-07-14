@@ -1,0 +1,77 @@
+import type { Page } from '@playwright/test'
+import type { BoardDocument } from '../../src/features/review-board/model/board-document.schema'
+import { createPressureTestBoard } from '../../src/test-support/create-pressure-test-board'
+
+export type FakeBoardHostOptions = {
+  liveFixturePath?: string
+}
+
+export async function installFakeBoardHost(
+  page: Page,
+  boardDocument?: BoardDocument,
+  options?: FakeBoardHostOptions,
+) {
+  const board = boardDocument ?? createPressureTestBoard()
+  const liveFixturePath = options?.liveFixturePath ?? 'live-review.html'
+  await page.addInitScript(({ serializedBoard, liveFixturePath: fixturePath }: {
+    serializedBoard: BoardDocument
+    liveFixturePath: string
+  }) => {
+    const liveFixtureOrigin = 'http://127.0.0.1:5199'
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return
+      const data = event.data
+      if (!data || typeof data !== 'object') return
+
+      if (data.type === 'design-review/request-board') {
+        window.postMessage({
+          type: 'design-review/load-board',
+          schemaVersion: 1,
+          board: serializedBoard,
+        }, window.location.origin)
+        return
+      }
+
+      if (data.type === 'design-review/request-live-session' && data.schemaVersion === 1) {
+        const focusToken = crypto.randomUUID()
+        const hash = new URLSearchParams({ frameId: data.frameId, token: focusToken }).toString()
+        window.postMessage({
+          type: 'design-review/live-session',
+          schemaVersion: 1,
+          requestId: data.requestId,
+          frameId: data.frameId,
+          liveUrl: `${liveFixtureOrigin}/${fixturePath}#${hash}`,
+          allowedOrigin: liveFixtureOrigin,
+          focusToken,
+        }, window.location.origin)
+        return
+      }
+
+      if (data.type === 'design-review/request-capture-refresh' && data.schemaVersion === 1) {
+        const frame = serializedBoard.frames.find((item) => item.id === data.frameId)
+        if (!frame) {
+          window.postMessage({
+            type: 'design-review/capture-refresh-failure',
+            schemaVersion: 1,
+            requestId: data.requestId,
+            frameId: data.frameId,
+            error: 'Unknown frame',
+          }, window.location.origin)
+          return
+        }
+        const nextRevision = frame.revision + 1
+        window.postMessage({
+          type: 'design-review/capture-refresh-success',
+          schemaVersion: 1,
+          requestId: data.requestId,
+          frameId: data.frameId,
+          screenshotPath: frame.screenshotPath,
+          screenshotDataUrl: frame.refreshedScreenshotDataUrl,
+          refreshedScreenshotDataUrl: frame.refreshedScreenshotDataUrl,
+          captureHash: `${frame.captureHash.replace(/-revision-\d+$/, '')}-revision-${nextRevision}-host`,
+        }, window.location.origin)
+      }
+    })
+  }, { serializedBoard: board, liveFixturePath })
+}

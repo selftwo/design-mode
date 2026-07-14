@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnnotationInstructionEditor } from '@/features/review-board/AnnotationInstructionEditor'
 import { ReviewToolbar } from '@/features/review-board/ReviewToolbar'
 import type { CanvasEngineProps } from '@/features/review-board/engines/canvas-engine'
@@ -6,8 +6,11 @@ import { readAllowedBoardHostOrigins } from '@/features/review-board/host/board-
 import { createWindowBoardHost } from '@/features/review-board/host/window-board-host'
 import { ReviewBoardResetDialog } from '@/features/review-board/ReviewBoardResetDialog'
 import { exportAgentAnnotation } from '@/features/review-board/model/export-agent-annotation'
-import { loadBoardFromHostStorage } from '@/features/review-board/model/load-board-from-host-storage'
 import type { BoardDocument, EngineName, ReviewAnnotation, ToolMode } from '@/features/review-board/model/board-document.schema'
+import { serializeBoardDiagnostics } from '@/features/review-board/serialize-board-diagnostics'
+import { useCaptureRefreshOnExit } from '@/features/review-board/use-capture-refresh-on-exit'
+import { useLiveFrameSession } from '@/features/review-board/use-live-frame-session'
+import { useReviewBoardHostLoad } from '@/features/review-board/use-review-board-host-load'
 import { useReviewBoardPersistence } from '@/features/review-board/use-review-board-persistence'
 
 const ReactFlowReviewBoard = lazy(() => import('@/features/review-board/engines/react-flow/ReactFlowReviewBoard'))
@@ -24,13 +27,9 @@ export default function App() {
   const host = useMemo(() => createWindowBoardHost(window, {
     allowedLoadOrigins: readAllowedBoardHostOrigins(window.location),
   }), [])
-  const [document, setDocument] = useState<BoardDocument | null>(null)
-  const [hostBoard, setHostBoard] = useState<BoardDocument | null>(null)
-  const [boardLoadError, setBoardLoadError] = useState<string | null>(null)
   const [tool, setTool] = useState<ToolMode>('select')
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null)
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
-  const [focus, setFocus] = useState<{ frameId: string; token: string } | null>(null)
   const [exported, setExported] = useState('')
   const [readyMs, setReadyMs] = useState<number | null>(null)
   const {
@@ -46,69 +45,76 @@ export default function App() {
     applyImmediateReset,
   } = useReviewBoardPersistence()
 
-  useEffect(() => {
-    const unsubscribe = host.subscribe((result) => {
-      if (result.status === 'rejected') {
-        setBoardLoadError(result.error)
-        return
-      }
-      if (result.status !== 'loaded') return
-      const loaded = loadBoardFromHostStorage(result.board)
-      setHostBoard(result.board)
-      setDocument(loaded.document)
-      setBaseline(loaded.lastSaved)
-      setBoardLoadError(null)
-      setSelectedFrameId(null)
-      setSelectedAnnotationId(null)
-      setFocus(null)
-      setExported('')
-      setTool('select')
-    })
-    host.requestBoard()
-    return unsubscribe
-  }, [host, setBaseline])
+  const { session, pendingFrameId, sessionError, beginLiveSession, clearLiveSession } = useLiveFrameSession(host)
+  const cancelPendingRefreshRef = useRef<() => void>(() => {})
 
-  const handleCanvasReady = useCallback(() => {
-    requestAnimationFrame(() => setReadyMs((current) => current ?? Math.round(performance.now())))
-  }, [])
+  const {
+    document,
+    setDocument,
+    hostBoard,
+    boardLoadError,
+    resetLoadedBoard,
+  } = useReviewBoardHostLoad(host, setBaseline, () => {
+    setSelectedFrameId(null)
+    setSelectedAnnotationId(null)
+    clearLiveSession()
+    cancelPendingRefreshRef.current()
+    setExported('')
+    setTool('select')
+  })
 
   const updateDocument: CanvasEngineProps['onDocumentChange'] = useCallback((update) => {
     setDocument((current) => {
       if (!current) return current
       return typeof update === 'function' ? update(current) : update
     })
+  }, [setDocument])
+
+  const {
+    refreshError,
+    refreshing,
+    refreshingFrameId,
+    requestExitRefresh,
+    cancelPendingRefresh,
+    bindDocument,
+  } = useCaptureRefreshOnExit(host, updateDocument)
+
+  useEffect(() => {
+    cancelPendingRefreshRef.current = cancelPendingRefresh
+  }, [cancelPendingRefresh])
+
+  useEffect(() => {
+    bindDocument(document)
+  }, [bindDocument, document])
+
+  const handleCanvasReady = useCallback(() => {
+    requestAnimationFrame(() => setReadyMs((current) => current ?? Math.round(performance.now())))
   }, [])
 
   const focusFrame = (frameId: string) => {
     setSelectedFrameId(frameId)
     setSelectedAnnotationId(null)
-    setFocus({ frameId, token: crypto.randomUUID() })
     setTool('select')
+    beginLiveSession(frameId)
   }
 
   const exitFocus = () => {
-    if (!focus) return
-    updateDocument((current) => ({
-      ...current,
-      frames: current.frames.map((frame) => frame.id === focus.frameId
-        ? {
-            ...frame,
-            revision: frame.revision + 1,
-            captureHash: `fixture-${frame.id}-revision-${frame.revision + 1}`,
-          }
-        : frame),
-    }))
-    setFocus(null)
+    const frameId = session?.frameId ?? pendingFrameId
+    if (!frameId) return
+    const hadLiveSession = session !== null
+    clearLiveSession()
+    if (hadLiveSession && document) requestExitRefresh(document, frameId)
   }
 
   const applyHostBoard = useCallback((board: BoardDocument) => {
-    setDocument(board)
+    cancelPendingRefresh()
+    resetLoadedBoard(board)
     setSelectedFrameId(null)
     setSelectedAnnotationId(null)
-    setFocus(null)
+    clearLiveSession()
     setExported('')
     setTool('select')
-  }, [])
+  }, [cancelPendingRefresh, clearLiveSession, resetLoadedBoard])
 
   const handleSave = () => {
     if (!document) return
@@ -171,6 +177,9 @@ export default function App() {
   }, [updateDocument])
 
   const selectedAnnotation = document?.annotations.find((item) => item.id === selectedAnnotationId) ?? null
+  const selectedFrame = selectedAnnotation
+    ? document?.frames.find((frame) => frame.id === selectedAnnotation.frameId) ?? null
+    : null
 
   if (!document) {
     return (
@@ -182,11 +191,21 @@ export default function App() {
     )
   }
 
+  const liveFrameConfig = session
+    ? {
+        frameId: session.frameId,
+        liveUrl: session.liveUrl,
+        allowedOrigin: session.allowedOrigin,
+        focusToken: session.focusToken,
+      }
+    : null
+  const focusedFrameId = session?.frameId ?? pendingFrameId
+
   const canvasProps: CanvasEngineProps = {
     document,
     tool,
-    focusedFrameId: focus?.frameId ?? null,
-    focusToken: focus?.token ?? null,
+    focusedFrameId,
+    liveFrameConfig,
     selectedFrameId,
     selectedAnnotationId,
     onDocumentChange: updateDocument,
@@ -197,43 +216,13 @@ export default function App() {
     onReady: handleCanvasReady,
   }
   const Canvas = engine === 'reactflow' ? ReactFlowReviewBoard : ExcalidrawReviewBoard
-  const boardDiagnostics = JSON.stringify({
-    camera: document.camera,
-    frames: document.frames.map(({ id, x, y, width, height, aspectRatio, revision, captureHash }) => ({
-      id,
-      x,
-      y,
-      width,
-      height,
-      aspectRatio,
-      revision,
-      captureHash,
-    })),
-    annotations: document.annotations.map(({
-      id,
-      frameId,
-      instruction,
-      anchor,
-      mark,
-      madeAgainstCaptureHash,
-      madeAgainstRevision,
-    }) => ({
-      id,
-      frameId,
-      instruction,
-      anchor,
-      mark,
-      madeAgainstCaptureHash,
-      madeAgainstRevision,
-    })),
-  })
 
   return (
     <div className="app-shell">
       <ReviewToolbar
         engine={engine}
         tool={tool}
-        focused={focus !== null}
+        focused={focusedFrameId !== null}
         onTool={setTool}
         onSave={handleSave}
         onReset={handleReset}
@@ -249,9 +238,10 @@ export default function App() {
         <Suspense fallback={<main className="canvas-loading">Loading {engine}…</main>}>
           <Canvas {...canvasProps} />
         </Suspense>
-        {selectedAnnotation ? (
+        {selectedAnnotation && selectedFrame ? (
           <AnnotationInstructionEditor
             annotation={selectedAnnotation}
+            frame={selectedFrame}
             onSaveDraft={saveInstructionDraft}
             onDelete={deleteSelectedAnnotation}
           />
@@ -264,6 +254,12 @@ export default function App() {
       {resetError ? (
         <p className="board-reset-error" role="alert" data-testid="board-reset-error">{resetError}</p>
       ) : null}
+      {sessionError ? (
+        <p className="live-session-error" role="alert" data-testid="live-session-error">{sessionError}</p>
+      ) : null}
+      {refreshError ? (
+        <p className="capture-refresh-error" role="alert" data-testid="capture-refresh-error">{refreshError}</p>
+      ) : null}
       <ReviewBoardResetDialog
         open={resetDialogOpen}
         onCancel={cancelReset}
@@ -274,12 +270,20 @@ export default function App() {
         <span data-testid="annotation-count">{document.annotations.length} annotations</span>
         <span data-testid="selected-frame">{selectedFrameId ?? 'none selected'}</span>
         <span data-testid="selected-annotation">{selectedAnnotationId ?? 'none selected'}</span>
-        <span data-testid="focus-state">{focus ? `live ${focus.frameId}` : 'screenshot mode'}</span>
+        <span data-testid="focus-state">
+          {refreshing && refreshingFrameId
+            ? `refreshing ${refreshingFrameId}`
+            : session
+              ? `live ${session.frameId}`
+              : pendingFrameId
+                ? `connecting ${pendingFrameId}`
+                : 'screenshot mode'}
+        </span>
         <span data-testid="ready-ms">{readyMs === null ? 'measuring' : `${readyMs} ms`}</span>
         {saveStatus === 'saved' ? <span role="status" data-testid="board-save-status">Saved</span> : null}
       </footer>
       <output className="export-output" data-testid="export-output">{exported}</output>
-      <output className="board-diagnostics" data-testid="board-diagnostics">{boardDiagnostics}</output>
+      <output className="board-diagnostics" data-testid="board-diagnostics">{serializeBoardDiagnostics(document)}</output>
     </div>
   )
 }

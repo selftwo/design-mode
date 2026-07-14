@@ -38,3 +38,13 @@
   fill: #e11d48;
   stroke-width: 0;
 }
+
+.annotation-svg .annotation-mark.stale ellipse,
+.annotation-svg .annotation-mark.stale .comment-dot {
+  stroke: #b54708;
+  stroke-dasharray: 6 4;
+}
+
+.annotation-svg .annotation-mark.stale .comment-dot {
+  fill: #f79009;
+}

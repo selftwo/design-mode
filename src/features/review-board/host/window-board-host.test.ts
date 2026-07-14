@@ -117,4 +117,66 @@ describe('createWindowBoardHost', () => {
     expect(parent.postMessage).toHaveBeenCalledWith(request, 'http://host.test')
     expect(parent.postMessage).not.toHaveBeenCalledWith(request, '*')
   })
+
+  it('delivers live session and capture refresh results from a trusted host', () => {
+    const { hostWindow, listeners, postMessage } = createMockHostWindow()
+    Object.assign(hostWindow, { parent: hostWindow })
+    const host = createWindowBoardHost(hostWindow)
+    const liveResults: unknown[] = []
+    const refreshResults: unknown[] = []
+    host.subscribeLiveSession((result) => liveResults.push(result))
+    host.subscribeCaptureRefresh((result) => refreshResults.push(result))
+
+    host.requestLiveSession('frame-01', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+    const liveRequest = postMessage.mock.calls.at(-1)?.[0]
+    expect(liveRequest).toMatchObject({ type: 'design-review/request-live-session', frameId: 'frame-01' })
+
+    dispatch(listeners, {
+      source: hostWindow,
+      origin: 'http://canvas.test',
+      data: {
+        type: 'design-review/live-session',
+        schemaVersion: 1,
+        requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        frameId: 'frame-01',
+        liveUrl: 'http://127.0.0.1:5199/live-review.html',
+        allowedOrigin: 'http://127.0.0.1:5199',
+        focusToken: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      },
+    } as MessageEvent)
+    expect(liveResults).toEqual([{
+      status: 'ready',
+      requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      frameId: 'frame-01',
+      liveUrl: 'http://127.0.0.1:5199/live-review.html',
+      allowedOrigin: 'http://127.0.0.1:5199',
+      focusToken: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    }])
+
+    host.requestCaptureRefresh('frame-01', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc')
+    dispatch(listeners, {
+      source: hostWindow,
+      origin: 'http://canvas.test',
+      data: {
+        type: 'design-review/capture-refresh-success',
+        schemaVersion: 1,
+        requestId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        frameId: 'frame-01',
+        screenshotPath: 'screens/frame-01.svg',
+        screenshotDataUrl: 'data:1',
+        refreshedScreenshotDataUrl: 'data:2',
+        captureHash: 'capture-2',
+      },
+    } as MessageEvent)
+    expect(refreshResults).toEqual([{
+      status: 'refreshed',
+      requestId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      frameId: 'frame-01',
+      screenshotPath: 'screens/frame-01.svg',
+      screenshotDataUrl: 'data:1',
+      refreshedScreenshotDataUrl: 'data:2',
+      captureHash: 'capture-2',
+    }])
+  })
+
 })

@@ -31,7 +31,7 @@ export default function ReactFlowReviewBoard({
   document,
   tool,
   focusedFrameId,
-  focusToken,
+  liveFrameConfig,
   selectedFrameId,
   selectedAnnotationId,
   onDocumentChange,
@@ -95,7 +95,7 @@ export default function ReactFlowReviewBoard({
         annotations: document.annotations.filter((annotation) => annotation.frameId === frame.id),
         tool,
         focused: focusedFrameId === frame.id,
-        focusToken,
+        liveFrameConfig: focusedFrameId === frame.id ? liveFrameConfig : null,
         selectedAnnotationId,
         onCircle: addCircle,
         onComment: addComment,
@@ -104,7 +104,7 @@ export default function ReactFlowReviewBoard({
         onSelectAnnotation,
       },
     }))
-  }, [addCircle, addComment, document, focusToken, focusedFrameId, onFocusFrame, onSelectAnnotation, resizeFrame, selectedAnnotationId, selectedFrameId, tool])
+  }, [addCircle, addComment, document, focusedFrameId, liveFrameConfig, onFocusFrame, onSelectAnnotation, resizeFrame, selectedAnnotationId, selectedFrameId, tool])
 
   const [nodes, setNodes] = useNodesState<Node<ScreenFrameNodeData>>(buildNodes())
 
