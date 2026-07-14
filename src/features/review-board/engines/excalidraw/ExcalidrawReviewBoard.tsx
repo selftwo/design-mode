@@ -41,9 +41,13 @@ export default function ExcalidrawReviewBoard({
   tool,
   focusedFrameId,
   focusToken,
+  selectedFrameId: _selectedFrameId,
+  selectedAnnotationId: _selectedAnnotationId,
   onDocumentChange,
   onFocusFrame: _onFocusFrame,
   onSelectFrame,
+  onSelectAnnotation: _onSelectAnnotation,
+  onAnnotationCreated: _onAnnotationCreated,
   onReady,
 }: CanvasEngineProps) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)

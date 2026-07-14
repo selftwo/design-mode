@@ -1,13 +1,17 @@
-import type { BoardDocument, ScreenFrame, ToolMode } from '../model/board-document.schema'
+import type { BoardDocument, ReviewAnnotation, ScreenFrame, ToolMode } from '../model/board-document.schema'
 
 export interface CanvasEngineProps {
   document: BoardDocument
   tool: ToolMode
   focusedFrameId: string | null
   focusToken: string | null
+  selectedFrameId: string | null
+  selectedAnnotationId: string | null
   onDocumentChange: (update: BoardDocument | ((current: BoardDocument) => BoardDocument)) => void
   onFocusFrame: (frameId: string) => void
   onSelectFrame: (frameId: string | null) => void
+  onSelectAnnotation: (annotationId: string | null) => void
+  onAnnotationCreated: (annotation: ReviewAnnotation) => void
   onReady: () => void
 }
 

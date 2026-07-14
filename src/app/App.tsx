@@ -1,11 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { AnnotationInstructionEditor } from '@/features/review-board/AnnotationInstructionEditor'
 import { ReviewToolbar } from '@/features/review-board/ReviewToolbar'
 import type { CanvasEngineProps } from '@/features/review-board/engines/canvas-engine'
 import { readAllowedBoardHostOrigins } from '@/features/review-board/host/board-host-origin-config'
 import { createWindowBoardHost } from '@/features/review-board/host/window-board-host'
 import { exportAgentAnnotation } from '@/features/review-board/model/export-agent-annotation'
 import { restoreBoard, saveBoard, STORAGE_KEY } from '@/features/review-board/model/board-local-storage'
-import type { BoardDocument, EngineName, ToolMode } from '@/features/review-board/model/board-document.schema'
+import type { BoardDocument, EngineName, ReviewAnnotation, ToolMode } from '@/features/review-board/model/board-document.schema'
 
 const ReactFlowReviewBoard = lazy(() => import('@/features/review-board/engines/react-flow/ReactFlowReviewBoard'))
 const ExcalidrawReviewBoard = lazy(() => import('@/features/review-board/engines/excalidraw/ExcalidrawReviewBoard'))
@@ -36,6 +37,7 @@ export default function App() {
   const [boardLoadError, setBoardLoadError] = useState<string | null>(null)
   const [tool, setTool] = useState<ToolMode>('select')
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null)
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ frameId: string; token: string } | null>(null)
   const [exported, setExported] = useState('')
   const [saved, setSaved] = useState(false)
@@ -52,6 +54,7 @@ export default function App() {
       setDocument(restoreHostBoard(result.board))
       setBoardLoadError(null)
       setSelectedFrameId(null)
+      setSelectedAnnotationId(null)
       setFocus(null)
       setExported('')
       setTool('select')
@@ -73,6 +76,7 @@ export default function App() {
 
   const focusFrame = (frameId: string) => {
     setSelectedFrameId(frameId)
+    setSelectedAnnotationId(null)
     setFocus({ frameId, token: crypto.randomUUID() })
     setTool('select')
   }
@@ -104,6 +108,7 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEY)
     setDocument(hostBoard)
     setSelectedFrameId(null)
+    setSelectedAnnotationId(null)
     setFocus(null)
     setExported('')
     setTool('select')
@@ -111,9 +116,46 @@ export default function App() {
 
   const handleExport = () => {
     if (!document) return
-    const last = document.annotations.at(-1)
-    setExported(last ? JSON.stringify(exportAgentAnnotation(document, last.id), null, 2) : '')
+    const targetId = selectedAnnotationId ?? document.annotations.at(-1)?.id
+    setExported(targetId ? JSON.stringify(exportAgentAnnotation(document, targetId), null, 2) : '')
   }
+
+  const saveInstructionDraft = useCallback((instruction: string) => {
+    if (!selectedAnnotationId) return
+    updateDocument((current) => ({
+      ...current,
+      annotations: current.annotations.map((annotation) => annotation.id === selectedAnnotationId
+        ? { ...annotation, instruction }
+        : annotation),
+    }))
+  }, [selectedAnnotationId, updateDocument])
+
+  const deleteSelectedAnnotation = useCallback(() => {
+    if (!selectedAnnotationId) return
+    updateDocument((current) => ({
+      ...current,
+      annotations: current.annotations.filter((annotation) => annotation.id !== selectedAnnotationId),
+    }))
+    setSelectedAnnotationId(null)
+  }, [selectedAnnotationId, updateDocument])
+
+  const handleSelectAnnotation = useCallback((annotationId: string | null) => {
+    setSelectedAnnotationId(annotationId)
+    if (!document || !annotationId) return
+    const frameId = document.annotations.find((item) => item.id === annotationId)?.frameId
+    if (frameId) setSelectedFrameId(frameId)
+  }, [document])
+
+  const handleAnnotationCreated = useCallback((annotation: ReviewAnnotation) => {
+    updateDocument((current) => ({
+      ...current,
+      annotations: [...current.annotations, annotation],
+    }))
+    setSelectedAnnotationId(annotation.id)
+    setSelectedFrameId(annotation.frameId)
+  }, [updateDocument])
+
+  const selectedAnnotation = document?.annotations.find((item) => item.id === selectedAnnotationId) ?? null
 
   if (!document) {
     return (
@@ -130,9 +172,13 @@ export default function App() {
     tool,
     focusedFrameId: focus?.frameId ?? null,
     focusToken: focus?.token ?? null,
+    selectedFrameId,
+    selectedAnnotationId,
     onDocumentChange: updateDocument,
     onFocusFrame: focusFrame,
     onSelectFrame: setSelectedFrameId,
+    onSelectAnnotation: handleSelectAnnotation,
+    onAnnotationCreated: handleAnnotationCreated,
     onReady: handleCanvasReady,
   }
   const Canvas = engine === 'reactflow' ? ReactFlowReviewBoard : ExcalidrawReviewBoard
@@ -147,7 +193,13 @@ export default function App() {
       aspectRatio,
       revision,
     })),
-    annotations: document.annotations,
+    annotations: document.annotations.map(({ id, frameId, instruction, anchor, mark }) => ({
+      id,
+      frameId,
+      instruction,
+      anchor,
+      mark,
+    })),
   })
 
   return (
@@ -167,14 +219,24 @@ export default function App() {
         <a href="?engine=reactflow" aria-current={engine === 'reactflow' ? 'page' : undefined}>React Flow</a>
         <a href="?engine=excalidraw" aria-current={engine === 'excalidraw' ? 'page' : undefined}>Excalidraw</a>
       </aside>
-      <Suspense fallback={<main className="canvas-loading">Loading {engine}…</main>}>
-        <Canvas {...canvasProps} />
-      </Suspense>
+      <div className="canvas-region">
+        <Suspense fallback={<main className="canvas-loading">Loading {engine}…</main>}>
+          <Canvas {...canvasProps} />
+        </Suspense>
+        {selectedAnnotation ? (
+          <AnnotationInstructionEditor
+            annotation={selectedAnnotation}
+            onSaveDraft={saveInstructionDraft}
+            onDelete={deleteSelectedAnnotation}
+          />
+        ) : null}
+      </div>
       {boardLoadError ? <p className="board-load-error" role="alert" data-testid="board-load-error">{boardLoadError}</p> : null}
       <footer className="board-status" data-testid="board-status">
         <span>{document.frames.length} screens</span>
         <span data-testid="annotation-count">{document.annotations.length} annotations</span>
         <span data-testid="selected-frame">{selectedFrameId ?? 'none selected'}</span>
+        <span data-testid="selected-annotation">{selectedAnnotationId ?? 'none selected'}</span>
         <span data-testid="focus-state">{focus ? `live ${focus.frameId}` : 'screenshot mode'}</span>
         <span data-testid="ready-ms">{readyMs === null ? 'measuring' : `${readyMs} ms`}</span>
         {saved ? <span role="status">Saved</span> : null}

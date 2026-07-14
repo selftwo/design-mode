@@ -1,8 +1,11 @@
 import { memo, useRef } from 'react'
-import { NodeResizer, type NodeProps } from '@xyflow/react'
+import { NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import type { NormalizedPoint, ReviewAnnotation, ScreenFrame, ToolMode } from '../../model/board-document.schema'
 import { normalizeLocalPoint } from '../../model/board-geometry'
+import { pickAnnotationAtClientPoint } from '../../model/pick-annotation-at-point'
 import { LiveReviewFrame } from '@/features/live-review/LiveReviewFrame'
+import '../../FrameAnnotationMarks.css'
+import './ScreenFrameSurface.css'
 
 export interface ScreenFrameNodeData extends Record<string, unknown> {
   frame: ScreenFrame
@@ -10,22 +13,47 @@ export interface ScreenFrameNodeData extends Record<string, unknown> {
   tool: ToolMode
   focused: boolean
   focusToken: string | null
+  selectedAnnotationId: string | null
   onCircle: (frameId: string, start: NormalizedPoint, end: NormalizedPoint) => void
   onComment: (frameId: string, at: NormalizedPoint) => void
   onFocus: (frameId: string) => void
   onResize: (frameId: string, width: number) => void
+  onSelectAnnotation: (annotationId: string) => void
 }
 
-function AnnotationSvg({ annotations }: { annotations: ReviewAnnotation[] }) {
+function AnnotationSvg({
+  annotations,
+  tool,
+  selectedAnnotationId,
+}: {
+  annotations: ReviewAnnotation[]
+  tool: ToolMode
+  selectedAnnotationId: string | null
+}) {
+  const selectable = tool === 'select'
+  const paintOrder = [...annotations].sort((left, right) => {
+    if (left.id === selectedAnnotationId) return 1
+    if (right.id === selectedAnnotationId) return -1
+    return 0
+  })
   return (
-    <svg className="annotation-svg" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
-      {annotations.map((annotation) => {
+    <svg
+      className={`annotation-svg ${selectable ? 'annotation-svg-selectable' : ''}`}
+      viewBox="0 0 1 1"
+      preserveAspectRatio="none"
+      aria-hidden={!selectable}
+    >
+      {paintOrder.map((annotation) => {
+        const selected = annotation.id === selectedAnnotationId
+        const className = selected ? 'annotation-mark selected' : 'annotation-mark'
         if (annotation.mark) {
           const [start, end] = annotation.mark.points
           return (
             <ellipse
               key={annotation.id}
+              className={className}
               data-testid={`mark-${annotation.id}`}
+              data-annotation-id={annotation.id}
               cx={(start[0] + end[0]) / 2}
               cy={(start[1] + end[1]) / 2}
               rx={Math.abs(end[0] - start[0]) / 2}
@@ -35,7 +63,20 @@ function AnnotationSvg({ annotations }: { annotations: ReviewAnnotation[] }) {
           )
         }
         return (
-          <g key={annotation.id} data-testid={`mark-${annotation.id}`}>
+          <g
+            key={annotation.id}
+            className={className}
+            data-testid={`mark-${annotation.id}`}
+            data-annotation-id={annotation.id}
+          >
+            <circle
+              cx={annotation.anchor[0]}
+              cy={annotation.anchor[1]}
+              r="0.04"
+              className="comment-hit"
+              fill="transparent"
+              stroke="transparent"
+            />
             <circle cx={annotation.anchor[0]} cy={annotation.anchor[1]} r="0.018" className="comment-dot" />
           </g>
         )
@@ -44,16 +85,34 @@ function AnnotationSvg({ annotations }: { annotations: ReviewAnnotation[] }) {
   )
 }
 
-export const ScreenFrameNode = memo(function ScreenFrameNode({ data, selected }: NodeProps) {
-  const node = data as ScreenFrameNodeData
+export const ScreenFrameNode = memo(function ScreenFrameNode({
+  data: node,
+  selected,
+}: NodeProps<Node<ScreenFrameNodeData>>) {
   const startRef = useRef<readonly [number, number] | null>(null)
   const frame = node.frame
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (node.tool === 'select' || node.focused) return
-    const rect = event.currentTarget.getBoundingClientRect()
+    if (node.focused) return
+    const surface = event.currentTarget
+    if (node.tool === 'select') {
+      const picked = pickAnnotationAtClientPoint(
+        node.annotations,
+        event.clientX,
+        event.clientY,
+        surface.getBoundingClientRect(),
+        node.selectedAnnotationId,
+      )
+      if (picked) {
+        event.preventDefault()
+        event.stopPropagation()
+        node.onSelectAnnotation(picked)
+      }
+      return
+    }
+    const rect = surface.getBoundingClientRect()
     startRef.current = [event.clientX - rect.left, event.clientY - rect.top]
-    event.currentTarget.setPointerCapture(event.pointerId)
+    surface.setPointerCapture(event.pointerId)
     event.preventDefault()
     event.stopPropagation()
   }
@@ -102,7 +161,11 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({ data, selected }:
             alt={frame.label}
             draggable={false}
           />
-          <AnnotationSvg annotations={node.annotations} />
+          <AnnotationSvg
+            annotations={node.annotations}
+            tool={node.tool}
+            selectedAnnotationId={node.selectedAnnotationId}
+          />
           <span className="screen-label">{frame.label}</span>
         </div>
       )}

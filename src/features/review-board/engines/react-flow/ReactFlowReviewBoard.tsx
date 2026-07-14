@@ -10,8 +10,9 @@ import {
   type Viewport,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { NormalizedPoint, ReviewAnnotation } from '../../model/board-document.schema'
+import type { NormalizedPoint } from '../../model/board-document.schema'
 import { resizeFrameAspectLocked } from '../../model/board-geometry'
+import { pickAnnotationAtClientPoint } from '../../model/pick-annotation-at-point'
 import type { CanvasEngineProps } from '../canvas-engine'
 import { ScreenFrameNode, type ScreenFrameNodeData } from './ScreenFrameNode'
 
@@ -25,53 +26,52 @@ function documentViewport(document: CanvasEngineProps['document']): Viewport {
   }
 }
 
+
 export default function ReactFlowReviewBoard({
   document,
   tool,
   focusedFrameId,
   focusToken,
+  selectedFrameId,
+  selectedAnnotationId,
   onDocumentChange,
   onFocusFrame,
   onSelectFrame,
+  onSelectAnnotation,
+  onAnnotationCreated,
   onReady,
 }: CanvasEngineProps) {
   const addCircle = useCallback((frameId: string, start: NormalizedPoint, end: NormalizedPoint) => {
-    onDocumentChange((current) => {
-      const frame = current.frames.find((item) => item.id === frameId)
-      if (!frame) return current
-      const annotation: ReviewAnnotation = {
-        id: crypto.randomUUID(),
-        frameId,
-        status: 'draft',
-        instruction: 'Review the circled area.',
-        anchor: [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2],
-        mark: { kind: 'circle', points: [start, end] },
-        createdAt: new Date().toISOString(),
-        madeAgainstCaptureHash: frame.captureHash,
-        madeAgainstRevision: frame.revision,
-      }
-      return { ...current, annotations: [...current.annotations, annotation] }
+    const frame = document.frames.find((item) => item.id === frameId)
+    if (!frame) return
+    onAnnotationCreated({
+      id: crypto.randomUUID(),
+      frameId,
+      status: 'draft',
+      instruction: '',
+      anchor: [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2],
+      mark: { kind: 'circle', points: [start, end] },
+      createdAt: new Date().toISOString(),
+      madeAgainstCaptureHash: frame.captureHash,
+      madeAgainstRevision: frame.revision,
     })
-  }, [onDocumentChange])
+  }, [document.frames, onAnnotationCreated])
 
   const addComment = useCallback((frameId: string, anchor: NormalizedPoint) => {
-    onDocumentChange((current) => {
-      const frame = current.frames.find((item) => item.id === frameId)
-      if (!frame) return current
-      const annotation: ReviewAnnotation = {
-        id: crypto.randomUUID(),
-        frameId,
-        status: 'draft',
-        instruction: 'Review this point.',
-        anchor,
-        mark: null,
-        createdAt: new Date().toISOString(),
-        madeAgainstCaptureHash: frame.captureHash,
-        madeAgainstRevision: frame.revision,
-      }
-      return { ...current, annotations: [...current.annotations, annotation] }
+    const frame = document.frames.find((item) => item.id === frameId)
+    if (!frame) return
+    onAnnotationCreated({
+      id: crypto.randomUUID(),
+      frameId,
+      status: 'draft',
+      instruction: '',
+      anchor,
+      mark: null,
+      createdAt: new Date().toISOString(),
+      madeAgainstCaptureHash: frame.captureHash,
+      madeAgainstRevision: frame.revision,
     })
-  }, [onDocumentChange])
+  }, [document.frames, onAnnotationCreated])
 
   const resizeFrame = useCallback((frameId: string, width: number) => {
     onDocumentChange((current) => ({
@@ -89,19 +89,22 @@ export default function ReactFlowReviewBoard({
       height: frame.height,
       style: { width: frame.width, height: frame.height },
       draggable: tool === 'select' && focusedFrameId !== frame.id,
+      selected: selectedFrameId === frame.id,
       data: {
         frame,
         annotations: document.annotations.filter((annotation) => annotation.frameId === frame.id),
         tool,
         focused: focusedFrameId === frame.id,
         focusToken,
+        selectedAnnotationId,
         onCircle: addCircle,
         onComment: addComment,
         onFocus: onFocusFrame,
         onResize: resizeFrame,
+        onSelectAnnotation,
       },
     }))
-  }, [addCircle, addComment, document, focusToken, focusedFrameId, onFocusFrame, resizeFrame, tool])
+  }, [addCircle, addComment, document, focusToken, focusedFrameId, onFocusFrame, onSelectAnnotation, resizeFrame, selectedAnnotationId, selectedFrameId, tool])
 
   const [nodes, setNodes] = useNodesState<Node<ScreenFrameNodeData>>(buildNodes())
 
@@ -133,6 +136,32 @@ export default function ReactFlowReviewBoard({
 
   const initialViewport = useMemo(() => documentViewport(document), [document.boardId])
 
+  const handlePaneClick = useCallback((event: React.MouseEvent) => {
+    if ((event.target as Element).closest('[data-annotation-id]')) return
+    onSelectFrame(null)
+    onSelectAnnotation(null)
+  }, [onSelectAnnotation, onSelectFrame])
+
+  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node<ScreenFrameNodeData>) => {
+    if (tool !== 'select') return
+    const surface = (event.target as Element).closest(`[data-testid="surface-${node.id}"]`)
+    if (surface) {
+      const picked = pickAnnotationAtClientPoint(
+        node.data.annotations,
+        event.clientX,
+        event.clientY,
+        surface.getBoundingClientRect(),
+        selectedAnnotationId,
+      )
+      if (picked) {
+        onSelectAnnotation(picked)
+        return
+      }
+    }
+    onSelectFrame(node.id)
+    onSelectAnnotation(null)
+  }, [onSelectAnnotation, onSelectFrame, selectedAnnotationId, tool])
+
   return (
     <main className="canvas-shell" data-testid="reactflow-canvas">
       <ReactFlow<Node<ScreenFrameNodeData>>
@@ -141,8 +170,8 @@ export default function ReactFlowReviewBoard({
         nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
         onInit={onReady}
-        onNodeClick={(_, node) => onSelectFrame(node.id)}
-        onPaneClick={() => onSelectFrame(null)}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
         onMoveEnd={handleMoveEnd}
         defaultViewport={initialViewport}

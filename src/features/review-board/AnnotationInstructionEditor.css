@@ -1,0 +1,50 @@
+.annotation-editor {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: min(320px, calc(100% - 24px));
+  padding: 12px;
+  border: 1px solid #d9dee7;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 32px rgba(16, 24, 40, 0.14);
+}
+
+.annotation-editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.annotation-editor-header strong {
+  font-size: 13px;
+}
+
+.annotation-incomplete {
+  margin-left: auto;
+  color: #b42318;
+}
+
+.annotation-complete {
+  margin-left: auto;
+  color: #027a48;
+}
+
+.annotation-editor textarea {
+  min-height: 88px;
+  padding: 8px 10px;
+  border: 1px solid #cad0d9;
+  border-radius: 7px;
+  resize: vertical;
+  font: inherit;
+}
+
+.annotation-editor textarea[aria-invalid="true"] {
+  border-color: #f4a9a2;
+  background: #fff8f7;
+}
