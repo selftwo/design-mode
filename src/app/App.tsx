@@ -1,0 +1,186 @@
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { ReviewToolbar } from '@/features/review-board/ReviewToolbar'
+import type { CanvasEngineProps } from '@/features/review-board/engines/canvas-engine'
+import { readAllowedBoardHostOrigins } from '@/features/review-board/host/board-host-origin-config'
+import { createWindowBoardHost } from '@/features/review-board/host/window-board-host'
+import { exportAgentAnnotation } from '@/features/review-board/model/export-agent-annotation'
+import { restoreBoard, saveBoard, STORAGE_KEY } from '@/features/review-board/model/board-local-storage'
+import type { BoardDocument, EngineName, ToolMode } from '@/features/review-board/model/board-document.schema'
+
+const ReactFlowReviewBoard = lazy(() => import('@/features/review-board/engines/react-flow/ReactFlowReviewBoard'))
+const ExcalidrawReviewBoard = lazy(() => import('@/features/review-board/engines/excalidraw/ExcalidrawReviewBoard'))
+
+function selectedEngine(): EngineName {
+  return new URLSearchParams(window.location.search).get('engine') === 'excalidraw'
+    ? 'excalidraw'
+    : 'reactflow'
+}
+
+function restoreHostBoard(hostBoard: BoardDocument): BoardDocument {
+  try {
+    const restored = restoreBoard(hostBoard)
+    return restored.boardId === hostBoard.boardId ? restored : hostBoard
+  } catch {
+    localStorage.removeItem(STORAGE_KEY)
+    return hostBoard
+  }
+}
+
+export default function App() {
+  const engine = useMemo(selectedEngine, [])
+  const host = useMemo(() => createWindowBoardHost(window, {
+    allowedLoadOrigins: readAllowedBoardHostOrigins(window.location),
+  }), [])
+  const [document, setDocument] = useState<BoardDocument | null>(null)
+  const [hostBoard, setHostBoard] = useState<BoardDocument | null>(null)
+  const [boardLoadError, setBoardLoadError] = useState<string | null>(null)
+  const [tool, setTool] = useState<ToolMode>('select')
+  const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null)
+  const [focus, setFocus] = useState<{ frameId: string; token: string } | null>(null)
+  const [exported, setExported] = useState('')
+  const [saved, setSaved] = useState(false)
+  const [readyMs, setReadyMs] = useState<number | null>(null)
+
+  useEffect(() => {
+    const unsubscribe = host.subscribe((result) => {
+      if (result.status === 'rejected') {
+        setBoardLoadError(result.error)
+        return
+      }
+      if (result.status !== 'loaded') return
+      setHostBoard(result.board)
+      setDocument(restoreHostBoard(result.board))
+      setBoardLoadError(null)
+      setSelectedFrameId(null)
+      setFocus(null)
+      setExported('')
+      setTool('select')
+    })
+    host.requestBoard()
+    return unsubscribe
+  }, [host])
+
+  const handleCanvasReady = useCallback(() => {
+    requestAnimationFrame(() => setReadyMs((current) => current ?? Math.round(performance.now())))
+  }, [])
+
+  const updateDocument: CanvasEngineProps['onDocumentChange'] = useCallback((update) => {
+    setDocument((current) => {
+      if (!current) return current
+      return typeof update === 'function' ? update(current) : update
+    })
+  }, [])
+
+  const focusFrame = (frameId: string) => {
+    setSelectedFrameId(frameId)
+    setFocus({ frameId, token: crypto.randomUUID() })
+    setTool('select')
+  }
+
+  const exitFocus = () => {
+    if (!focus) return
+    updateDocument((current) => ({
+      ...current,
+      frames: current.frames.map((frame) => frame.id === focus.frameId
+        ? {
+            ...frame,
+            revision: frame.revision + 1,
+            captureHash: `fixture-${frame.id}-revision-${frame.revision + 1}`,
+          }
+        : frame),
+    }))
+    setFocus(null)
+  }
+
+  const handleSave = () => {
+    if (!document) return
+    saveBoard(document)
+    setSaved(true)
+    window.setTimeout(() => setSaved(false), 1200)
+  }
+
+  const handleReset = () => {
+    if (!hostBoard) return
+    localStorage.removeItem(STORAGE_KEY)
+    setDocument(hostBoard)
+    setSelectedFrameId(null)
+    setFocus(null)
+    setExported('')
+    setTool('select')
+  }
+
+  const handleExport = () => {
+    if (!document) return
+    const last = document.annotations.at(-1)
+    setExported(last ? JSON.stringify(exportAgentAnnotation(document, last.id), null, 2) : '')
+  }
+
+  if (!document) {
+    return (
+      <main className="board-load-state" data-testid="board-load-state">
+        <h1>Waiting for a board</h1>
+        <p>The local host must send a supported board document.</p>
+        {boardLoadError ? <p role="alert" data-testid="board-load-error">{boardLoadError}</p> : null}
+      </main>
+    )
+  }
+
+  const canvasProps: CanvasEngineProps = {
+    document,
+    tool,
+    focusedFrameId: focus?.frameId ?? null,
+    focusToken: focus?.token ?? null,
+    onDocumentChange: updateDocument,
+    onFocusFrame: focusFrame,
+    onSelectFrame: setSelectedFrameId,
+    onReady: handleCanvasReady,
+  }
+  const Canvas = engine === 'reactflow' ? ReactFlowReviewBoard : ExcalidrawReviewBoard
+  const boardDiagnostics = JSON.stringify({
+    camera: document.camera,
+    frames: document.frames.map(({ id, x, y, width, height, aspectRatio, revision }) => ({
+      id,
+      x,
+      y,
+      width,
+      height,
+      aspectRatio,
+      revision,
+    })),
+    annotations: document.annotations,
+  })
+
+  return (
+    <div className="app-shell">
+      <ReviewToolbar
+        engine={engine}
+        tool={tool}
+        focused={focus !== null}
+        onTool={setTool}
+        onSave={handleSave}
+        onReset={handleReset}
+        onExport={handleExport}
+        onFocusSelected={() => selectedFrameId && focusFrame(selectedFrameId)}
+        onExitFocus={exitFocus}
+      />
+      <aside className="engine-switcher" aria-label="Canvas engine">
+        <a href="?engine=reactflow" aria-current={engine === 'reactflow' ? 'page' : undefined}>React Flow</a>
+        <a href="?engine=excalidraw" aria-current={engine === 'excalidraw' ? 'page' : undefined}>Excalidraw</a>
+      </aside>
+      <Suspense fallback={<main className="canvas-loading">Loading {engine}…</main>}>
+        <Canvas {...canvasProps} />
+      </Suspense>
+      {boardLoadError ? <p className="board-load-error" role="alert" data-testid="board-load-error">{boardLoadError}</p> : null}
+      <footer className="board-status" data-testid="board-status">
+        <span>{document.frames.length} screens</span>
+        <span data-testid="annotation-count">{document.annotations.length} annotations</span>
+        <span data-testid="selected-frame">{selectedFrameId ?? 'none selected'}</span>
+        <span data-testid="focus-state">{focus ? `live ${focus.frameId}` : 'screenshot mode'}</span>
+        <span data-testid="ready-ms">{readyMs === null ? 'measuring' : `${readyMs} ms`}</span>
+        {saved ? <span role="status">Saved</span> : null}
+      </footer>
+      <output className="export-output" data-testid="export-output">{exported}</output>
+      <output className="board-diagnostics" data-testid="board-diagnostics">{boardDiagnostics}</output>
+    </div>
+  )
+}

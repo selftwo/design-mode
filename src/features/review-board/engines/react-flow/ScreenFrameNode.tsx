@@ -1,0 +1,111 @@
+import { memo, useRef } from 'react'
+import { NodeResizer, type NodeProps } from '@xyflow/react'
+import type { NormalizedPoint, ReviewAnnotation, ScreenFrame, ToolMode } from '../../model/board-document.schema'
+import { normalizeLocalPoint } from '../../model/board-geometry'
+import { LiveReviewFrame } from '@/features/live-review/LiveReviewFrame'
+
+export interface ScreenFrameNodeData extends Record<string, unknown> {
+  frame: ScreenFrame
+  annotations: ReviewAnnotation[]
+  tool: ToolMode
+  focused: boolean
+  focusToken: string | null
+  onCircle: (frameId: string, start: NormalizedPoint, end: NormalizedPoint) => void
+  onComment: (frameId: string, at: NormalizedPoint) => void
+  onFocus: (frameId: string) => void
+  onResize: (frameId: string, width: number) => void
+}
+
+function AnnotationSvg({ annotations }: { annotations: ReviewAnnotation[] }) {
+  return (
+    <svg className="annotation-svg" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+      {annotations.map((annotation) => {
+        if (annotation.mark) {
+          const [start, end] = annotation.mark.points
+          return (
+            <ellipse
+              key={annotation.id}
+              data-testid={`mark-${annotation.id}`}
+              cx={(start[0] + end[0]) / 2}
+              cy={(start[1] + end[1]) / 2}
+              rx={Math.abs(end[0] - start[0]) / 2}
+              ry={Math.abs(end[1] - start[1]) / 2}
+              vectorEffect="non-scaling-stroke"
+            />
+          )
+        }
+        return (
+          <g key={annotation.id} data-testid={`mark-${annotation.id}`}>
+            <circle cx={annotation.anchor[0]} cy={annotation.anchor[1]} r="0.018" className="comment-dot" />
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+export const ScreenFrameNode = memo(function ScreenFrameNode({ data, selected }: NodeProps) {
+  const node = data as ScreenFrameNodeData
+  const startRef = useRef<readonly [number, number] | null>(null)
+  const frame = node.frame
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (node.tool === 'select' || node.focused) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    startRef.current = [event.clientX - rect.left, event.clientY - rect.top]
+    event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = startRef.current
+    startRef.current = null
+    if (!start || node.tool === 'select' || node.focused) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const end = [event.clientX - rect.left, event.clientY - rect.top] as const
+    const normalizedStart = normalizeLocalPoint(start, rect.width, rect.height)
+    if (node.tool === 'circle') {
+      node.onCircle(frame.id, normalizedStart, normalizeLocalPoint(end, rect.width, rect.height))
+    } else {
+      node.onComment(frame.id, normalizedStart)
+    }
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  return (
+    <div
+      className="screen-node"
+      style={{ width: frame.width, height: frame.height }}
+      data-testid={`frame-${frame.id}`}
+      data-frame-id={frame.id}
+    >
+      <NodeResizer
+        isVisible={selected && node.tool === 'select' && !node.focused}
+        keepAspectRatio
+        minWidth={120}
+        onResizeEnd={(_, parameters) => node.onResize(frame.id, parameters.width)}
+      />
+      {node.focused && node.focusToken ? (
+        <LiveReviewFrame frameId={frame.id} token={node.focusToken} />
+      ) : (
+        <div
+          className={`screen-content ${node.tool !== 'select' ? 'draw-active nodrag nopan' : ''}`}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onDoubleClick={() => node.tool === 'select' && node.onFocus(frame.id)}
+          data-testid={`surface-${frame.id}`}
+        >
+          <img
+            src={frame.revision > 1 ? frame.refreshedScreenshotDataUrl : frame.screenshotDataUrl}
+            alt={frame.label}
+            draggable={false}
+          />
+          <AnnotationSvg annotations={node.annotations} />
+          <span className="screen-label">{frame.label}</span>
+        </div>
+      )}
+    </div>
+  )
+})

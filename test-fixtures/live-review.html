@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live review fixture</title>
+    <style>
+      :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #172033; }
+      body { margin: 0; min-height: 100vh; background: #eef3ff; display: grid; place-items: center; }
+      main { width: min(78%, 520px); padding: 32px; border: 1px solid #aab9db; border-radius: 18px; background: white; box-shadow: 0 18px 50px rgb(40 62 110 / 16%); }
+      button { border: 0; border-radius: 10px; padding: 10px 14px; background: #345ee8; color: white; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>Live review state</p>
+      <h1 data-testid="live-title">Focused review surface</h1>
+      <button id="increment" type="button">Count <span id="count">0</span></button>
+    </main>
+    <script>
+      const allowedParents = new Set(['http://127.0.0.1:5173', 'http://127.0.0.1:4173'])
+      const token = new URLSearchParams(location.hash.slice(1)).get('token')
+      let count = 0
+      document.querySelector('#increment').addEventListener('click', () => {
+        count += 1
+        document.querySelector('#count').textContent = String(count)
+      })
+      addEventListener('message', (event) => {
+        if (!allowedParents.has(event.origin)) return
+        if (event.source !== parent) return
+        if (!token || event.data?.token !== token) return
+        if (event.data?.type !== 'design-review/hello') return
+        parent.postMessage({ type: 'design-review/ready', token }, event.origin)
+      })
+    </script>
+  </body>
+</html>
