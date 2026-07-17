@@ -19,7 +19,7 @@ interface Diagnostics {
     id: string
     frameId: string
     anchor: readonly [number, number]
-    mark: null | { points: readonly [readonly [number, number], readonly [number, number]] }
+    mark: null | { kind: string; points: readonly (readonly [number, number])[] }
   }>
 }
 
@@ -88,9 +88,30 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
     const annotation = afterCircle.annotations.at(-1)
     expect(annotation?.frameId).toBe('frame-01')
     expect(annotation?.mark).not.toBeNull()
+    // The drag is stored as freehand ink, not a fitted ellipse.
+    expect(annotation?.mark?.kind).toBe('path')
+    expect(annotation?.mark?.points.length).toBeGreaterThanOrEqual(2)
+    await page.getByTestId('instruction-input').fill('Check spacing inside the circled header')
     const renderedBefore = await renderedMarkPosition(page, 'frame-01', annotation!.id)
     expect(renderedBefore[0]).toBeCloseTo(annotation!.anchor[0], 2)
     expect(renderedBefore[1]).toBeCloseTo(annotation!.anchor[1], 2)
+
+    // Point comment creation and deletion, at a spot clear of both the circle mark above
+    // and the fixed top-right instruction editor panel, so the click reaches the frame.
+    await page.getByTestId('tool-comment').click()
+    const commentAt = await framePoint(page, 'frame-01', [0.2, 0.85])
+    await page.mouse.move(commentAt.x, commentAt.y)
+    await page.mouse.down()
+    await page.mouse.up()
+    await expect(page.getByTestId('instruction-input')).toBeFocused()
+    await expect(page.getByTestId('annotation-count')).toHaveText(`${initialCount + 2} annotations`)
+    const pointComment = (await board(page)).annotations.at(-1)!
+    expect(pointComment.mark).toBeNull()
+    expect(pointComment.frameId).toBe('frame-01')
+    await page.getByTestId('instruction-input').fill('Confirm the footer link color')
+    await page.getByTestId('delete-annotation').click()
+    await expect(page.getByTestId('annotation-count')).toHaveText(`${initialCount + 1} annotations`)
+    await expect(page.getByTestId('selected-annotation')).toHaveText('none selected')
 
     await page.getByTestId('tool-select').click()
     const moveStart = await framePoint(page, 'frame-01', [0.82, 0.82])
@@ -143,24 +164,30 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
     const resizeDriftY = Math.abs(renderedAfterResize[1] - annotation!.anchor[1]) * resized.height * (await board(page)).camera.zoom
     expect(resizeDriftX).toBeLessThanOrEqual(2)
     expect(resizeDriftY).toBeLessThanOrEqual(2)
-    await page.getByTestId('save-board').click()
+    await expect(page.getByTestId('board-save-status')).toHaveText('Saved')
     await page.reload()
     await expect(page.getByTestId('annotation-count')).toHaveText(`${initialCount + 1} annotations`)
     const restored = await board(page)
     expect(restored.frames.find((item) => item.id === 'frame-01')?.width).toBeCloseTo(resized.width, 3)
 
     await page.getByTestId('export-annotation').click()
-    const exported = JSON.parse(await page.getByTestId('export-output').textContent() ?? '') as {
+    await expect(page.getByTestId('export-status')).toHaveText('Delivered')
+    const firstBatch = JSON.parse(await page.getByTestId('export-output').textContent() ?? '') as {
       schemaVersion: number
-      id: string
-      frameId: string
-      fullScreenshot: string
-      marks: unknown[]
-      madeAgainst: { captureHash: string }
+      boardId: string
+      annotations: Array<{
+        id: string
+        frameId: string
+        fullScreenshot: string
+        marks: unknown[]
+        madeAgainst: { captureHash: string }
+      }>
     }
+    expect(firstBatch.schemaVersion).toBe(1)
+    const exported = firstBatch.annotations.find((item) => item.id === annotation!.id)
     expect(exported).toMatchObject({ schemaVersion: 1, id: annotation!.id, frameId: 'frame-01' })
-    expect(exported.fullScreenshot).toBe('screens/frame-01.svg')
-    expect(exported.marks).toHaveLength(1)
+    expect(exported?.fullScreenshot).toBe('screens/frame-01.svg')
+    expect(exported?.marks).toHaveLength(1)
 
     await page.getByTestId('tool-select').click()
     await selectFrame(page, 'frame-01')
@@ -178,10 +205,12 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
     expect(refreshedFrame?.revision).toBe(2)
     expect(refreshedFrame?.captureHash).toContain('revision-2-host')
     await page.getByTestId('export-annotation').click()
-    const afterRefreshExport = JSON.parse(await page.getByTestId('export-output').textContent() ?? '') as {
-      madeAgainst: { captureHash: string }
+    await expect(page.getByTestId('export-status')).toHaveText('Delivered')
+    const afterRefreshBatch = JSON.parse(await page.getByTestId('export-output').textContent() ?? '') as {
+      annotations: Array<{ id: string; madeAgainst: { captureHash: string } }>
     }
-    expect(afterRefreshExport.madeAgainst.captureHash).toBe(exported.madeAgainst.captureHash)
+    const afterRefreshExport = afterRefreshBatch.annotations.find((item) => item.id === annotation!.id)
+    expect(afterRefreshExport?.madeAgainst.captureHash).toBe(exported?.madeAgainst.captureHash)
 
     const cameraBeforePan = (await board(page)).camera
     const canvas = await page.getByTestId('reactflow-canvas').boundingBox()
@@ -191,6 +220,29 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
     await page.mouse.move(canvas.x + canvas.width * 0.72 - 100, canvas.y + canvas.height * 0.72 - 80, { steps: 8 })
     await page.mouse.up({ button: 'middle' })
     await expect.poll(async () => (await board(page)).camera.worldX).not.toBeCloseTo(cameraBeforePan.worldX, 1)
+
+    // Left-drag on empty canvas pans in every tool, so reviewers can reach frames
+    // beyond the viewport without leaving the circle or comment tool.
+    await page.getByTestId('tool-circle').click()
+    const emptyPaneSpot = await page.evaluate(() => {
+      const canvasRect = document.querySelector('[data-testid="reactflow-canvas"]')!.getBoundingClientRect()
+      for (let fy = 0.85; fy >= 0.15; fy -= 0.1) {
+        for (let fx = 0.85; fx >= 0.15; fx -= 0.1) {
+          const x = canvasRect.left + canvasRect.width * fx
+          const y = canvasRect.top + canvasRect.height * fy
+          if (document.elementFromPoint(x, y)?.classList.contains('react-flow__pane')) return { x, y }
+        }
+      }
+      return null
+    })
+    if (!emptyPaneSpot) throw new Error('No empty canvas spot was found for the left-drag pan test')
+    const cameraBeforeLeftPan = (await board(page)).camera
+    await page.mouse.move(emptyPaneSpot.x, emptyPaneSpot.y)
+    await page.mouse.down()
+    await page.mouse.move(emptyPaneSpot.x - 120, emptyPaneSpot.y - 40, { steps: 8 })
+    await page.mouse.up()
+    await expect.poll(async () => (await board(page)).camera.worldX).not.toBeCloseTo(cameraBeforeLeftPan.worldX, 1)
+    await page.getByTestId('tool-select').click()
 
     const browserMetrics = await page.evaluate(() => ({
       domNodes: document.querySelectorAll('*').length,

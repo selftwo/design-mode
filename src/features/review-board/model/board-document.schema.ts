@@ -20,6 +20,15 @@ export const ViewportSchema = z.object({
   height: z.number().int().positive(),
 })
 
+// A design element the host extracted from the live page at capture time,
+// so the canvas can break the screenshot into selectable components.
+export const FrameElementSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  role: z.string().min(1),
+  bounds: z.tuple([NormalizedPointSchema, NormalizedPointSchema]),
+})
+
 export const ScreenFrameSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -35,6 +44,7 @@ export const ScreenFrameSchema = z.object({
   refreshedScreenshotDataUrl: z.string().min(1),
   captureHash: z.string().min(1),
   revision: z.number().int().positive(),
+  elements: z.array(FrameElementSchema).default([]),
 })
 
 export const CircleMarkSchema = z.object({
@@ -42,13 +52,50 @@ export const CircleMarkSchema = z.object({
   points: z.tuple([NormalizedPointSchema, NormalizedPointSchema]),
 })
 
+// Freehand ink: the simplified pointer path exactly as the reviewer drew it.
+export const PathMarkSchema = z.object({
+  kind: z.literal('path'),
+  points: z.array(NormalizedPointSchema).min(2).max(256),
+})
+
+// A picked design element: points are its bounds inside the frame.
+export const ElementMarkSchema = z.object({
+  kind: z.literal('element'),
+  elementId: z.string().min(1),
+  label: z.string().min(1),
+  points: z.tuple([NormalizedPointSchema, NormalizedPointSchema]),
+})
+
+export const AnnotationMarkSchema = z.discriminatedUnion('kind', [
+  CircleMarkSchema,
+  PathMarkSchema,
+  ElementMarkSchema,
+])
+
+// A named design direction for the annotated area, borrowed from Impeccable's
+// command vocabulary, so a comment can carry intent an agent can act on
+// alongside the written instruction.
+export const AnnotationIntentSchema = z.enum([
+  'bolder',
+  'quieter',
+  'distill',
+  'typeset',
+  'layout',
+  'colorize',
+  'animate',
+  'delight',
+  'clarify',
+  'harden',
+])
+
 export const ReviewAnnotationSchema = z.object({
   id: z.string().min(1),
   frameId: z.string().min(1),
   status: z.literal('draft'),
   instruction: z.string(),
+  intent: AnnotationIntentSchema.optional(),
   anchor: NormalizedPointSchema,
-  mark: CircleMarkSchema.nullable(),
+  mark: AnnotationMarkSchema.nullable(),
   createdAt: z.string().datetime(),
   madeAgainstCaptureHash: z.string().min(1),
   madeAgainstRevision: z.number().int().positive(),
@@ -66,7 +113,12 @@ export type EngineName = z.infer<typeof EngineNameSchema>
 export type ToolMode = z.infer<typeof ToolModeSchema>
 export type NormalizedPoint = z.infer<typeof NormalizedPointSchema>
 export type BoardCamera = z.infer<typeof BoardCameraSchema>
+export type FrameElement = z.infer<typeof FrameElementSchema>
 export type ScreenFrame = z.infer<typeof ScreenFrameSchema>
+export type AnnotationIntent = z.infer<typeof AnnotationIntentSchema>
 export type CircleMark = z.infer<typeof CircleMarkSchema>
+export type PathMark = z.infer<typeof PathMarkSchema>
+export type ElementMark = z.infer<typeof ElementMarkSchema>
+export type AnnotationMark = z.infer<typeof AnnotationMarkSchema>
 export type ReviewAnnotation = z.infer<typeof ReviewAnnotationSchema>
 export type BoardDocument = z.infer<typeof BoardDocumentSchema>

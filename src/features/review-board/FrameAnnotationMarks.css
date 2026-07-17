@@ -7,44 +7,133 @@
   pointer-events: none;
 }
 
-.annotation-svg.annotation-svg-selectable {
-  pointer-events: none;
-}
-
-.annotation-svg.annotation-svg-selectable .annotation-mark {
-  pointer-events: all;
+/* The svg viewBox is 1x1 normalized space: painted strokes must not scale with it
+   and dash patterns must be measured against pathLength. Marks stay clickable while
+   drawing, but only on their outline so the marked region can still be drawn over;
+   in select mode the filled shapes are whole targets. */
+.annotation-svg .annotation-mark {
+  pointer-events: stroke;
   cursor: pointer;
+  stroke: var(--mark);
+  stroke-width: 2;
+  fill: none;
 }
 
-.annotation-svg .annotation-mark.selected ellipse,
-.annotation-svg .annotation-mark.selected .comment-dot,
-.annotation-svg .annotation-mark.selected circle {
-  stroke: #4c6fff;
+.annotation-svg ellipse.annotation-mark {
+  fill: var(--mark-fill);
+}
+
+.annotation-svg polyline.annotation-mark {
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.annotation-svg rect.annotation-mark {
+  stroke-dasharray: 2 2;
+}
+
+.annotation-svg.annotation-svg-selectable ellipse.annotation-mark {
+  pointer-events: all;
+}
+
+.annotation-svg .annotation-mark.selected {
+  stroke: var(--accent-ring);
   stroke-width: 3;
 }
 
-.annotation-svg .annotation-mark.selected .comment-dot {
-  fill: #4c6fff;
+.annotation-svg polyline.annotation-mark.selected {
+  stroke-width: 4;
 }
 
-.annotation-svg ellipse,
-.annotation-svg .comment-dot {
-  fill: rgba(244, 63, 94, 0.12);
-  stroke: #e11d48;
+.annotation-svg .annotation-mark.stale {
+  stroke: var(--warn);
+  stroke-dasharray: 4 3;
+}
+
+.annotation-svg .annotation-mark:focus-visible {
+  outline: none;
+  stroke: var(--accent-ring);
+  stroke-width: 4;
+}
+
+.annotation-svg .ink-draw-preview {
+  pointer-events: none;
+  fill: none;
+  stroke: var(--accent-ring);
   stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
 }
 
-.annotation-svg .comment-dot {
-  fill: #e11d48;
-  stroke-width: 0;
+.element-hover {
+  position: absolute;
+  pointer-events: none;
+  border: 1.5px dashed var(--accent-ring);
+  border-radius: 3px;
+  background: rgb(76 111 255 / 0.06);
 }
 
-.annotation-svg .annotation-mark.stale ellipse,
-.annotation-svg .annotation-mark.stale .comment-dot {
-  stroke: #b54708;
-  stroke-dasharray: 6 4;
+.element-hover-label {
+  position: absolute;
+  top: -22px;
+  left: -2px;
+  max-width: 240px;
+  overflow: hidden;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.annotation-svg .annotation-mark.stale .comment-dot {
-  fill: #f79009;
+.comment-pin,
+.comment-pin[aria-pressed="true"] {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  background: var(--mark);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgb(24 32 44 / 0.35);
+}
+
+.comment-pin:hover {
+  transform: translate(-50%, -50%) scale(1.12);
+  border-color: #ffffff;
+  background: var(--mark);
+}
+
+.comment-pin.selected,
+.comment-pin.selected:hover {
+  border-color: #ffffff;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-ring), 0 1px 4px rgb(24 32 44 / 0.35);
+}
+
+.comment-pin.stale,
+.comment-pin.stale:hover {
+  border-color: #ffffff;
+  background: var(--warn-strong);
+  border-style: dashed;
+}
+
+.comment-pin:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring), 0 1px 4px rgb(24 32 44 / 0.35);
 }

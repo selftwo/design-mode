@@ -89,6 +89,8 @@ export function useLiveFrameSession(host: BoardHost) {
     setSessionError(null)
   }, [clearSessionTimeout])
 
+  const clearSessionError = useCallback(() => setSessionError(null), [])
+
   useEffect(() => () => clearSessionTimeout(), [clearSessionTimeout])
 
   return {
@@ -97,5 +99,6 @@ export function useLiveFrameSession(host: BoardHost) {
     sessionError,
     beginLiveSession,
     clearLiveSession,
+    clearSessionError,
   }
 }

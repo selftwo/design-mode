@@ -5,13 +5,16 @@
   "scripts": {
     "dev": "concurrently -k \"vite\" \"node scripts/testing/serve-live-review-fixture.mjs\"",
     "dev:fixture": "node scripts/testing/serve-live-review-fixture.mjs",
+    "app": "npm run build && node host/start-host.ts",
+    "host": "node host/start-host.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "measure": "node scripts/testing/measure-canvas-bundles.mjs",
     "check:repo": "node scripts/check-repository-shape.mjs",
-    "verify": "npm run check:repo && npm run test && npm run build && npm run measure && npm run test:e2e"
+    "check:dependencies": "node scripts/check-dependencies.mjs",
+    "verify": "npm run check:repo && npm run check:dependencies && npm run test && npm run build && npm run measure && npm run test:e2e"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",

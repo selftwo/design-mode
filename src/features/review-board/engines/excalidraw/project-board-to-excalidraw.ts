@@ -6,6 +6,7 @@ import type { ExcalidrawElementSkeleton } from '@excalidraw/excalidraw/data/tran
 import type { ExcalidrawElement, FileId } from '@excalidraw/excalidraw/element/types'
 import type { BinaryFileData, BinaryFiles, DataURL } from '@excalidraw/excalidraw/types'
 import type { BoardDocument, ReviewAnnotation, ScreenFrame } from '../../model/board-document.schema'
+import { normalizedPathBounds } from '../../model/board-geometry'
 
 const groupId = (frameId: string) => `review-group-${frameId}`
 const elementId = (frameId: string) => `review-frame-${frameId}`
@@ -29,10 +30,13 @@ function annotationSkeleton(annotation: ReviewAnnotation, frame: ScreenFrame): E
   }
 
   if (annotation.mark) {
-    const [start, end] = annotation.mark.points
+    // Path and element marks project to their bounding shape in this optional engine.
+    const [start, end] = annotation.mark.kind === 'path'
+      ? normalizedPathBounds(annotation.mark.points)
+      : annotation.mark.points
     return {
       ...shared,
-      type: 'ellipse',
+      type: annotation.mark.kind === 'element' ? 'rectangle' : 'ellipse',
       x: frame.x + Math.min(start[0], end[0]) * frame.width,
       y: frame.y + Math.min(start[1], end[1]) * frame.height,
       width: Math.abs(end[0] - start[0]) * frame.width,

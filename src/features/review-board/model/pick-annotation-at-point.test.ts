@@ -33,7 +33,36 @@ function circle(
   }
 }
 
+function path(id: string, points: [number, number][]): ReviewAnnotation {
+  return {
+    ...comment(id, points[0]!),
+    mark: { kind: 'path', points },
+  }
+}
+
+function element(
+  id: string,
+  bounds: [[number, number], [number, number]],
+): ReviewAnnotation {
+  return {
+    ...comment(id, [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2]),
+    mark: { kind: 'element', elementId: `${id}-target`, label: 'Primary CTA', points: bounds },
+  }
+}
+
 describe('pickAnnotationAtNormalizedPoint', () => {
+  it('picks a freehand path by its drawn extent', () => {
+    const annotations = [path('ink', [[0.3, 0.2], [0.6, 0.3], [0.5, 0.5], [0.31, 0.21]])]
+    expect(pickAnnotationAtNormalizedPoint(annotations, [0.45, 0.35])).toBe('ink')
+    expect(pickAnnotationAtNormalizedPoint(annotations, [0.9, 0.9])).toBeNull()
+  })
+
+  it('picks an element mark inside its bounds only', () => {
+    const annotations = [element('cta', [[0.1, 0.4], [0.3, 0.5]])]
+    expect(pickAnnotationAtNormalizedPoint(annotations, [0.2, 0.45])).toBe('cta')
+    expect(pickAnnotationAtNormalizedPoint(annotations, [0.5, 0.45])).toBeNull()
+  })
+
   it('picks a comment mark at its anchor', () => {
     const annotations = [comment('c1', [0.2, 0.75])]
     expect(pickAnnotationAtNormalizedPoint(annotations, [0.2, 0.75])).toBe('c1')

@@ -38,6 +38,7 @@ function fixtureFrame(index: number): ScreenFrame {
     refreshedScreenshotDataUrl: svgDataUrl(intrinsicWidth, intrinsicHeight, `Screen ${index}`, hue, 2),
     captureHash: `fixture-frame-${index}-revision-1`,
     revision: 1,
+    elements: [],
   }
 }
 

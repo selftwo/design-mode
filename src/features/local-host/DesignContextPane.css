@@ -1,0 +1,102 @@
+.context-pane {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.context-pane.collapsed {
+  width: 44px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.context-toggle {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-secondary);
+}
+
+.context-toggle:hover {
+  border: 0;
+  background: #f4f6fa;
+}
+
+.context-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.context-toggle-label {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.context-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.context-header h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.context-header .context-toggle {
+  flex-direction: row;
+  margin-left: auto;
+}
+
+.context-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.context-tabs button {
+  min-height: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.context-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--ink-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.context-empty,
+.context-error {
+  margin: 0;
+  padding: 14px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.context-error {
+  color: var(--danger);
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createPressureTestBoard } from '@/test-support/create-pressure-test-board'
+import { buildReviewBatch } from '../model/review-batch'
 import { HOST_BOARD_REQUEST_TYPE } from './host-board-message.schema'
 import { createWindowBoardHost } from './window-board-host'
 
@@ -176,6 +177,39 @@ describe('createWindowBoardHost', () => {
       screenshotDataUrl: 'data:1',
       refreshedScreenshotDataUrl: 'data:2',
       captureHash: 'capture-2',
+    }])
+  })
+
+  it('delivers a review batch and reads back delivery confirmation', () => {
+    const { hostWindow, listeners, postMessage } = createMockHostWindow()
+    Object.assign(hostWindow, { parent: hostWindow })
+    const host = createWindowBoardHost(hostWindow)
+    const board = createPressureTestBoard()
+    const result = buildReviewBatch(board)
+    if (!result.ok) throw new Error('Expected a valid review batch')
+    const deliveryResults: unknown[] = []
+    host.subscribeReviewBatchDelivery((entry) => deliveryResults.push(entry))
+
+    host.deliverReviewBatch(result.batch, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd')
+    const deliverRequest = postMessage.mock.calls.at(-1)?.[0]
+    expect(deliverRequest).toMatchObject({
+      type: 'design-review/deliver-review-batch',
+      requestId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      batch: result.batch,
+    })
+
+    dispatch(listeners, {
+      source: hostWindow,
+      origin: 'http://canvas.test',
+      data: {
+        type: 'design-review/review-batch-delivered',
+        schemaVersion: 1,
+        requestId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      },
+    } as MessageEvent)
+    expect(deliveryResults).toEqual([{
+      status: 'delivered',
+      requestId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
     }])
   })
 

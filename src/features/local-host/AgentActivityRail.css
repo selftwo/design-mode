@@ -1,0 +1,85 @@
+.agent-activity {
+  position: absolute;
+  z-index: 45;
+  left: 56px;
+  bottom: 14px;
+  display: grid;
+  gap: 4px;
+  width: min(360px, calc(100% - 72px));
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.agent-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  margin: 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  text-align: left;
+}
+
+button.agent-activity-row:hover {
+  border: 0;
+  background: #f4f6fa;
+}
+
+.agent-activity-row strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.agent-run-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-presence-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+.agent-presence-dot.running,
+.agent-presence-dot.capturing {
+  background: var(--warn-strong);
+  animation: waiting-pulse 1.4s ease-in-out infinite;
+}
+
+.agent-presence-dot.queued {
+  background: var(--info);
+}
+
+.agent-presence-dot.done {
+  background: var(--ok);
+}
+
+.agent-presence-dot.failed {
+  background: var(--danger);
+}
+
+.agent-run-output {
+  max-height: 160px;
+  overflow: auto;
+  margin: 0 6px 4px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f5f6fa;
+  color: var(--ink-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

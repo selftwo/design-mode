@@ -38,7 +38,7 @@ export function LiveReviewFrame({ config }: { config: LiveReviewFrameConfig }) {
         onLoad={sendHello}
         data-testid={`live-iframe-${frameId}`}
       />
-      <span className="live-state" data-testid={`live-state-${frameId}`}>
+      <span className="live-state" role="status" data-testid={`live-state-${frameId}`}>
         {stateLabel}
       </span>
     </div>

@@ -3,7 +3,19 @@ import { boardsSemanticallyEqual } from './model/board-semantic-equality'
 import { clearStoredBoard, saveBoard } from './model/board-local-storage'
 import type { BoardDocument } from './model/board-document.schema'
 
-export function useReviewBoardPersistence() {
+// Where saved boards live. The browser default writes localStorage; the local
+// host app persists through its HTTP API instead.
+export interface BoardStorage {
+  save: (document: BoardDocument) => void | Promise<void>
+  clear: () => void
+}
+
+const localStorageBoardStorage: BoardStorage = {
+  save: (document) => saveBoard(document),
+  clear: () => clearStoredBoard(),
+}
+
+export function useReviewBoardPersistence(storage: BoardStorage = localStorageBoardStorage) {
   const [lastSaved, setLastSaved] = useState<BoardDocument | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -19,28 +31,34 @@ export function useReviewBoardPersistence() {
   }, [])
 
   const save = useCallback((document: BoardDocument) => {
-    try {
-      saveBoard(document)
-      setLastSaved(document)
-      setSaveStatus('saved')
-      setSaveError(null)
-      window.setTimeout(() => setSaveStatus('idle'), 1200)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Board could not be saved.'
-      setSaveStatus('error')
-      setSaveError(message)
-    }
-  }, [])
+    Promise.resolve()
+      .then(() => storage.save(document))
+      .then(() => {
+        setLastSaved(document)
+        setSaveStatus('saved')
+        setSaveError(null)
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Board could not be saved.'
+        setSaveStatus('error')
+        setSaveError(message)
+      })
+  }, [storage])
 
-  const requestReset = useCallback((document: BoardDocument | null) => {
-    if (!document || !lastSaved) return
+  const clearSaveError = useCallback(() => setSaveError(null), [])
+  const clearResetError = useCallback(() => setResetError(null), [])
+
+  // The board autosaves, so "unsaved changes" no longer gates the reset dialog:
+  // reset confirmation compares against the board the host sent instead.
+  const requestReset = useCallback((document: BoardDocument | null, baseline: BoardDocument | null) => {
+    if (!document || !baseline) return
     setResetError(null)
-    if (boardsSemanticallyEqual(document, lastSaved)) {
+    if (boardsSemanticallyEqual(document, baseline)) {
       return { immediate: true as const }
     }
     setResetDialogOpen(true)
     return { immediate: false as const }
-  }, [lastSaved])
+  }, [])
 
   const cancelReset = useCallback(() => {
     setResetDialogOpen(false)
@@ -48,7 +66,7 @@ export function useReviewBoardPersistence() {
 
   const confirmReset = useCallback((hostBoard: BoardDocument): { ok: true; hostBoard: BoardDocument } | { ok: false; message: string } => {
     try {
-      clearStoredBoard()
+      storage.clear()
       setResetDialogOpen(false)
       setResetError(null)
       setSaveStatus('idle')
@@ -60,11 +78,11 @@ export function useReviewBoardPersistence() {
       setResetError(message)
       return { ok: false, message }
     }
-  }, [])
+  }, [storage])
 
   const applyImmediateReset = useCallback((hostBoard: BoardDocument): { ok: true; hostBoard: BoardDocument } | { ok: false; message: string } => {
     try {
-      clearStoredBoard()
+      storage.clear()
       setResetError(null)
       setSaveStatus('idle')
       setSaveError(null)
@@ -75,7 +93,7 @@ export function useReviewBoardPersistence() {
       setResetError(message)
       return { ok: false, message }
     }
-  }, [])
+  }, [storage])
 
   return {
     lastSaved,
@@ -85,6 +103,8 @@ export function useReviewBoardPersistence() {
     resetError,
     setBaseline,
     save,
+    clearSaveError,
+    clearResetError,
     requestReset,
     cancelReset,
     confirmReset,

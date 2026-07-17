@@ -8,7 +8,7 @@ export function LiveFrameHostConnecting({ frameId }: { frameId: string }) {
       data-ready="false"
       data-connection-state="connecting"
     >
-      <span className="live-state" data-testid={`live-state-${frameId}`}>
+      <span className="live-state" role="status" data-testid={`live-state-${frameId}`}>
         Connecting
       </span>
     </div>

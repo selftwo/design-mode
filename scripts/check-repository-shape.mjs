@@ -12,7 +12,7 @@ const failures = []
 function walk(directory) {
   if (!existsSync(directory)) return []
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    if (entry.isDirectory() && ignoredDirectories.has(entry.name)) return []
+    if (entry.isDirectory() && (ignoredDirectories.has(entry.name) || entry.name.startsWith('.'))) return []
     const entryPath = path.join(directory, entry.name)
     return entry.isDirectory() ? walk(entryPath) : [entryPath]
   })

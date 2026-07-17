@@ -1,7 +1,8 @@
 import type { NormalizedPoint, ReviewAnnotation } from './board-document.schema'
-import { clampUnit } from './board-geometry'
+import { clampUnit, normalizedPathBounds } from './board-geometry'
 
 const COMMENT_HIT_RADIUS = 0.04
+const PATH_HIT_PADDING = 0.01
 
 function annotationPaintOrder(
   annotations: ReviewAnnotation[],
@@ -34,11 +35,20 @@ function hitsCircle(
   return nx * nx + ny * ny <= 1
 }
 
+function hitsBounds(
+  bounds: readonly [NormalizedPoint, NormalizedPoint],
+  point: NormalizedPoint,
+  padding = 0,
+): boolean {
+  return point[0] >= bounds[0][0] - padding && point[0] <= bounds[1][0] + padding
+    && point[1] >= bounds[0][1] - padding && point[1] <= bounds[1][1] + padding
+}
+
 function hitsAnnotation(annotation: ReviewAnnotation, point: NormalizedPoint): boolean {
-  if (annotation.mark) {
-    return hitsCircle(annotation.mark.points, point)
-  }
-  return hitsComment(annotation.anchor, point)
+  if (!annotation.mark) return hitsComment(annotation.anchor, point)
+  if (annotation.mark.kind === 'circle') return hitsCircle(annotation.mark.points, point)
+  if (annotation.mark.kind === 'element') return hitsBounds(annotation.mark.points, point)
+  return hitsBounds(normalizedPathBounds(annotation.mark.points), point, PATH_HIT_PADDING)
 }
 
 export function pickAnnotationAtNormalizedPoint(

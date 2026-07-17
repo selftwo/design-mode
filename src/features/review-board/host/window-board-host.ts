@@ -14,6 +14,12 @@ import {
   type HostLiveSessionResult,
 } from './host-live-message.schema'
 import {
+  HostReviewBatchDeliverRequestSchema,
+  readHostReviewBatchDeliveryMessage,
+  type HostReviewBatchDeliveryResult,
+} from './host-review-batch-message.schema'
+import type { ReviewBatch } from '../model/review-batch'
+import {
   isTrustedHostBoardLoadMessage,
   resolveWindowBoardHostBinding,
 } from './host-board-load-provenance'
@@ -25,6 +31,8 @@ export interface BoardHost {
   subscribeLiveSession(listener: (result: HostLiveSessionResult) => void): () => void
   requestCaptureRefresh(frameId: string, requestId: string): void
   subscribeCaptureRefresh(listener: (result: HostCaptureRefreshResult) => void): () => void
+  deliverReviewBatch(batch: ReviewBatch, requestId: string): void
+  subscribeReviewBatchDelivery(listener: (result: HostReviewBatchDeliveryResult) => void): () => void
 }
 
 export interface WindowBoardHostOptions {
@@ -100,6 +108,24 @@ export function createWindowBoardHost(
       const handleMessage = (event: MessageEvent) => {
         if (!isTrustedHostBoardLoadMessage(event, hostWindow, binding.allowedLoadOrigins)) return
         const result = readHostCaptureRefreshMessage(event.data)
+        if (result.status !== 'ignored') listener(result)
+      }
+      hostWindow.addEventListener('message', handleMessage)
+      return () => hostWindow.removeEventListener('message', handleMessage)
+    },
+    deliverReviewBatch(batch, requestId) {
+      const request = HostReviewBatchDeliverRequestSchema.parse({
+        type: 'design-review/deliver-review-batch',
+        schemaVersion: 1,
+        requestId,
+        batch,
+      })
+      postToHostWindows(hostWindow, binding.requestBoardOrigins, request)
+    },
+    subscribeReviewBatchDelivery(listener) {
+      const handleMessage = (event: MessageEvent) => {
+        if (!isTrustedHostBoardLoadMessage(event, hostWindow, binding.allowedLoadOrigins)) return
+        const result = readHostReviewBatchDeliveryMessage(event.data)
         if (result.status !== 'ignored') listener(result)
       }
       hostWindow.addEventListener('message', handleMessage)

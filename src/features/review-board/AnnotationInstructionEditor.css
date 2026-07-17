@@ -1,16 +1,8 @@
+/* Rendered inline inside the selected comments panel item. */
 .annotation-editor {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 30;
   display: grid;
   gap: 8px;
-  width: min(320px, calc(100% - 24px));
-  padding: 12px;
-  border: 1px solid #d9dee7;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 32px rgba(16, 24, 40, 0.14);
+  padding: 10px 12px 12px;
 }
 
 .annotation-editor-header {
@@ -21,39 +13,84 @@
   font-size: 12px;
 }
 
-.annotation-editor-header strong {
+.annotation-editor-header label {
+  color: var(--ink);
   font-size: 13px;
+  font-weight: 600;
+}
+
+.annotation-editor [data-testid="selected-annotation-id"] {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .annotation-stale {
   padding: 2px 6px;
-  border: 1px solid #f4a9a2;
+  border: 1px solid var(--danger-border);
   border-radius: 4px;
   background: #fff8f7;
-  color: #b42318;
+  color: var(--danger);
   font-weight: 600;
 }
 
 .annotation-incomplete {
   margin-left: auto;
-  color: #b42318;
+  color: var(--danger);
 }
 
 .annotation-complete {
   margin-left: auto;
-  color: #027a48;
+  color: var(--ok);
 }
 
 .annotation-editor textarea {
   min-height: 88px;
   padding: 8px 10px;
-  border: 1px solid #cad0d9;
-  border-radius: 7px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
   resize: vertical;
   font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.annotation-editor textarea:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
 }
 
 .annotation-editor textarea[aria-invalid="true"] {
-  border-color: #f4a9a2;
+  border-color: var(--danger-border);
   background: #fff8f7;
+}
+
+.annotation-intents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.intent-chip {
+  min-height: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--ink-secondary);
+  font-size: 12px;
+}
+
+.annotation-editor [data-testid="delete-annotation"] {
+  justify-self: end;
+  padding: 4px 12px;
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.annotation-editor [data-testid="delete-annotation"]:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
 }

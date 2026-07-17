@@ -1,10 +1,22 @@
 .reset-confirm-dialog {
-  margin: 1rem;
+  margin: auto;
   padding: 1rem 1.25rem;
-  border: 1px solid #c5d0e6;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
   max-width: 28rem;
+}
+
+.reset-confirm-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.reset-confirm-dialog p {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-size: 14px;
 }
 
 .reset-confirm-dialog::backdrop {
@@ -13,6 +25,18 @@
 
 .reset-confirm-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.reset-confirm-actions [data-testid="reset-confirm"] {
+  color: #fff;
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.reset-confirm-actions [data-testid="reset-confirm"]:hover {
+  border-color: var(--danger-strong);
+  background: var(--danger-strong);
 }

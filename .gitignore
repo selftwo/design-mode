@@ -1,5 +1,12 @@
 node_modules/
 dist/
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.opencode/
+.pi/
 playwright-report/
 test-results/
 .canvas-results/

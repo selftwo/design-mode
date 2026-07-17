@@ -4,6 +4,7 @@ import { createPressureTestBoard } from '../../src/test-support/create-pressure-
 
 export type FakeBoardHostOptions = {
   liveFixturePath?: string
+  reviewBatchDelivery?: 'succeed' | 'fail'
 }
 
 export async function installFakeBoardHost(
@@ -13,9 +14,11 @@ export async function installFakeBoardHost(
 ) {
   const board = boardDocument ?? createPressureTestBoard()
   const liveFixturePath = options?.liveFixturePath ?? 'live-review.html'
-  await page.addInitScript(({ serializedBoard, liveFixturePath: fixturePath }: {
+  const reviewBatchDelivery = options?.reviewBatchDelivery ?? 'succeed'
+  await page.addInitScript(({ serializedBoard, liveFixturePath: fixturePath, reviewBatchDelivery: deliveryBehavior }: {
     serializedBoard: BoardDocument
     liveFixturePath: string
+    reviewBatchDelivery: 'succeed' | 'fail'
   }) => {
     const liveFixtureOrigin = 'http://127.0.0.1:5199'
 
@@ -71,7 +74,25 @@ export async function installFakeBoardHost(
           refreshedScreenshotDataUrl: frame.refreshedScreenshotDataUrl,
           captureHash: `${frame.captureHash.replace(/-revision-\d+$/, '')}-revision-${nextRevision}-host`,
         }, window.location.origin)
+        return
+      }
+
+      if (data.type === 'design-review/deliver-review-batch' && data.schemaVersion === 1) {
+        if (deliveryBehavior === 'fail') {
+          window.postMessage({
+            type: 'design-review/review-batch-delivery-failed',
+            schemaVersion: 1,
+            requestId: data.requestId,
+            error: 'Host could not write the review batch',
+          }, window.location.origin)
+          return
+        }
+        window.postMessage({
+          type: 'design-review/review-batch-delivered',
+          schemaVersion: 1,
+          requestId: data.requestId,
+        }, window.location.origin)
       }
     })
-  }, { serializedBoard: board, liveFixturePath })
+  }, { serializedBoard: board, liveFixturePath, reviewBatchDelivery })
 }

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Manual test host</title>
+<style>
+  html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; color: #19233a; }
+  body { display: flex; flex-direction: column; }
+  header { padding: 0.75rem 1rem; border-bottom: 1px solid #dfe3ec; }
+  header h1 { font-size: 1rem; margin: 0 0 0.25rem; }
+  #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.75rem; color: #53617f; max-height: 4rem; overflow: auto; }
+  #batch { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.75rem; color: #19233a; max-height: 10rem; overflow: auto; margin: 0.25rem 0 0; background: #f4f6fa; border-radius: 6px; }
+  #batch:not(:empty) { padding: 0.5rem; }
+  iframe { flex: 1; border: none; width: 100%; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Design review canvas: manual test host</h1>
+    <p id="log">Loading the weather-CUFC board...</p>
+    <pre id="batch"></pre>
+  </header>
+  <iframe id="canvas" title="Design review canvas" allow="clipboard-write"></iframe>
+  <script>
+    const canvasOrigin = 'http://127.0.0.1:5173'
+    const hostOrigin = window.location.origin
+    let board = null
+
+    function log(message) {
+      document.getElementById('log').textContent = message
+    }
+
+    fetch('weather-cufc-board.json')
+      .then((response) => response.json())
+      .then((data) => {
+        board = data
+        log(`Loaded board with ${data.frames.length} frames. Waiting for the canvas to request it...`)
+        document.getElementById('canvas').src = `${canvasOrigin}/?engine=reactflow&hostOrigin=${encodeURIComponent(hostOrigin)}`
+      })
+      .catch((error) => log(`Failed to load board: ${error}`))
+
+    window.addEventListener('message', (event) => {
+      if (event.origin !== canvasOrigin) return
+      const data = event.data
+      if (!data || typeof data !== 'object') return
+
+      if (data.type === 'design-review/request-board') {
+        if (!board) { log('Board not loaded yet.'); return }
+        log(`Sent board with ${board.frames.length} frames.`)
+        event.source.postMessage({ type: 'design-review/load-board', schemaVersion: 1, board }, canvasOrigin)
+        return
+      }
+
+      if (data.type === 'design-review/deliver-review-batch' && data.schemaVersion === 1) {
+        log(`Review batch delivered with ${data.batch.annotations.length} annotations.`)
+        document.getElementById('batch').textContent = JSON.stringify(data.batch, null, 2)
+        event.source.postMessage({ type: 'design-review/review-batch-delivered', schemaVersion: 1, requestId: data.requestId }, canvasOrigin)
+        return
+      }
+
+      if (data.type === 'design-review/request-capture-refresh' && data.schemaVersion === 1) {
+        const frame = board.frames.find((item) => item.id === data.frameId)
+        if (!frame) {
+          event.source.postMessage({ type: 'design-review/capture-refresh-failure', schemaVersion: 1, requestId: data.requestId, frameId: data.frameId, error: 'Unknown frame' }, canvasOrigin)
+          return
+        }
+        event.source.postMessage({
+          type: 'design-review/capture-refresh-success',
+          schemaVersion: 1,
+          requestId: data.requestId,
+          frameId: data.frameId,
+          screenshotPath: frame.screenshotPath,
+          screenshotDataUrl: frame.refreshedScreenshotDataUrl,
+          refreshedScreenshotDataUrl: frame.refreshedScreenshotDataUrl,
+          captureHash: `${frame.captureHash.replace(/-revision-\d+$/, '')}-revision-${frame.revision + 1}-host`,
+        }, canvasOrigin)
+        return
+      }
+
+      if (data.type === 'design-review/request-live-session' && data.schemaVersion === 1) {
+        event.source.postMessage({
+          type: 'design-review/live-session-rejected',
+          schemaVersion: 1,
+          requestId: data.requestId,
+          frameId: data.frameId,
+          error: 'Live sessions are not available from the manual test host',
+        }, canvasOrigin)
+      }
+    })
+  </script>
+</body>
+</html>

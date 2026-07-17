@@ -8,7 +8,10 @@ import path from 'node:path'
 export const REACT_FLOW_ROUTE_KEY = 'src/features/review-board/engines/react-flow/ReactFlowReviewBoard.tsx'
 export const EXCALIDRAW_ADAPTER_SOURCE = 'src/features/review-board/engines/excalidraw/ExcalidrawReviewBoard.tsx'
 export const EXCALIDRAW_ROUTE_NAME = 'percentages-BXMCSKIN'
-export const REACT_FLOW_GZIP_REFERENCE_BYTES = 116_567
+// Re-baselined 2026-07-16 after the pooled comments panel, freehand ink marks,
+// and element picking shipped; see DECISIONS.md. The cap still fails the gate on
+// accidental growth such as optional engine code leaking into the default route.
+export const REACT_FLOW_GZIP_REFERENCE_BYTES = 140_617
 export const REACT_FLOW_GZIP_CAP_BYTES = Math.floor(REACT_FLOW_GZIP_REFERENCE_BYTES * 1.2)
 
 const OPTIONAL_MANIFEST_MARKERS = [

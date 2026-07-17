@@ -48,6 +48,7 @@ function hostBaselineBoard(): BoardDocument {
         refreshedScreenshotDataUrl: dataUrl,
         captureHash: 'host-capture-a',
         revision: 1,
+        elements: [],
       },
       {
         id: 'host-frame-b',
@@ -64,6 +65,7 @@ function hostBaselineBoard(): BoardDocument {
         refreshedScreenshotDataUrl: dataUrl,
         captureHash: 'host-capture-b',
         revision: 1,
+        elements: [],
       },
     ],
     annotations: [],
@@ -109,7 +111,6 @@ test('reactflow: save and reload restore semantic board data', async ({ page }) 
   expect(beforeSave.annotations.length).toBe(1)
   expect(beforeSave.camera).toEqual(baseline.camera)
 
-  await page.getByTestId('save-board').click()
   await expect(page.getByTestId('board-save-status')).toHaveText('Saved')
 
   await page.reload()
@@ -144,7 +145,6 @@ test('reactflow: failed save shows error and leaves diagnostics unchanged', asyn
   const dirty = await board(page)
   expect(dirty.annotations.length).toBe(1)
 
-  await page.getByTestId('save-board').click()
   await expect(page.getByTestId('board-save-error')).toContainText('quota exceeded')
   await expect(page.getByTestId('board-save-status')).toHaveCount(0)
   expect(await board(page)).toEqual(dirty)
