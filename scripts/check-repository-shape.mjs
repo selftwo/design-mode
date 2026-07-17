@@ -2,8 +2,9 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
-const allowedRootMarkdown = new Set(['AGENTS.md', 'CLAUDE.md', 'DECISIONS.md', 'README.md', 'tickets.md'])
-const ignoredDirectories = new Set(['.git', '.canvas-results', 'dist', 'node_modules', 'playwright-report', 'test-results'])
+const allowedRootMarkdown = new Set(['AGENTS.md', 'CLAUDE.md', 'DECISIONS.md', 'README.md', 'ROADMAP.md', 'tickets.md'])
+// design/ is the handed-off design language system: an external spec drop, not repository source.
+const ignoredDirectories = new Set(['.git', '.canvas-results', 'design', 'dist', 'node_modules', 'playwright-report', 'test-results'])
 const bannedSourceDirectories = new Set(['common', 'core', 'helpers', 'lib', 'utils'])
 const bannedSourceFiles = new Set(['core.ts', 'helpers.ts', 'types.ts', 'utils.ts'])
 const taskMarkerPattern = new RegExp(`\\b(?:${['TO', 'DO'].join('')}|${['FIX', 'ME'].join('')})\\b`)
@@ -22,7 +23,8 @@ for (const file of walk(root)) {
   const relative = path.relative(root, file)
   const parts = relative.split(path.sep)
   const isSpec = parts[0] === 'specs' && parts.length === 2
-  if (file.endsWith('.md') && !allowedRootMarkdown.has(relative) && !isSpec) {
+  const isAgentDoc = parts[0] === 'docs'
+  if (file.endsWith('.md') && !allowedRootMarkdown.has(relative) && !isSpec && !isAgentDoc) {
     failures.push(`${relative}: Markdown is limited to the repository map and decision files`)
   }
   if (parts[0] === 'src') {

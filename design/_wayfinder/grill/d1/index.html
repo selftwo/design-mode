@@ -1,0 +1,1684 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drafting table · summoned — smalltools · landing review</title>
+<link rel="stylesheet" href="/dls/designmode/styles.css">
+<style>
+/* ════════════════════════════════════════════════════════════
+   VARIANT D1 · Drafting table, summoned
+   Lineage: refines D (round 1, marked promising). Keeps D's
+   commitments — editor discipline, layers tree with eyes,
+   stable stacked aspect sections, crosshair readout, dot grid,
+   paper notes pinned to the work. Changes: the panel is
+   summoned (closed by default, opens on selection, dodges the
+   selection, carries its own muted tone); paper notes get a
+   third-material annotation tone with rose accents; element
+   aspects speak the product's own CSS; a Learn mode teaches
+   anatomy + vocabulary and lands answers as anchored teach
+   notes.
+   ════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Color · Ground ── — warm cream, the field Paper draws its canvas on. */
+  --canvas: #f2efe4;
+  /* ── Color · Capture surface ── — the frame's own paper ground; pure white stays legal inside mock screens (cards, buttons). */
+  --capture-surface: #f8f4eb;
+
+  /* ── Color · Ink ramp ── — tuned warmer than the DLS default for the cream ground. */
+  --ink:           #16150f;   /* primary */
+  --ink-secondary: #5f5c52;   /* support lines, panel body */
+  --ink-muted:     #726c5c;   /* captions, metadata */
+  --ink-faint:     #726c5c;   /* disabled, trailing hints */
+
+  /* ── Color · Panel material ── — white floating card over cream, never tinted, never raw canvas. */
+  --panel-tone:    #ffffff;
+  --panel-hover:   rgba(22, 21, 15, 0.05);
+  --border:        #e3dfd2;   /* panel edge; also tints the frame's physical border */
+  --panel-divider: #eceadf;   /* hairline between panel sections */
+
+  /* ── Spacing · Value well ── — Paper's bordered input-look cell (Layout/Flex/Radius/Border rows). */
+  --well-fill: #faf8f1;
+  --well-edge: #e3dfd2;
+
+  /* ── Color · Annotation material ── — warm ivory paper, the third material. Rose lives only in mark strokes, pins/ordinals, and state accents now. */
+  --note-paper: #fbf8ef;
+  --note-edge:  #d9d2bd;
+  /* Teach flavor of the annotation material: same ivory geometry, spruce edge/accent — no fill tint. */
+  --teach-paper: #fbf8ef;
+  --teach-edge:  var(--accent-ring);
+}
+
+html, body { height: 100%; margin: 0; overflow: hidden; }
+
+.d-app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100dvh;
+}
+
+/* ── Main region: canvas full-bleed, panel floats over it ──── */
+.d-main { position: relative; min-height: 0; }
+
+/* ── Canvas · dot-grid drafting ground ─────────────────────── */
+.d-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: var(--canvas);
+  cursor: crosshair;
+}
+
+body.is-learn .d-canvas { cursor: help; }
+
+.d-stage {
+  position: relative;
+  width: 1780px;
+  height: 1040px;
+  background-image: radial-gradient(rgba(22, 21, 15, 0.10) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 12px 12px;
+}
+
+/* ── Captured frame + mono label above ─────────────────────── */
+.d-framewrap { position: absolute; }
+
+.d-framelabel {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  cursor: default;
+}
+
+.d-framelabel .d-rev { color: var(--ink-faint); }
+
+.d-shot {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--capture-surface);
+  box-shadow: var(--shadow-raise);
+  overflow: hidden;
+  cursor: default;
+}
+
+.d-shot[aria-selected="true"] {
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 2px var(--accent-ring), var(--shadow-raise);
+}
+
+/* ── Mock screens (hosted product; its own neutral voice) ──── */
+.d-mock { position: absolute; inset: 0; color: #17181a; font-family: var(--font-ui); }
+.d-mel { position: absolute; }                       /* extracted element region */
+.d-mel[data-selected="true"] { box-shadow: inset 0 0 0 2px var(--accent-ring); border-radius: 4px; }
+
+.d-mnav { display: flex; align-items: center; padding: 0 20px; }
+.d-mword { font-weight: 650; letter-spacing: -0.01em; }
+.d-mlinks { margin-left: auto; display: flex; gap: 14px; color: #6b6f76; }
+.d-mburger { margin-left: auto; display: grid; gap: 2.5px; }
+.d-mburger i { display: block; width: 12px; height: 1.5px; background: #17181a; }
+
+.d-mh1 { font-weight: 650; letter-spacing: -0.015em; line-height: 1.12; color: #101113; }
+.d-msub { color: #6b6f76; line-height: 1.45; }
+.d-mbtn {
+  display: inline-block; padding: 5px 12px; border-radius: 5px;
+  background: #17181a; color: #fff; font-weight: 550;
+}
+.d-mcard { border: 1px solid #e6e4df; border-radius: 7px; background: #fff; padding: 12px; }
+.d-mcard h4 { margin: 0 0 3px; font-weight: 600; }
+.d-mcard p { margin: 0; color: #6b6f76; line-height: 1.4; }
+.d-mprice { font-weight: 650; letter-spacing: -0.01em; }
+
+/* ── Marks · the reviewer's rose ink ───────────────────────── */
+.d-mark {
+  position: absolute;
+  padding: 0; margin: 0;
+  background: var(--mark-fill);
+  border: 2px solid var(--mark);
+  cursor: pointer;
+  transition: box-shadow var(--duration-hover) var(--ease-hand);
+}
+
+.d-mark--circle { border-radius: 50%; }
+.d-mark--element { border-width: 1.5px; border-radius: 4px; pointer-events: none; }
+.d-mark--element .d-mark-ordinal { pointer-events: auto; cursor: pointer; }
+.d-mark--element[data-stale="true"] {
+  border-color: var(--border-strong);
+  background: transparent;
+}
+
+.d-mark--pin {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--mark);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 20px;
+  text-align: center;
+}
+
+.d-mark[data-selected="true"] { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-ring); }
+
+.d-mark-ordinal {
+  position: absolute;
+  top: -9px; right: -9px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--mark);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 18px;
+  text-align: center;
+}
+
+.d-mark--element[data-stale="true"] .d-mark-ordinal { background: var(--stone-400); }
+
+/* ── Paper notes · the third material ──────────────────────
+   Rose-tinted annotation paper: never capture white, never
+   canvas ground. Physical: border + pin + raise shadow. */
+.d-note {
+  position: absolute;
+  width: 248px;
+  padding: var(--space-3);
+  border: 1px solid var(--note-edge);
+  border-radius: 3px;
+  background: var(--note-paper);
+  box-shadow: var(--shadow-raise);
+  cursor: pointer;
+  transition: box-shadow var(--duration-hover) var(--ease-hand),
+              transform var(--duration-settle) var(--ease-settle);
+}
+
+.d-note.is-focused {
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 2px var(--accent-ring), var(--shadow-panel);
+  transform: translateY(-2px);
+  z-index: 4;
+}
+
+.d-note-pin {
+  position: absolute;
+  top: -5px; left: 14px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--mark);
+  box-shadow: 0 1px 2px rgba(31,26,18,0.3);
+}
+
+.d-note[data-stale="true"] .d-note-pin { background: var(--stone-400); }
+
+.d-note-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
+.d-note-ord { color: var(--mark); font-weight: var(--weight-semibold); }
+.d-note[data-stale="true"] .d-note-ord { color: var(--ink-faint); }
+
+.d-note .dm-comment-body { font-size: var(--text-sm); }
+.d-note .dm-comment-author { font-size: var(--text-xs); }
+
+.d-note-more {
+  display: none;
+  margin-top: var(--space-3);
+}
+.d-note.is-focused .d-note-more {
+  display: block;
+  animation: dm-settle var(--duration-settle) var(--ease-settle) both;
+}
+
+.d-note-draft {
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+.d-note-intent { margin-top: var(--space-2); display: flex; gap: var(--space-1); }
+.d-note-intent .dm-chip { font-size: var(--text-2xs); padding: 2px var(--space-2); }
+
+/* Teach flavor: same paper geometry, spruce-tinted tone, agent voice.
+   No chips, no routing, no dispatch — it explains, it never ships. */
+.d-note--teach {
+  background: var(--teach-paper);
+  border-color: var(--teach-edge);
+  animation: dm-settle var(--duration-settle) var(--ease-settle) both;
+}
+.d-note--teach .d-note-pin { background: var(--accent); }
+.d-note--teach .d-note-ord { color: var(--accent); }
+
+/* Agent reply inside a note */
+.d-agent-reply {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
+  padding-top: var(--space-3);
+}
+.d-note--teach .d-agent-reply { padding-top: 0; }
+
+.d-avatar {
+  grid-row: span 3;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--weight-semibold);
+  line-height: 18px;
+  text-align: center;
+}
+
+.d-candidate {
+  display: inline-block;
+  padding: 1px var(--space-1);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.d-prov {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
+.d-routing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.d-routing .dm-dot { width: 6px; height: 6px; }
+.d-routing[data-state="returned"] { color: var(--accent); }
+.d-routing[data-state="returned"] .dm-dot { background: var(--accent); }
+
+/* ── Edge affordance · the panel, folded away ──────────────── */
+.d-edgetab {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  padding: var(--space-3) 0;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
+  background: var(--panel-tone);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease-hand),
+              background var(--duration-hover) var(--ease-hand);
+}
+.d-edgetab:hover { color: var(--ink); background: var(--well-fill); }
+.d-edgetab[data-hidden="true"] { display: none; }
+
+/* ── Summoned panel · floats, dodges, dissolves ────────────── */
+.d-panel {
+  position: absolute;
+  top: var(--space-3);
+  bottom: var(--space-3);
+  right: var(--space-3);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: var(--panel-width);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--panel-tone);
+  box-shadow: 0 1px 2px rgba(22, 21, 15, 0.06), 0 16px 40px rgba(22, 21, 15, 0.14);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity var(--duration-settle) var(--ease-settle),
+              transform var(--duration-settle) var(--ease-settle),
+              visibility 0s linear var(--duration-settle);
+}
+.d-panel[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition: opacity var(--duration-settle) var(--ease-settle),
+              transform var(--duration-settle) var(--ease-settle);
+}
+.d-panel[data-side="left"] { right: auto; left: var(--space-3); }
+.d-panel[data-compact="true"] { width: 16.25rem; }
+
+.d-paneltop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.d-paneltop-sel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.d-panelclose {
+  flex: none;
+  width: 22px; height: 22px;
+  padding: 0; border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: 22px;
+  cursor: pointer;
+}
+.d-panelclose:hover { background: var(--panel-hover); color: var(--ink); }
+
+.d-panehead {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Layers tree */
+.d-layers {
+  flex: 0 1 auto;
+  max-height: 38%;
+  overflow-y: auto;
+  padding-bottom: var(--space-2);
+}
+
+.d-trow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 24px;
+  padding-right: var(--space-2);
+  font-size: 0.72rem;              /* 11.5px — pro-tool density */
+  color: var(--ink-secondary);
+  cursor: default;
+  user-select: none;
+  transition: background var(--duration-hover) var(--ease-hand);
+}
+
+.d-trow:hover { background: var(--panel-hover); }
+
+.d-trow[aria-selected="true"] {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+}
+
+.d-trow.is-off { color: var(--ink-faint); }
+
+.d-tglyph {
+  flex: none;
+  width: 14px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.d-trow .d-tglyph[data-mark] { color: var(--mark); font-weight: var(--weight-semibold); }
+.d-trow.is-off .d-tglyph, .d-tglyph[data-stale] { color: var(--ink-faint) !important; }
+
+.d-tname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-trow[data-kind="frame"] .d-tname { font-weight: var(--weight-medium); color: var(--ink); }
+.d-trow.is-off .d-tname { color: var(--ink-faint); }
+
+.d-teye {
+  flex: none;
+  width: 20px; height: 18px;
+  padding: 0; border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  visibility: hidden;
+}
+.d-trow:hover .d-teye,
+.d-trow:focus-within .d-teye,
+.d-teye[aria-pressed="true"] { visibility: visible; }
+.d-teye svg { display: block; margin: 0 auto; }
+.d-teye[aria-pressed="true"] { color: var(--ink-faint); }
+
+/* Aspect sections — stable stacked, collapsible */
+.d-aspects {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--space-3);
+}
+
+.d-sec { padding: 0 0 var(--space-1); }
+.d-sec[hidden] { display: none; }
+.d-sec:not([hidden]) ~ .d-sec:not([hidden]) { border-top: 1px solid var(--panel-divider); }
+
+.d-sechead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.d-sechead:hover { background: var(--panel-hover); }
+
+.d-chev {
+  flex: none;
+  width: 10px;
+  font-size: 9px;
+  color: var(--ink-faint);
+  transition: transform var(--duration-hover) var(--ease-hand);
+}
+.d-sechead[aria-expanded="false"] .d-chev { transform: rotate(-90deg); }
+
+.d-secmeta { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: var(--weight-regular); color: var(--ink-faint); letter-spacing: var(--tracking-mono); }
+
+.d-secbody { padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + 10px + var(--space-2)); }
+.d-sec[data-collapsed="true"] .d-secbody { display: none; }
+
+/* Key–value lattice inside a section */
+.d-kv {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 2px var(--space-2);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+.d-kv dt { margin: 0; color: var(--ink-muted); }
+.d-kv dd { margin: 0; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-kv dd.d-mono, .d-kv dt.d-mono { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-mono); }
+.d-kv dd .dm-badge { font-size: 10px; }
+
+/* CSS lattice — the product's own material, mono throughout */
+.d-css {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 1px var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  line-height: 1.6;
+}
+.d-css dt { margin: 0; color: var(--ink-muted); }
+.d-css dd { margin: 0; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-css .d-swatch {
+  display: inline-block;
+  width: 8px; height: 8px;
+  margin-right: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+
+/* ── Panel anatomy · Paper's inspector-grade value wells ────
+   Layout X/Y/W/H, Flex direction/gap/padding/align, Radius,
+   Fill/Border as swatch + named-token rows, Type. All wells
+   share one bordered input-look cell: label left, value right. */
+.d-well {
+  display: flex; align-items: center; gap: var(--space-2);
+  height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--well-edge);
+  border-radius: var(--radius-control);
+  background: var(--well-fill);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: var(--tracking-mono);
+  font-variant-numeric: tabular-nums;
+}
+.d-well b { font-weight: var(--weight-regular); color: var(--ink-faint); }
+.d-well span { margin-left: auto; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-well + .d-well { margin-top: var(--space-1); }
+
+.d-wellgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); margin-bottom: var(--space-1); }
+.d-wellgrid .d-well + .d-well { margin-top: 0; }
+.d-well--full { margin-top: var(--space-1); }
+
+/* Flex direction glyph + inline gap well */
+.d-flexrow { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
+.d-flexdir {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px;
+  border: 1px solid var(--well-edge);
+  border-radius: var(--radius-control);
+  background: var(--well-fill);
+  font-size: 12px;
+  color: var(--ink);
+}
+.d-flexrow .d-well { flex: 1 1 auto; }
+
+/* 3×3 alignment picker — active cell in spruce */
+.d-align { display: grid; grid-template-columns: repeat(3, 13px); grid-template-rows: repeat(3, 13px); gap: 3px; margin: var(--space-1) 0 var(--space-2); }
+.d-align i { display: block; width: 13px; height: 13px; border-radius: 2px; background: var(--well-fill); border: 1px solid var(--well-edge); font-style: normal; }
+.d-align i.is-active { background: var(--accent); border-color: var(--accent); }
+
+/* Fill / Border — swatch + named semantic token, value right-aligned */
+.d-toklist { display: grid; gap: 3px; }
+.d-tokrow { display: flex; align-items: center; gap: var(--space-2); height: 20px; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-mono); }
+.d-tokswatch { flex: none; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border-control); }
+.d-tokname { color: var(--ink); }
+.d-tokval { margin-left: auto; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Learn section — anatomy tree, the term, one Ask */
+.d-anatomy {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--well-edge);
+  border-radius: 3px;
+  background: var(--well-fill);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  line-height: 1.7;
+  color: var(--ink-secondary);
+  white-space: pre;
+  overflow-x: auto;
+}
+.d-term {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+  font-size: 0.72rem;
+}
+.d-term b {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-mono);
+  color: var(--accent);
+}
+.d-term span { color: var(--ink-faint); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.d-why { margin: 0 0 var(--space-2); font-size: 0.72rem; line-height: 1.55; color: var(--ink-secondary); }
+.d-ask {
+  display: block;
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: border-color var(--duration-hover) var(--ease-hand);
+}
+.d-ask:hover { border-color: var(--accent); color: var(--ink); }
+.d-ask b { color: var(--accent); font-weight: var(--weight-semibold); }
+.d-ask[disabled] { cursor: default; color: var(--ink-faint); border-style: solid; }
+.d-ask[disabled] b { color: var(--ink-faint); }
+
+/* Compact annotation list rows */
+.d-ann {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  margin: 0 0 1px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  font-size: 0.72rem;
+  text-align: left;
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+.d-ann:hover { background: var(--panel-hover); }
+.d-ann[aria-selected="true"] { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
+.d-ann-ord { font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--mark); }
+.d-ann[data-stale="true"] .d-ann-ord { color: var(--ink-faint); }
+.d-ann-kind { font-family: var(--font-mono); font-size: 10px; letter-spacing: var(--tracking-mono); color: var(--ink-muted); }
+.d-ann-ex { grid-column: 2 / 4; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Intent chips row in the panel */
+.d-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.d-chips .dm-chip { font-size: var(--text-2xs); padding: 2px var(--space-2); }
+
+/* Dispatch */
+.d-dispatch { display: grid; gap: var(--space-2); }
+.d-dispatch .dm-btn { justify-self: start; min-height: 1.65rem; font-size: 0.72rem; padding: 0 var(--space-2); }
+.d-dispatch-hint { font-size: 0.72rem; color: var(--ink-faint); }
+
+/* Agent runs (fixed content, panel grammar) */
+.d-run {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--space-2);
+  padding: 3px 0;
+  font-size: 0.72rem;
+}
+.d-run .dm-dot { width: 7px; height: 7px; align-self: center; }
+.d-run .d-runid { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-mono); color: var(--ink); }
+.d-run .d-rundetail { grid-column: 3; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Status bar · full-width foot ──────────────────────────── */
+.dm-statusbar .d-coords { min-width: 96px; }
+
+/* Toolbar refinements */
+.d-toolproject { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-mono); color: var(--ink-muted); }
+.d-live { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+/* Visible focus for the instrument's custom controls */
+.d-trow:focus-visible, .d-mark:focus-visible, .d-teye:focus-visible,
+.d-edgetab:focus-visible, .d-sechead:focus-visible, .d-ann:focus-visible,
+.d-panelclose:focus-visible, .d-ask:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── 390 · panel becomes a summoned bottom half-sheet ──────── */
+@media (max-width: 640px) {
+  .d-edgetab {
+    top: auto;
+    right: auto;
+    left: 50%;
+    bottom: var(--space-2);
+    transform: translateX(-50%);
+    width: auto;
+    padding: var(--space-1) var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    writing-mode: horizontal-tb;
+  }
+
+  .d-panel {
+    top: auto;
+    left: var(--space-2) !important;
+    right: var(--space-2) !important;
+    bottom: var(--space-2);
+    width: auto;
+    height: 54dvh;
+    transform: translateY(12px);
+  }
+  .d-panel[data-open="true"] { transform: translateY(0); }
+  .d-panel[data-compact="true"] { width: auto; }
+
+  .d-layers { max-height: 30%; }
+
+  .d-toolproject { display: none; }
+  .dm-statusbar { gap: var(--space-3); }
+  .dm-statusbar .d-coords { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .d-note, .d-panel, .d-chev, .d-edgetab { transition: none; }
+  .d-note-more, .d-note--teach { animation: none; }
+}
+</style>
+</head>
+<body class="dm">
+<div class="d-app">
+
+  <!-- ── Toolbar ─────────────────────────────────────────── -->
+  <header class="dm-toolbar">
+    <span class="dm-toolbar-title">Design review canvas</span>
+    <span class="d-toolproject">smalltools · landing review</span>
+    <div class="dm-toolbar-group" role="group" aria-label="Tools">
+      <button class="dm-btn dm-btn--quiet" id="tool-select" aria-pressed="true">Select</button>
+      <button class="dm-btn dm-btn--quiet" id="tool-circle" aria-pressed="false">Circle</button>
+      <button class="dm-btn dm-btn--quiet" id="tool-comment" aria-pressed="false">Comment</button>
+    </div>
+    <button class="dm-btn dm-btn--quiet" id="tool-learn" aria-pressed="false">Learn</button>
+    <span class="dm-toolbar-spacer"></span>
+    <button class="dm-btn">Import</button>
+    <button class="dm-btn dm-btn--quiet d-live" id="live-toggle" aria-pressed="false">
+      <span class="dm-dot" data-state="waiting"></span> Live
+    </button>
+  </header>
+
+  <!-- ── Main region ─────────────────────────────────────── -->
+  <div class="d-main">
+
+    <!-- Canvas -->
+    <div class="d-canvas" id="canvas">
+      <div class="d-stage" id="stage">
+
+        <!-- Frame 1 · Home 1440 -->
+        <div class="d-framewrap" style="left:48px; top:56px;">
+          <div class="d-framelabel">Home · / · 1440</div>
+          <div class="d-shot" data-sel="frame:f1" style="width:560px; height:350px;" aria-selected="false">
+            <div class="d-mock" style="font-size:8px;">
+              <div class="d-mel d-mnav" data-sel="element:f1-nav" style="left:0; top:0; width:100%; height:32px;">
+                <span class="d-mword" style="font-size:10px;">smalltools</span>
+                <span class="d-mlinks" style="font-size:7.5px;"><span>Shelf</span><span>Notes</span><span>About</span></span>
+              </div>
+              <div class="d-mel" data-sel="element:f1-hero" style="left:0; top:32px; width:100%; height:118px; padding:24px 20px 0; box-sizing:border-box;">
+                <div class="d-mh1" style="font-size:21px; max-width:520px;">Small tools for slow thinking</div>
+                <div class="d-msub" style="font-size:8.5px; margin-top:6px; max-width:300px;">A quiet shelf of single-purpose instruments. No feeds, no streaks, no noise.</div>
+                <span class="d-mbtn" style="font-size:8px; margin-top:9px;">Browse the shelf</span>
+              </div>
+              <div class="d-mel" data-sel="element:f1-cardrow" style="left:20px; top:196px; width:520px; height:118px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                <div class="d-mcard"><h4 style="font-size:9px;">Ledger</h4><p style="font-size:7.5px;">Every purchase, one honest line.</p></div>
+                <div class="d-mcard"><h4 style="font-size:9px;">Stopwatch</h4><p style="font-size:7.5px;">Time the work, not the worker.</p></div>
+                <div class="d-mcard"><h4 style="font-size:9px;">Margins</h4><p style="font-size:7.5px;">Notes that live beside the page.</p></div>
+              </div>
+            </div>
+            <!-- Mark #1 · circle on the hero -->
+            <button class="d-mark d-mark--circle" data-sel="mark:m1" aria-label="Annotation 1, circle mark on hero, open"
+                    style="left:12px; top:48px; width:314px; height:52px;" data-selected="false">
+              <span class="d-mark-ordinal">1</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Frame 2 · Pricing 1440 -->
+        <div class="d-framewrap" style="left:900px; top:56px;">
+          <div class="d-framelabel">Pricing · /pricing · 1440</div>
+          <div class="d-shot" data-sel="frame:f2" style="width:560px; height:350px;" aria-selected="false">
+            <div class="d-mock" style="font-size:8px;">
+              <div class="d-mel d-mnav" data-sel="element:f2-nav" style="left:0; top:0; width:100%; height:32px;">
+                <span class="d-mword" style="font-size:10px;">smalltools</span>
+                <span class="d-mlinks" style="font-size:7.5px;"><span>Shelf</span><span>Notes</span><span>About</span></span>
+              </div>
+              <div class="d-mel" data-sel="element:f2-heading" style="left:20px; top:52px; width:200px; height:30px;">
+                <div class="d-mh1" style="font-size:17px;">Pricing</div>
+              </div>
+              <div class="d-mel d-mcard" data-sel="element:f2-planfree" style="left:96px; top:104px; width:170px; height:190px; box-sizing:border-box;">
+                <h4 style="font-size:9px;">Free</h4>
+                <div class="d-mprice" style="font-size:14px; margin:6px 0 2px;">$0</div>
+                <p style="font-size:7.5px;">the shelf</p>
+              </div>
+              <div class="d-mel d-mcard" data-sel="element:f2-plankeep" style="left:294px; top:104px; width:170px; height:190px; box-sizing:border-box;">
+                <h4 style="font-size:9px;">Keep</h4>
+                <div class="d-mprice" style="font-size:14px; margin:6px 0 2px;">$4/mo</div>
+                <p style="font-size:7.5px;">your margins everywhere</p>
+                <span class="d-mbtn" style="font-size:7.5px; margin-top:10px;">Keep everything</span>
+              </div>
+            </div>
+            <!-- Mark #2 · element rect on plan-keep, resolved + stale -->
+            <button class="d-mark d-mark--element" data-sel="mark:m2" data-stale="true"
+                    aria-label="Annotation 2, element mark on Keep plan, resolved, stale"
+                    style="left:288px; top:98px; width:182px; height:202px;" data-selected="false">
+              <span class="d-mark-ordinal">2</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Frame 3 · Home 390 · rev 2 -->
+        <div class="d-framewrap" style="left:48px; top:500px;">
+          <div class="d-framelabel">Home · / · 390 <span class="d-rev">· rev 2</span></div>
+          <div class="d-shot" data-sel="frame:f3" style="width:200px; height:433px;" aria-selected="false">
+            <div class="d-mock" style="font-size:7.5px;">
+              <div class="d-mel d-mnav" data-sel="element:f3-nav" style="left:0; top:0; width:100%; height:26px; padding:0 12px;">
+                <span class="d-mword" style="font-size:9px;">smalltools</span>
+                <span class="d-mburger" aria-hidden="true"><i></i><i></i><i></i></span>
+              </div>
+              <div class="d-mel" data-sel="element:f3-hero" style="left:0; top:26px; width:100%; height:118px; padding:16px 12px 0; box-sizing:border-box;">
+                <div class="d-mh1" style="font-size:14px;">Small tools for slow thinking</div>
+                <div class="d-msub" style="font-size:7.5px; margin-top:5px;">A quiet shelf of single-purpose instruments.</div>
+                <span class="d-mbtn" style="font-size:7px; margin-top:8px;">Browse the shelf</span>
+              </div>
+              <div class="d-mel" data-sel="element:f3-cardstack" style="left:12px; top:158px; width:176px; height:250px; display:grid; gap:9px; align-content:start;">
+                <div class="d-mcard"><h4 style="font-size:8.5px;">Ledger</h4><p style="font-size:7px;">Every purchase, one honest line.</p></div>
+                <div class="d-mcard"><h4 style="font-size:8.5px;">Stopwatch</h4><p style="font-size:7px;">Time the work, not the worker.</p></div>
+                <div class="d-mcard"><h4 style="font-size:8.5px;">Margins</h4><p style="font-size:7px;">Notes that live beside the page.</p></div>
+              </div>
+            </div>
+            <!-- Mark #3 · comment pin on the card stack -->
+            <button class="d-mark d-mark--pin" data-sel="mark:m3"
+                    aria-label="Annotation 3, comment pin on card stack, draft"
+                    style="left:160px; top:166px;" data-selected="false">3</button>
+          </div>
+        </div>
+
+        <!-- ── Paper notes · rose annotation paper pinned beside their marks ── -->
+        <div class="d-note" id="note-m1" data-sel="mark:m1" style="left:648px; top:118px;" role="group" aria-label="Thread for annotation 1">
+          <span class="d-note-pin" aria-hidden="true"></span>
+          <div class="d-note-head"><span class="d-note-ord">#1</span> ◯ circle · <span style="color:var(--accent);">open</span></div>
+          <div class="dm-comment">
+            <div class="dm-comment-head"><span class="dm-comment-author">Ben</span><span class="dm-comment-time">2m</span></div>
+            <p class="dm-comment-body">Hero measure runs the full row. Cap it and let the cards carry the width.</p>
+          </div>
+          <div class="d-note-intent">
+            <button class="dm-chip" aria-pressed="true">distill</button>
+            <button class="dm-chip" aria-pressed="false">bolder</button>
+            <button class="dm-chip" aria-pressed="false">polish</button>
+          </div>
+          <div class="d-note-more">
+            <div class="d-agent-reply">
+              <span class="d-avatar" aria-hidden="true">FB</span>
+              <div style="display:flex; align-items:baseline; gap:6px;"><span class="d-candidate">Candidate</span><span class="d-prov">⌁ run r-142 · s-9 · 1m</span></div>
+              <p class="dm-comment-body" style="font-size:var(--text-sm); margin:0;">Proposed: measure capped at 60ch, cards move up 32px. Patch staged.</p>
+              <span class="d-routing" data-state="returned"><span class="dm-dot"></span> returned</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-note" id="note-m2" data-sel="mark:m2" data-stale="true" style="left:1480px; top:200px; width:220px;" role="group" aria-label="Thread for annotation 2">
+          <span class="d-note-pin" aria-hidden="true"></span>
+          <div class="d-note-head"><span class="d-note-ord">#2</span> ▢ element · stale · resolved ✓</div>
+          <div class="dm-comment">
+            <div class="dm-comment-head"><span class="dm-comment-author">Ben</span><span class="dm-comment-time">1h</span></div>
+            <p class="dm-comment-body">Both plans read the same weight. The paid one should feel like the object.</p>
+          </div>
+          <div class="d-note-more">
+            <div class="d-note-intent">
+              <button class="dm-chip" aria-pressed="false">distill</button>
+              <button class="dm-chip" aria-pressed="true">bolder</button>
+              <button class="dm-chip" aria-pressed="false">polish</button>
+            </div>
+            <p class="d-dispatch-hint" style="margin:8px 0 0;">Made against rev 1 · anchor is stale</p>
+          </div>
+        </div>
+
+        <div class="d-note" id="note-m3" data-sel="mark:m3" style="left:280px; top:640px; width:200px;" role="group" aria-label="Thread for annotation 3">
+          <span class="d-note-pin" aria-hidden="true"></span>
+          <div class="d-note-head"><span class="d-note-ord">#3</span> pin · draft</div>
+          <p class="d-note-draft" style="margin:0;">No instruction yet</p>
+          <div class="d-note-more">
+            <div class="d-note-intent">
+              <button class="dm-chip" aria-pressed="false">distill</button>
+              <button class="dm-chip" aria-pressed="false">bolder</button>
+              <button class="dm-chip" aria-pressed="false">polish</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Edge affordance · summons the panel ────────────── -->
+    <button class="d-edgetab" id="edgetab" aria-label="Open layers and aspects panel" aria-expanded="false">Aspects</button>
+
+    <!-- ── Summoned panel · layers + aspects ──────────────── -->
+    <aside class="d-panel" id="panel" data-open="false" data-side="right" data-compact="false" aria-label="Layers and aspects">
+      <div class="d-paneltop">
+        <span class="d-paneltop-sel" id="panel-sel">board</span>
+        <button class="d-panelclose" id="panel-close" aria-label="Close panel">✕</button>
+      </div>
+
+      <div class="d-panehead">Layers</div>
+      <div class="d-layers" id="layers" role="tree" aria-label="Layers"></div>
+
+      <div class="d-panehead">Aspects</div>
+      <div class="d-aspects" id="aspects">
+        <section class="d-sec" id="sec-selection">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-selection"><span class="d-chev">▾</span>Selection<span class="d-secmeta" id="meta-selection"></span></button>
+          <div class="d-secbody" id="body-selection"></div>
+        </section>
+        <section class="d-sec" id="sec-learn">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-learn"><span class="d-chev">▾</span>Learn<span class="d-secmeta" id="meta-learn"></span></button>
+          <div class="d-secbody" id="body-learn"></div>
+        </section>
+        <section class="d-sec" id="sec-layout">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-layout"><span class="d-chev">▾</span>Layout<span class="d-secmeta" id="meta-layout"></span></button>
+          <div class="d-secbody" id="body-layout"></div>
+        </section>
+        <section class="d-sec" id="sec-flex">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-flex"><span class="d-chev">▾</span>Flex<span class="d-secmeta" id="meta-flex"></span></button>
+          <div class="d-secbody" id="body-flex"></div>
+        </section>
+        <section class="d-sec" id="sec-radius">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-radius"><span class="d-chev">▾</span>Radius<span class="d-secmeta" id="meta-radius"></span></button>
+          <div class="d-secbody" id="body-radius"></div>
+        </section>
+        <section class="d-sec" id="sec-fill">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-fill"><span class="d-chev">▾</span>Fill<span class="d-secmeta" id="meta-fill"></span></button>
+          <div class="d-secbody" id="body-fill"></div>
+        </section>
+        <section class="d-sec" id="sec-border">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-border"><span class="d-chev">▾</span>Border<span class="d-secmeta" id="meta-border"></span></button>
+          <div class="d-secbody" id="body-border"></div>
+        </section>
+        <section class="d-sec" id="sec-type">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-type"><span class="d-chev">▾</span>Type<span class="d-secmeta" id="meta-type"></span></button>
+          <div class="d-secbody" id="body-type"></div>
+        </section>
+        <section class="d-sec" id="sec-capture">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-capture"><span class="d-chev">▾</span>Capture<span class="d-secmeta" id="meta-capture"></span></button>
+          <div class="d-secbody" id="body-capture"></div>
+        </section>
+        <section class="d-sec" id="sec-annotations">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-annotations"><span class="d-chev">▾</span>Annotations<span class="d-secmeta" id="meta-annotations"></span></button>
+          <div class="d-secbody" id="body-annotations" style="padding-left:var(--space-2);"></div>
+        </section>
+        <section class="d-sec" id="sec-dispatch">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-dispatch"><span class="d-chev">▾</span>Dispatch<span class="d-secmeta" id="meta-dispatch"></span></button>
+          <div class="d-secbody d-dispatch" id="body-dispatch"></div>
+        </section>
+        <section class="d-sec" id="sec-runs">
+          <button class="d-sechead" aria-expanded="true" aria-controls="body-runs"><span class="d-chev">▾</span>Runs<span class="d-secmeta">2</span></button>
+          <div class="d-secbody" id="body-runs">
+            <div class="d-run"><span class="dm-dot" data-state="done"></span><span class="d-runid">r-142 · fable</span><span class="d-rundetail">done · “measure patch staged”</span></div>
+            <div class="d-run"><span class="dm-dot" data-state="running"></span><span class="d-runid">r-143 · codex</span><span class="d-rundetail">running · “recapturing /pricing”</span></div>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ── Status bar ──────────────────────────────────────── -->
+  <footer class="dm-statusbar">
+    <span class="dm-mono">3 screens · 3 annotations</span>
+    <span class="dm-mono" id="status-sel">board</span>
+    <span class="dm-statusbar-end">
+      <span class="dm-mono d-coords" id="coords">x — · y —</span>
+      <span class="dm-mono">100%</span>
+      <span class="dm-badge" data-tone="ok">saved</span>
+      <span class="dm-badge" data-tone="muted">live off</span>
+    </span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Model ─────────────────────────────────────────────── */
+  var FRAMES = {
+    f1: { name: 'Home', route: '/', viewport: '1440×900', rev: 'rev 1', hash: 'c41f…9a', stale: 'current capture', els: 3, stage: { x: 48, y: 56, w: 560, h: 350 } },
+    f2: { name: 'Pricing', route: '/pricing', viewport: '1440×900', rev: 'rev 1', hash: '8be2…41', stale: 'current capture', els: 4, stage: { x: 900, y: 56, w: 560, h: 350 } },
+    f3: { name: 'Home', route: '/', viewport: '390×844', rev: 'rev 2', hash: 'f07a…d3', stale: 'recaptured 4m ago', els: 3, stage: { x: 48, y: 500, w: 200, h: 433 } }
+  };
+
+  /* Elements carry their own material: declared CSS, not abstract quads. */
+  var ELEMENTS = {
+    'f1-nav':      { frame: 'f1', label: 'nav',        role: 'navigation', glyph: '▢',
+      css: [['display','flex'],['align-items','center'],['height','64px'],['padding','0 40px'],['gap','28px'],['color','#17181a']] },
+    'f1-hero':     { frame: 'f1', label: 'hero',       role: 'region',     glyph: '▢',
+      css: [['display','flex'],['flex-direction','column'],['padding','48px 40px 0'],['gap','12px'],['font-size','42px'],['line-height','1.12'],['color','#101113'],['measure','uncapped · 100%']] },
+    'f1-cardrow':  { frame: 'f1', label: 'card-row',   role: 'list',       glyph: '▢',
+      css: [['display','grid'],['grid-template','repeat(3, 1fr)'],['gap','24px'],['width','1360px']] },
+    'f2-nav':      { frame: 'f2', label: 'nav',        role: 'navigation', glyph: '▢',
+      css: [['display','flex'],['align-items','center'],['height','64px'],['padding','0 40px'],['gap','28px'],['color','#17181a']] },
+    'f2-heading':  { frame: 'f2', label: 'heading',    role: 'heading',    glyph: '“',
+      css: [['font-size','34px'],['line-height','1.2'],['letter-spacing','-0.015em'],['margin','40px 0 24px'],['color','#101113']] },
+    'f2-planfree': { frame: 'f2', label: 'plan-free',  role: 'region',     glyph: '▢',
+      css: [['display','flex'],['flex-direction','column'],['gap','8px'],['padding','24px'],['border','1px solid #e6e4df'],['border-radius','14px'],['background','#ffffff']] },
+    'f2-plankeep': { frame: 'f2', label: 'plan-keep',  role: 'region',     glyph: '▢',
+      css: [['display','flex'],['flex-direction','column'],['gap','8px'],['padding','24px'],['border','1px solid #e6e4df'],['border-radius','14px'],['background','#ffffff']] },
+    'f3-nav':      { frame: 'f3', label: 'nav',        role: 'navigation', glyph: '▢',
+      css: [['display','flex'],['align-items','center'],['height','52px'],['padding','0 16px'],['color','#17181a']] },
+    'f3-hero':     { frame: 'f3', label: 'hero',       role: 'region',     glyph: '▢',
+      css: [['display','flex'],['flex-direction','column'],['padding','32px 16px 0'],['gap','10px'],['font-size','28px'],['line-height','1.15'],['color','#101113']] },
+    'f3-cardstack':{ frame: 'f3', label: 'card-stack', role: 'list',       glyph: '▢',
+      css: [['display','grid'],['grid-template','1 column'],['gap','12px'],['width','358px']] }
+  };
+
+  /* Paper inspector fixtures: Flex/Radius/Fill/Border/Type per element.
+     Layout (X/Y/W/H) is read live off the DOM as normalized % bounds —
+     see elementBoundsPct(). Fill/Border values stay the mock page's own
+     material (near-black ink, warm-white cards); never our tool tokens. */
+  var PAPER = {
+    'f1-nav':      { flex: { dir: 'row',    gap: '28px', pad: '0 40px', align: [1, 0] },
+      fill: [['bg', '#f8f4eb'], ['text', '#17181a']],
+      type: { size: '15px', leading: '20px', family: 'Inter', weight: '650' } },
+    'f1-hero':     { flex: { dir: 'column', gap: '12px', pad: '48px 40px 0', align: [0, 0] },
+      fill: [['bg', '#f8f4eb'], ['text', '#101113'], ['text-muted', '#6b6f76']],
+      type: { size: '42px', leading: '47px', family: 'Inter', weight: '650' } },
+    'f1-cardrow':  { radius: '7px',
+      fill: [['bg-raised', '#ffffff'], ['border', '#e6e4df']],
+      border: { width: '1px', name: 'border', value: '#e6e4df' } },
+    'f2-nav':      { flex: { dir: 'row',    gap: '28px', pad: '0 40px', align: [1, 0] },
+      fill: [['bg', '#f8f4eb'], ['text', '#17181a']],
+      type: { size: '15px', leading: '20px', family: 'Inter', weight: '650' } },
+    'f2-heading':  { fill: [['bg', '#f8f4eb'], ['text', '#101113']],
+      type: { size: '34px', leading: '41px', family: 'Inter', weight: '650' } },
+    'f2-planfree': { flex: { dir: 'column', gap: '8px', pad: '24px', align: [0, 0] }, radius: '14px',
+      fill: [['bg-raised', '#ffffff'], ['border', '#e6e4df'], ['text-muted', '#6b6f76']],
+      border: { width: '1px', name: 'border', value: '#e6e4df' } },
+    'f2-plankeep': { flex: { dir: 'column', gap: '8px', pad: '24px', align: [0, 0] }, radius: '14px',
+      fill: [['bg-raised', '#ffffff'], ['border', '#e6e4df'], ['accent', '#17181a']],
+      border: { width: '1px', name: 'border', value: '#e6e4df' } },
+    'f3-nav':      { flex: { dir: 'row',    gap: '—', pad: '0 16px', align: [1, 0] },
+      fill: [['bg', '#f8f4eb'], ['text', '#17181a']],
+      type: { size: '14px', leading: '18px', family: 'Inter', weight: '650' } },
+    'f3-hero':     { flex: { dir: 'column', gap: '10px', pad: '32px 16px 0', align: [0, 0] },
+      fill: [['bg', '#f8f4eb'], ['text', '#101113'], ['text-muted', '#6b6f76']],
+      type: { size: '28px', leading: '32px', family: 'Inter', weight: '650' } },
+    'f3-cardstack':{ radius: '7px',
+      fill: [['bg-raised', '#ffffff'], ['border', '#e6e4df']],
+      border: { width: '1px', name: 'border', value: '#e6e4df' } }
+  };
+
+  /* Learn fixtures: anatomy tree, the working term, why, one canned Ask. */
+  var LEARN = {
+    'f1-nav': { term: 'baseline alignment',
+      anatomy: 'nav = flex row · align-center · gap 28\n├ wordmark  "smalltools"\n└ links ×3 · quiet',
+      why: 'Wordmark and links share one baseline, so the bar reads as a single quiet line rather than stacked objects.',
+      q: 'Why does the nav feel lighter than the hero?',
+      a: 'It spends no weight: regular-weight links, no fills, one hairline of space. Weight is saved for the headline below.' },
+    'f1-hero': { term: 'measure',
+      anatomy: 'hero = flex column · gap 12\n├ h1  42px / 1.12\n├ sub  muted · 300px cap\n└ button  solid ink',
+      why: 'The headline runs the container’s full width, past a comfortable reading measure, so the eye tracks instead of resting.',
+      q: 'What would capping the measure change?',
+      a: 'Capped at 60ch the headline holds as one shape, the ragged edge pulls in, and the card row beneath gets the full width to itself.' },
+    'f1-cardrow': { term: 'lattice',
+      anatomy: 'card-row = grid · 3 × 1fr · gap 24\n└ card ×3 = title > support',
+      why: 'Three equal columns on a 24px gutter set one repeating rhythm; nothing competes inside it.',
+      q: 'Why do equal columns read calmer than sized ones?',
+      a: 'Equal tracks remove a decision per card; the eye meters one interval and reuses it, so the row scans as texture, not three objects.' },
+    'f2-nav': { term: 'consistency',
+      anatomy: 'nav = flex row · align-center · gap 28\n├ wordmark  "smalltools"\n└ links ×3 · quiet',
+      why: 'Identical to the home nav, so a route change costs no re-orientation.',
+      q: 'Should pricing get its own nav state?',
+      a: 'Only an active-link marker. Anything louder makes chrome compete with the plans, which are this page’s object.' },
+    'f2-heading': { term: 'tracking',
+      anatomy: 'heading = h1 · 34px / 1.2\n└ tracking −0.015em',
+      why: 'At display size the negative tracking closes the loose letterfit type inherits from text sizes.',
+      q: 'Why tighten tracking as size grows?',
+      a: 'Letterfit is designed for text sizes; scaled up, the same spacing reads airy. Tightening restores the word as one shape.' },
+    'f2-planfree': { term: 'value',
+      anatomy: 'plan-free = flex column · gap 8\n├ title  "Free"\n├ price  $0 · 28px\n└ support  one line',
+      why: 'All hairlines and quiet ink: the card holds shape with borders alone, keeping its value near the paper.',
+      q: 'Why does Free read like background?',
+      a: 'No fills, no button: nothing interrupts the paper value. It frames the paid plan by contrast instead of competing with it.' },
+    'f2-plankeep': { term: 'visual weight',
+      anatomy: 'plan-keep = flex column · gap 8\n├ title  "Keep"\n├ price  $4/mo · 28px\n├ support  one line\n└ button  solid ink',
+      why: 'The solid button is the only filled block in the column, so mass gathers here and the card reads heavier.',
+      q: 'Why does this card read heavier than the others?',
+      a: 'Its button is the one solid ink block on the page. Fill carries more visual weight than any border can, so the paid plan becomes the object — which is the intent.' },
+    'f3-nav': { term: 'affordance',
+      anatomy: 'nav = flex row · 52px\n├ wordmark\n└ menu glyph ☰',
+      why: 'The three-line glyph stands in for the link row; it promises the menu without spending width.',
+      q: 'Why collapse links to a glyph at 390?',
+      a: 'Three links at tap size would eat the viewport’s only line. The glyph keeps the promise and returns the width to the headline.' },
+    'f3-hero': { term: 'leading',
+      anatomy: 'hero = flex column · gap 10\n├ h1  28px / 1.15\n├ sub  muted\n└ button',
+      why: 'At 28px over a narrow column, 1.15 leading keeps three-line wraps from opening into stripes.',
+      q: 'Why tighter leading on mobile?',
+      a: 'Short lines wrap more; looser leading would separate the wraps into separate thoughts. Tight leading holds the headline as one block.' },
+    'f3-cardstack': { term: 'gutter',
+      anatomy: 'card-stack = grid · 1 col · gap 12\n└ card ×3',
+      why: 'A 12px vertical gutter meters the stack; each card lands on the same beat.',
+      q: 'Why shrink the gap from 24 to 12?',
+      a: 'The row’s 24px separated columns; the stack only needs enough to see the seam. At 12 the three cards read as one shelf.' }
+  };
+
+  var MARKS = {
+    m1: { n: 1, frame: 'f1', element: 'f1-hero',      kind: '◯ circle',  state: 'open',     stale: false, intent: 'distill', routing: 'returned',
+          excerpt: 'Hero measure runs the full row…' },
+    m2: { n: 2, frame: 'f2', element: 'f2-plankeep',  kind: '▢ element', state: 'resolved', stale: true,  intent: 'bolder',  routing: null,
+          excerpt: 'Both plans read the same weight…' },
+    m3: { n: 3, frame: 'f3', element: 'f3-cardstack', kind: 'pin',       state: 'draft',    stale: false, intent: null,      routing: null,
+          excerpt: 'No instruction yet' }
+  };
+
+  /* ── Layers tree (built once) ──────────────────────────── */
+  var TREE = [
+    { kind: 'board', id: 'board', depth: 0, glyph: '▣', name: 'Board — smalltools' },
+    { kind: 'frame', id: 'f1', depth: 1, glyph: '▣', name: 'Home · / · 1440' },
+    { kind: 'element', id: 'f1-nav', depth: 2 }, { kind: 'element', id: 'f1-hero', depth: 2 },
+    { kind: 'mark', id: 'm1', depth: 3 },
+    { kind: 'element', id: 'f1-cardrow', depth: 2 },
+    { kind: 'frame', id: 'f2', depth: 1, glyph: '▣', name: 'Pricing · /pricing · 1440' },
+    { kind: 'element', id: 'f2-nav', depth: 2 }, { kind: 'element', id: 'f2-heading', depth: 2 },
+    { kind: 'element', id: 'f2-planfree', depth: 2 }, { kind: 'element', id: 'f2-plankeep', depth: 2 },
+    { kind: 'mark', id: 'm2', depth: 3 },
+    { kind: 'frame', id: 'f3', depth: 1, glyph: '▣', name: 'Home · / · 390 · rev 2' },
+    { kind: 'element', id: 'f3-nav', depth: 2 }, { kind: 'element', id: 'f3-hero', depth: 2 },
+    { kind: 'element', id: 'f3-cardstack', depth: 2 },
+    { kind: 'mark', id: 'm3', depth: 3 }
+  ];
+
+  var layersEl = document.getElementById('layers');
+  var EYE = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 6s2-3.4 5-3.4S11 6 11 6s-2 3.4-5 3.4S1 6 1 6Z" stroke="currentColor" stroke-width="1.1"/><circle cx="6" cy="6" r="1.5" stroke="currentColor" stroke-width="1.1"/></svg>';
+  var EYE_OFF = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 6s2-3.4 5-3.4S11 6 11 6s-2 3.4-5 3.4S1 6 1 6Z" stroke="currentColor" stroke-width="1.1"/><path d="M2 10 10 2" stroke="currentColor" stroke-width="1.1"/></svg>';
+
+  TREE.forEach(function (node) {
+    var row = document.createElement('div');
+    row.className = 'd-trow';
+    row.setAttribute('role', 'treeitem');
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('aria-selected', 'false');
+    row.dataset.kind = node.kind;
+    row.dataset.id = node.id;
+    row.style.paddingLeft = (8 + node.depth * 14) + 'px';
+
+    var glyph, name, mark;
+    if (node.kind === 'mark') {
+      mark = MARKS[node.id];
+      glyph = String(mark.n);
+      name = mark.kind + (mark.stale ? ' · stale' : '') + ' · ' + mark.state;
+    } else if (node.kind === 'element') {
+      glyph = ELEMENTS[node.id].glyph;
+      name = ELEMENTS[node.id].label;
+    } else {
+      glyph = node.glyph; name = node.name;
+    }
+
+    var g = document.createElement('span');
+    g.className = 'd-tglyph';
+    g.textContent = glyph;
+    if (node.kind === 'mark') {
+      if (MARKS[node.id].stale) { g.setAttribute('data-stale', ''); } else { g.setAttribute('data-mark', ''); }
+    }
+    row.appendChild(g);
+
+    var n = document.createElement('span');
+    n.className = 'd-tname';
+    n.textContent = name;
+    row.appendChild(n);
+
+    if (node.kind !== 'board') {
+      var eye = document.createElement('button');
+      eye.className = 'd-teye';
+      eye.setAttribute('aria-pressed', 'false');
+      eye.setAttribute('aria-label', 'Toggle visibility of ' + name);
+      eye.innerHTML = EYE;
+      eye.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var off = eye.getAttribute('aria-pressed') !== 'true';
+        eye.setAttribute('aria-pressed', String(off));
+        eye.innerHTML = off ? EYE_OFF : EYE;
+        row.classList.toggle('is-off', off);
+        setVisibility(node.kind, node.id, !off);
+      });
+      row.appendChild(eye);
+    }
+
+    row.addEventListener('click', function () { select(node.kind === 'board' ? null : node.kind, node.id); });
+    row.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(node.kind === 'board' ? null : node.kind, node.id); }
+    });
+    layersEl.appendChild(row);
+  });
+
+  function setVisibility(kind, id, visible) {
+    var v = visible ? '' : 'hidden';
+    if (kind === 'frame') {
+      var shot = document.querySelector('[data-sel="frame:' + id + '"]');
+      if (shot) shot.parentElement.style.visibility = v;
+    } else if (kind === 'element') {
+      var el = document.querySelector('[data-sel="element:' + id + '"]');
+      if (el) el.style.visibility = v;
+    } else if (kind === 'mark') {
+      var m = document.querySelector('.d-mark[data-sel="mark:' + id + '"]');
+      var note = document.getElementById('note-' + id);
+      if (m) m.style.visibility = v;
+      if (note) note.style.visibility = v;
+    }
+  }
+
+  /* ── Aspect sections ───────────────────────────────────── */
+  var SECS = ['selection', 'learn', 'layout', 'flex', 'radius', 'fill', 'border', 'type', 'capture', 'annotations', 'dispatch', 'runs'];
+  SECS.forEach(function (s) {
+    var head = document.querySelector('#sec-' + s + ' .d-sechead');
+    head.addEventListener('click', function () {
+      var open = head.getAttribute('aria-expanded') === 'true';
+      head.setAttribute('aria-expanded', String(!open));
+      document.getElementById('sec-' + s).setAttribute('data-collapsed', String(open));
+    });
+  });
+
+  function kv(pairs) {
+    return '<dl class="d-kv">' + pairs.map(function (p) {
+      return '<dt>' + p[0] + '</dt><dd' + (p[2] ? ' class="d-mono"' : '') + '>' + p[1] + '</dd>';
+    }).join('') + '</dl>';
+  }
+
+  /* ── Paper inspector anatomy · Layout/Flex/Radius/Fill/Border/Type ── */
+  function layoutBody(x, y, w, h) {
+    return '<div class="d-wellgrid">' +
+      '<div class="d-well"><b>X</b><span>' + x + '</span></div>' +
+      '<div class="d-well"><b>Y</b><span>' + y + '</span></div>' +
+      '<div class="d-well"><b>W</b><span>' + w + '</span></div>' +
+      '<div class="d-well"><b>H</b><span>' + h + '</span></div>' +
+      '</div>' +
+      '<div class="d-well d-well--full" style="margin-top:0;"><b>Rotation</b><span>0°</span></div>';
+  }
+
+  /* Element bounds read live off the DOM as % of the parent frame — the
+     product's own normalized geometry, not a fixture duplicate. */
+  function elementBoundsPct(id) {
+    var el = document.querySelector('[data-sel="element:' + id + '"]');
+    var shot = document.querySelector('[data-sel="frame:' + ELEMENTS[id].frame + '"]');
+    if (!el || !shot) return ['—', '—', '—', '—'];
+    var er = el.getBoundingClientRect(), fr = shot.getBoundingClientRect();
+    var pct = function (n, d) { return d ? (100 * n / d).toFixed(1) + '%' : '—'; };
+    return [pct(er.left - fr.left, fr.width), pct(er.top - fr.top, fr.height), pct(er.width, fr.width), pct(er.height, fr.height)];
+  }
+
+  function align3x3(pos) {
+    var cells = '';
+    for (var r = 0; r < 3; r++) {
+      for (var c = 0; c < 3; c++) {
+        cells += '<i class="' + (r === pos[0] && c === pos[1] ? 'is-active' : '') + '"></i>';
+      }
+    }
+    return '<div class="d-align" aria-hidden="true">' + cells + '</div>';
+  }
+
+  function flexBody(f) {
+    return '<div class="d-flexrow">' +
+        '<span class="d-flexdir" aria-hidden="true">' + (f.dir === 'row' ? '→' : '↓') + '</span>' +
+        '<div class="d-well"><b>gap</b><span>' + f.gap + '</span></div>' +
+      '</div>' +
+      '<div class="d-well d-well--full" style="margin-top:0; margin-bottom:var(--space-2);"><b>padding</b><span>' + f.pad + '</span></div>' +
+      align3x3(f.align);
+  }
+
+  function radiusBody(r) {
+    return '<div class="d-well"><b>radius</b><span>' + r + '</span></div>';
+  }
+
+  function tokRows(rows) {
+    return '<div class="d-toklist">' + rows.map(function (row) {
+      return '<div class="d-tokrow"><span class="d-tokswatch" style="background:' + row[1] + ';"></span><span class="d-tokname">' + row[0] + '</span><span class="d-tokval">' + row[1] + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function borderBody(b) {
+    return '<div class="d-well d-well--full" style="margin-top:0; margin-bottom:var(--space-2);"><b>width</b><span>' + b.width + '</span></div>' +
+      tokRows([[b.name, b.value]]);
+  }
+
+  function typeBody(t) {
+    return '<div class="d-well d-well--full" style="margin-top:0; margin-bottom:var(--space-2);"><b>size / leading</b><span>' + t.size + ' / ' + t.leading + '</span></div>' +
+      '<div class="d-css"><dt>family</dt><dd>' + t.family + '</dd><dt>weight</dt><dd>' + t.weight + '</dd></div>';
+  }
+
+  function annRow(id) {
+    var m = MARKS[id];
+    var selected = (sel && sel.kind === 'mark' && sel.id === id);
+    return '<button class="d-ann" data-ann="' + id + '" aria-selected="' + selected + '"' + (m.stale ? ' data-stale="true"' : '') + '>' +
+      '<span class="d-ann-ord">' + m.n + '</span>' +
+      '<span class="d-ann-kind">' + m.kind + (m.stale ? ' · stale' : '') + '</span>' +
+      '<span class="dm-badge" data-tone="' + (m.state === 'open' ? 'info' : 'muted') + '" style="font-size:10px;">' + m.state + '</span>' +
+      '<span class="d-ann-ex">' + m.excerpt + '</span></button>';
+  }
+
+  function annList(ids) {
+    if (!ids.length) return '<span class="d-dispatch-hint">No annotations</span>';
+    return ids.map(annRow).join('');
+  }
+
+  function chips(active) {
+    return '<div class="d-chips">' + ['distill', 'bolder', 'polish'].map(function (c) {
+      return '<button class="dm-chip" aria-pressed="' + (c === active) + '">' + c + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function setSec(name, visible, meta, html) {
+    var sec = document.getElementById('sec-' + name);
+    sec.hidden = !visible;
+    if (!visible) return;
+    document.getElementById('meta-' + name).textContent = meta || '';
+    if (html != null) document.getElementById('body-' + name).innerHTML = html;
+  }
+
+  function marksOnFrame(fid) {
+    return Object.keys(MARKS).filter(function (k) { return MARKS[k].frame === fid; });
+  }
+
+  function learnBody(id) {
+    var L = LEARN[id];
+    if (!L) return '';
+    var asked = TAUGHT[id];
+    var ask = asked
+      ? '<button class="d-ask" disabled><b>Asked</b> · answer pinned to the canvas ⌁</button>'
+      : '<button class="d-ask" id="ask-btn" data-el="' + id + '"><b>Ask</b> · ' + L.q + '</button>';
+    return '<pre class="d-anatomy">' + L.anatomy + '</pre>' +
+      '<div class="d-term"><b>' + L.term + '</b><span>the term doing the work</span></div>' +
+      '<p class="d-why">' + L.why + '</p>' + ask;
+  }
+
+  function renderAspects() {
+    if (!sel) {
+      setSec('selection', true, 'board', kv([
+        ['Project', 'smalltools — landing review'],
+        ['Screens', '3'],
+        ['Theme', 'light']
+      ]));
+      setSec('learn', false);
+      setSec('layout', false); setSec('flex', false); setSec('radius', false);
+      setSec('fill', false); setSec('border', false); setSec('type', false);
+      setSec('capture', true, '', kv([
+        ['Source', 'localhost:5173', true],
+        ['Last', '4m ago'],
+        ['Live', 'off']
+      ]));
+      setSec('annotations', true, '3', annList(['m1', 'm2', 'm3']));
+      setSec('dispatch', false);
+    } else if (sel.kind === 'frame') {
+      var f = FRAMES[sel.id];
+      setSec('selection', true, 'frame', kv([
+        ['Name', f.name],
+        ['Route', f.route, true],
+        ['Viewport', f.viewport, true],
+        ['Revision', f.rev]
+      ]));
+      setSec('learn', false);
+      setSec('layout', true, 'px', layoutBody(f.stage.x, f.stage.y, f.viewport.split('×')[0], f.viewport.split('×')[1]));
+      setSec('flex', false); setSec('radius', false); setSec('fill', false); setSec('border', false); setSec('type', false);
+      setSec('capture', true, '', kv([
+        ['Hash', f.hash, true],
+        ['Staleness', f.stale],
+        ['Elements', String(f.els)]
+      ]));
+      var fm = marksOnFrame(sel.id);
+      setSec('annotations', true, String(fm.length), annList(fm));
+      setSec('dispatch', false);
+    } else if (sel.kind === 'element') {
+      var e = ELEMENTS[sel.id];
+      var pf = FRAMES[e.frame];
+      var P = PAPER[sel.id] || {};
+      setSec('selection', true, 'element', kv([
+        ['Label', e.label],
+        ['Role', e.role],
+        ['Frame', pf.name + ' · ' + pf.route]
+      ]));
+      setSec('learn', learnOn, learnOn ? LEARN[sel.id].term : '', learnOn ? learnBody(sel.id) : null);
+      var b = elementBoundsPct(sel.id);
+      setSec('layout', true, '%', layoutBody(b[0], b[1], b[2], b[3]));
+      setSec('flex', !!P.flex, P.flex ? P.flex.dir : '', P.flex ? flexBody(P.flex) : null);
+      setSec('radius', !!P.radius, P.radius || '', P.radius ? radiusBody(P.radius) : null);
+      setSec('fill', !!P.fill, P.fill ? String(P.fill.length) : '', P.fill ? tokRows(P.fill) : null);
+      setSec('border', !!P.border, P.border ? P.border.width : '', P.border ? borderBody(P.border) : null);
+      setSec('type', !!P.type, P.type ? P.type.size : '', P.type ? typeBody(P.type) : null);
+      setSec('capture', false);
+      var em = Object.keys(MARKS).filter(function (k) { return MARKS[k].element === sel.id; });
+      setSec('annotations', true, String(em.length), annList(em));
+      setSec('dispatch', false);
+    } else if (sel.kind === 'mark') {
+      var m = MARKS[sel.id];
+      var host = ELEMENTS[m.element];
+      setSec('selection', true, 'annotation', kv([
+        ['Mark', '#' + m.n + ' · ' + m.kind + (m.stale ? ' · stale' : '')],
+        ['State', m.state],
+        ['Anchor', FRAMES[m.frame].name + ' · ' + host.label]
+      ]) + chips(m.intent));
+      setSec('learn', false);
+      setSec('layout', false); setSec('flex', false); setSec('radius', false);
+      setSec('fill', false); setSec('border', false); setSec('type', false);
+      setSec('capture', false);
+      setSec('annotations', true, '3', annList(['m1', 'm2', 'm3']));
+      var routing = m.routing
+        ? '<span class="d-routing" data-state="' + m.routing + '"><span class="dm-dot"></span> ' + m.routing + '</span>'
+        : '<span class="d-routing"><span class="dm-dot"></span> not routed</span>';
+      var action;
+      if (m.state === 'resolved') action = '<span class="d-dispatch-hint">Resolved — nothing to dispatch</span>';
+      else if (!m.intent) action = '<button class="dm-btn" disabled>Hand to agent →</button><span class="d-dispatch-hint">No instruction yet</span>';
+      else action = '<button class="dm-btn dm-btn--primary">Hand to agent →</button>';
+      setSec('dispatch', true, '', routing + action);
+    }
+    // compact list rows select their annotation
+    Array.prototype.forEach.call(document.querySelectorAll('.d-ann'), function (btn) {
+      btn.addEventListener('click', function () { select('mark', btn.dataset.ann); });
+    });
+    // the one canned Ask
+    var askBtn = document.getElementById('ask-btn');
+    if (askBtn) {
+      askBtn.addEventListener('click', function () { teach(askBtn.dataset.el); });
+    }
+    // panel top label
+    document.getElementById('panel-sel').textContent = selLabel();
+  }
+
+  /* ── Teach notes · anchored answers on the canvas ──────── */
+  var TAUGHT = {};
+
+  function teach(id) {
+    if (TAUGHT[id]) return;
+    TAUGHT[id] = true;
+    var L = LEARN[id];
+    var elNode = document.querySelector('[data-sel="element:' + id + '"]');
+    var note = document.createElement('div');
+    note.className = 'd-note d-note--teach';
+    note.id = 'teach-' + id;
+    note.setAttribute('role', 'group');
+    note.setAttribute('aria-label', 'Teach note for ' + ELEMENTS[id].label);
+    note.innerHTML =
+      '<span class="d-note-pin" aria-hidden="true"></span>' +
+      '<div class="d-note-head"><span class="d-note-ord">⌁ teach</span> · ' + ELEMENTS[id].label + '</div>' +
+      '<div class="dm-comment">' +
+        '<div class="dm-comment-head"><span class="dm-comment-author">Ben</span><span class="dm-comment-time">now</span></div>' +
+        '<p class="dm-comment-body">' + L.q + '</p>' +
+      '</div>' +
+      '<div class="d-agent-reply" style="margin-top:10px;">' +
+        '<span class="d-avatar" aria-hidden="true">FB</span>' +
+        '<span class="d-prov">⌁ run r-142 · teach · now</span>' +
+        '<p class="dm-comment-body" style="font-size:var(--text-sm); margin:0;">' + L.a + '</p>' +
+      '</div>';
+    // anchor beside the element, in stage coordinates
+    var stageRect = stage.getBoundingClientRect();
+    var r = elNode.getBoundingClientRect();
+    var left = Math.min(r.right - stageRect.left + 24, 1780 - 264);
+    var top = Math.max(r.top - stageRect.top - 4, 12);
+    note.style.left = left + 'px';
+    note.style.top = top + 'px';
+    note.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      select('element', id);
+    });
+    stage.appendChild(note);
+    renderAspects();
+  }
+
+  /* ── Summoned panel · open, dodge, dissolve ────────────── */
+  var panel = document.getElementById('panel');
+  var edgetab = document.getElementById('edgetab');
+  var panelOpen = false;
+  var PANEL_ZONE = 344;   /* panel width + margins, the side it occupies */
+  var mqMobile = window.matchMedia('(max-width: 640px)');
+
+  function setPanel(open) {
+    panelOpen = open;
+    panel.setAttribute('data-open', String(open));
+    edgetab.setAttribute('data-hidden', String(open));
+    edgetab.setAttribute('aria-expanded', String(open));
+  }
+
+  function selNode() {
+    if (!sel) return null;
+    if (sel.kind === 'frame') return document.querySelector('[data-sel="frame:' + sel.id + '"]');
+    if (sel.kind === 'element') return document.querySelector('[data-sel="element:' + sel.id + '"]');
+    return document.querySelector('.d-mark[data-sel="mark:' + sel.id + '"]');
+  }
+
+  /* The panel never covers the selection: flip sides, shrink if
+     both sides are occupied; on mobile, shift the object clear
+     of the bottom sheet instead. */
+  function dodge() {
+    var node = selNode();
+    if (mqMobile.matches) {
+      if (node && panelOpen) {
+        var cRect = canvas.getBoundingClientRect();
+        var nRect = node.getBoundingClientRect();
+        var sheetTop = window.innerHeight - window.innerHeight * 0.54 - 36;
+        if (nRect.bottom > sheetTop) {
+          canvas.scrollTop += (nRect.top - cRect.top) - 60;
+        }
+      }
+      return;
+    }
+    if (!node) { panel.setAttribute('data-side', 'right'); panel.setAttribute('data-compact', 'false'); return; }
+    var r = node.getBoundingClientRect();
+    var w = window.innerWidth;
+    var hitsRight = r.right > (w - PANEL_ZONE);
+    var hitsLeft = r.left < PANEL_ZONE;
+    var side = 'right', compact = false;
+    if (hitsRight && !hitsLeft) side = 'left';
+    else if (hitsRight && hitsLeft) {
+      var overRight = r.right - (w - PANEL_ZONE);
+      var overLeft = PANEL_ZONE - r.left;
+      side = overRight > overLeft ? 'left' : 'right';
+      compact = true;
+    }
+    panel.setAttribute('data-side', side);
+    panel.setAttribute('data-compact', String(compact));
+  }
+
+  edgetab.addEventListener('click', function () {
+    setPanel(true);
+    renderAspects();
+    dodge();
+  });
+  document.getElementById('panel-close').addEventListener('click', function () { setPanel(false); });
+
+  /* ── Selection model ───────────────────────────────────── */
+  var sel = null;
+  var learnOn = false;
+
+  function selLabel() {
+    if (!sel) return 'board';
+    if (sel.kind === 'frame') return FRAMES[sel.id].name + ' · ' + FRAMES[sel.id].route;
+    if (sel.kind === 'element') return ELEMENTS[sel.id].label;
+    return 'mark #' + MARKS[sel.id].n;
+  }
+
+  function select(kind, id) {
+    sel = kind ? { kind: kind, id: id } : null;
+
+    // canvas rings
+    Array.prototype.forEach.call(document.querySelectorAll('.d-shot'), function (s) {
+      s.setAttribute('aria-selected', String(!!sel && sel.kind === 'frame' && s.dataset.sel === 'frame:' + sel.id));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.d-mel'), function (el) {
+      el.setAttribute('data-selected', String(!!sel && sel.kind === 'element' && el.dataset.sel === 'element:' + sel.id));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.d-mark'), function (mk) {
+      mk.setAttribute('data-selected', String(!!sel && sel.kind === 'mark' && mk.dataset.sel === 'mark:' + sel.id));
+    });
+
+    // paper notes focus
+    Array.prototype.forEach.call(document.querySelectorAll('.d-note[data-sel]'), function (note) {
+      note.classList.toggle('is-focused', !!sel && sel.kind === 'mark' && note.dataset.sel === 'mark:' + sel.id);
+    });
+
+    // tree rows
+    Array.prototype.forEach.call(layersEl.children, function (row) {
+      var match = sel ? (row.dataset.kind === sel.kind && row.dataset.id === sel.id)
+                      : (row.dataset.kind === 'board');
+      row.setAttribute('aria-selected', String(match));
+    });
+
+    // status line
+    document.getElementById('status-sel').textContent = selLabel();
+
+    // the panel is summoned by selection, dissolved by emptiness
+    if (sel) { setPanel(true); } else { setPanel(false); }
+
+    renderAspects();
+    dodge();
+  }
+
+  /* ── Canvas wiring ─────────────────────────────────────── */
+  Array.prototype.forEach.call(document.querySelectorAll('.d-shot'), function (shot) {
+    shot.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      select('frame', shot.dataset.sel.split(':')[1]);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.d-mel'), function (el) {
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      select('element', el.dataset.sel.split(':')[1]);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.d-mark'), function (mk) {
+    mk.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      select('mark', mk.dataset.sel.split(':')[1]);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.d-note[data-sel]'), function (note) {
+    note.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      select('mark', note.dataset.sel.split(':')[1]);
+    });
+  });
+
+  var canvas = document.getElementById('canvas');
+  canvas.addEventListener('click', function () { select(null); });
+
+  // crosshair readout
+  var stage = document.getElementById('stage');
+  var coords = document.getElementById('coords');
+  stage.addEventListener('mousemove', function (ev) {
+    var r = stage.getBoundingClientRect();
+    coords.textContent = 'x ' + Math.round(ev.clientX - r.left) + ' · y ' + Math.round(ev.clientY - r.top);
+  });
+  stage.addEventListener('mouseleave', function () { coords.textContent = 'x — · y —'; });
+
+  /* ── Toolbar tools ─────────────────────────────────────── */
+  var tools = ['tool-select', 'tool-circle', 'tool-comment'].map(function (id) { return document.getElementById(id); });
+  tools.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      tools.forEach(function (b) { b.setAttribute('aria-pressed', String(b === btn)); });
+    });
+  });
+
+  var learnBtn = document.getElementById('tool-learn');
+  learnBtn.addEventListener('click', function () {
+    learnOn = !learnOn;
+    learnBtn.setAttribute('aria-pressed', String(learnOn));
+    document.body.classList.toggle('is-learn', learnOn);
+    if (panelOpen) renderAspects();
+  });
+
+  var live = document.getElementById('live-toggle');
+  live.addEventListener('click', function () {
+    var on = live.getAttribute('aria-pressed') !== 'true';
+    live.setAttribute('aria-pressed', String(on));
+    live.querySelector('.dm-dot').setAttribute('data-state', on ? 'running' : 'waiting');
+  });
+
+  /* ── Escape dissolves ──────────────────────────────────── */
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') select(null);
+  });
+
+  /* ── Boot: nothing selected, panel folded away ─────────── */
+  select(null);
+})();
+</script>
+</body>
+</html>

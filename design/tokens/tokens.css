@@ -1,0 +1,292 @@
+/* ============================================================
+   DESIGNMODE  ·  Foundations                    Articulate-labeled
+   A local design review canvas: captured screens sit on a cool
+   blue-gray drafting ground, the reviewer marks them, agents pick
+   the marks up and work. The chrome is white island material over
+   the field, and every hue in the tool has exactly one job:
+
+     violet = the working signal (selection, pressed, focus)
+     coral  = annotation material (marks, threads, review ink)
+     teal   = teach material (learn lens, anchored explanations)
+     green  = run state (dots and run words only)
+
+   Materials read apart BY HUE, not by tints of one neutral. The
+   captured screens keep their own palette; the tool never colors
+   them. Register: product tool, web platform. Two type registers:
+   the system UI sans and the system mono (ids, code, frame names).
+
+   Token contract: this set is a strict superset of the variable
+   seam in the product's src/app/app.css. Every seam name resolves
+   here (--ink, --surface, --canvas, --border, --accent, --mark,
+   --danger*, --warn*, --ok*, --info*, --radius-control,
+   --radius-panel, --shadow-panel); the product adopts the system
+   by swapping :root values, no renames.
+
+   Contrast: every text token below is verified >= 4.5:1 (WCAG AA)
+   against every ground it sits on, small meta text included; the
+   ratio is annotated where the pair is non-obvious. Non-text UI
+   strokes (marks, dots, rings) hold >= 3:1.
+
+   Vocabulary (index.how/to/articulate): VALUE = light-dark position
+   on the ramp; SIGNAL = the one working accent; TINT/WASH = a
+   low-chroma alpha fill; LEADING = line spacing; TRACKING =
+   letter-spacing; EASING = the acceleration curve of a move.
+   ============================================================ */
+
+/* ── Semantic aliases · LIGHT (the authored base) ─────────────── */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* ── Color · Cool ink ramp ──────────────────────────────────
+     Text by function, never by appearance. Cool near-black family
+     over the blue-gray field. */
+  --ink:           #171a21;   /* primary text · 14.9:1 on canvas */
+  --ink-secondary: #444a5a;   /* support lines, panel body · 7.6:1 on canvas */
+  --ink-muted:     #565e70;   /* captions, meta · 5.6:1 on canvas, 5.8:1 on both papers */
+  --ink-faint:     #565e70;   /* faint carries small glyphs, so it is held at muted */
+
+  /* ── Color · Grounds ────────────────────────────────────────
+     The field and the island material. Islands are cool white
+     one value step above the blue-gray ground. */
+  --canvas:         #eaedf4;  /* the drafting ground behind frames · 240-ish hue, low chroma */
+  --surface:        #ffffff;  /* island material: toolbar, panels, dialogs */
+  --surface-sunken: #eef1f6;  /* chip ground, wells, inset fills */
+  --surface-hover:  #f2f4f9;  /* row hover wash */
+
+  /* ── Color · Edges ──────────────────────────────────────────
+     Hairlines belong to physical objects and graspable controls only. */
+  --border:         #dce0ea;  /* island edge, frame edge, dialog edge */
+  --border-control: #d3d8e4;  /* input and button edge */
+  --border-strong:  #c4cad9;  /* control edge on hover */
+  --hairline:       #e7eaf1;  /* dividers inside islands */
+
+  /* ── Color · Inspector wells ────────────────────────────────
+     Mono value wells inside the aspects island (Layout / Fill /
+     Border rows). */
+  --well-fill:   #f4f6fa;
+  --well-border: #d3d8e4;
+
+  /* ── Color · Violet signal ──────────────────────────────────
+     The ONE working accent (Excalidraw / Paper lineage): active
+     tool, selection, pressed chips, focus, dispatch. Violet never
+     marks a run and never annotates. */
+  --accent:        #5b57d9;   /* fills, active tool, selection */
+  --accent-strong: #4340bd;   /* pressed / hover-darker · white on it 7.8:1 */
+  --accent-ring:   #5b57d9;   /* focus ring + selection outline · 4.7:1 on canvas */
+  --accent-ink:    #ffffff;   /* text on a solid violet fill · 5.5:1 */
+  --accent-wash:   rgba(91, 87, 217, 0.10);   /* selected-row tint */
+  --accent-text:   #4a46c8;   /* violet as SMALL TEXT · 7.0:1 white, 6.0:1 canvas, 6.3:1 both papers */
+
+  /* ── Color · Coral annotation material ──────────────────────
+     The reviewer's ink and its paper. Warm against the cool field
+     so review marks pop at a glance; hue does the separating, not
+     tone. Kept apart from --danger so a mark never reads as error. */
+  --mark:      #e0525f;                    /* stroke + region · 3.8:1 on capture white */
+  --mark-fill: rgba(224, 82, 95, 0.08);    /* annotated region wash */
+  --mark-text: #bb2d47;                    /* coral as small text · 5.9:1 white, 5.0:1 canvas, 5.3:1 coral paper */
+  --mark-pin:  #c53a50;                    /* solid pin / avatar fill · white on it 5.1:1 */
+  --anno-surface: #fdf0ea;                 /* coral paper: bloom threads */
+  --anno-border:  #eec3b6;                 /* coral paper edge */
+  --anno-well:    rgba(224, 82, 95, 0.10); /* provenance line, pressed chip wash */
+
+  /* ── Color · Teal teach material ────────────────────────────
+     The agent's second voice: the learn lens and anchored teach
+     notes. Never actionable, never routes work. */
+  --teach-surface: #e9f6f4;                 /* teal paper */
+  --teach-border:  #aed9d3;                 /* teal paper edge */
+  --teach-ink:     #0b6e63;                 /* teal as small text · 5.5:1 on teal paper, 6.1:1 white */
+  --teach-well:    rgba(13, 148, 136, 0.10);/* anatomy block ground */
+
+  /* ── Color · Run green ──────────────────────────────────────
+     Run state only: dots and run words. 3.3:1 on canvas as a dot. */
+  --run: #149452;
+
+  /* ── Color · State hues (notices; one family each) ──────────── */
+  --danger:        #b42318;   /* error ink · 6.0:1 on its wash */
+  --danger-strong: #932015;   /* error, pressed / strong */
+  --danger-bg:     #fdf1ef;
+  --danger-border: #f2beb8;
+  --warn:          #9a4a08;   /* warning ink · 5.8:1 on its wash */
+  --warn-strong:   #f79009;   /* warning dot / stroke, never text */
+  --warn-bg:       #fdf5e7;
+  --warn-border:   #f2d59b;
+  --ok:            #067647;   /* success ink · 5.3:1 on its wash */
+  --ok-bg:         #edf9f2;
+  --ok-border:     #b3e6c8;
+  --info:          #175cd3;   /* info ink · 5.4:1 on its wash */
+  --info-bg:       #eff4fd;
+  --info-border:   #bcd0f5;
+
+  /* ── Elevation · Cool-cast shadows ──────────────────────────
+     Shadows only where a thing floats; the cast is the field's own
+     blue, never warm. */
+  --shadow-panel:   0 10px 32px rgba(24, 30, 55, 0.13);  /* floating island, dialog */
+  --shadow-raise:   0 2px 8px rgba(24, 30, 55, 0.10);    /* captured frame at rest */
+  --shadow-overlay: 0 18px 56px rgba(24, 30, 55, 0.22);  /* modal tier */
+  --focus-ring:     0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-ring);
+  --scrim:          rgba(23, 26, 33, 0.42);              /* modal backdrop */
+}
+
+/* ── Semantic aliases · DARK (the long-stare field) ─────────────
+   The same voice on a deep blue-slate ground: dark-ink islands
+   with lighter cool edges, the ink ramp flipped to cool near-
+   whites, and the SAME four hue jobs re-tuned for the dark field.
+   The dark chrome exists so light-colored captured designs pop
+   against it; the captures stay bright, the tool recedes. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Cool ink ramp, flipped. */
+  --ink:           #e8ebf5;   /* primary · 14.7:1 on islands, 12.3:1 on canvas */
+  --ink-secondary: #a9b2cc;   /* support · 8.3:1 on islands, 6.9:1 on canvas */
+  --ink-muted:     #8892b0;   /* meta · 5.7:1 on islands, 4.7:1 on canvas, 4.9:1 coral paper, 4.6:1 teal paper */
+  --ink-faint:     #8892b0;   /* held at muted: faint carries small glyphs */
+
+  /* Grounds: deep blue-slate field, dark-ink island material. */
+  --canvas:         #232838;
+  --surface:        #141927;
+  --surface-sunken: #101523;
+  --surface-hover:  #1a2032;
+
+  /* Edges: one to two value steps LIGHTER than the island, so the
+     edge reads as caught light. */
+  --border:         #2b3247;
+  --border-control: #333b54;
+  --border-strong:  #414b6b;
+  --hairline:       #232a3e;
+
+  --well-fill:   #1a2134;
+  --well-border: #333b54;
+
+  /* Violet signal: the fill keeps its light-theme value (white on
+     it 5.5:1, 3.2:1 against the island as a UI block); pressed
+     goes LIGHTER on dark (white on it 4.9:1); the ring and the
+     text form lighten for the dark grounds. */
+  --accent:        #5b57d9;
+  --accent-strong: #6360e2;
+  --accent-ring:   #8f8bff;   /* ring · 6.1:1 on islands, 5.1:1 on canvas */
+  --accent-ink:    #ffffff;
+  --accent-wash:   rgba(143, 139, 255, 0.14);
+  --accent-text:   #9895ff;   /* violet as small text · 6.7:1 islands, 5.6:1 canvas, 5.8:1 coral paper, 5.5:1 teal paper */
+
+  /* Coral annotation material: dark-warm paper, light coral ink.
+     The stroke keeps its light value because marks draw over
+     captured pixels, which keep their own bright palette
+     (3.9:1 on the dark canvas, 3.8:1 on capture white). */
+  --mark:      #e0525f;
+  --mark-fill: rgba(224, 82, 95, 0.14);
+  --mark-text: #f2848f;                    /* 7.1:1 islands, 5.9:1 canvas, 6.1:1 coral paper */
+  --mark-pin:  #c94a5c;                    /* white on it 4.6:1 */
+  --anno-surface: #33221e;
+  --anno-border:  #5a3a33;
+  --anno-well:    rgba(242, 132, 143, 0.12);
+
+  /* Teal teach material: dark-teal paper, light teal ink. */
+  --teach-surface: #122f2b;
+  --teach-border:  #24544c;
+  --teach-ink:     #4fc9b8;                 /* 7.1:1 on teal paper, 8.7:1 islands */
+  --teach-well:    rgba(79, 201, 184, 0.12);
+
+  /* Run green, lightened for the dark field · 8.8:1 on islands. */
+  --run: #3ecf8e;
+
+  /* State hues: light inks over deep same-hue washes. */
+  --danger:        #f2887e;   /* 6.2:1 on its wash, 7.2:1 on islands */
+  --danger-strong: #f6a79e;
+  --danger-bg:     #381f21;
+  --danger-border: #63343a;
+  --warn:          #efa64f;   /* 7.1:1 on its wash */
+  --warn-strong:   #f5bd75;
+  --warn-bg:       #33270f;
+  --warn-border:   #5c4620;
+  --ok:            #57cf95;   /* 6.9:1 on its wash */
+  --ok-bg:         #14352a;
+  --ok-border:     #2a5c44;
+  --info:          #8fb3ff;   /* 7.1:1 on its wash */
+  --info-bg:       #1a2745;
+  --info-border:   #33518f;
+
+  /* Elevation: deeper, higher-alpha casts; the lighter cool
+     borders above carry the edge-light half of the lift. */
+  --shadow-panel:   0 10px 32px rgba(4, 8, 20, 0.55);
+  --shadow-raise:   0 2px 8px rgba(4, 8, 20, 0.45);
+  --shadow-overlay: 0 18px 56px rgba(2, 4, 12, 0.70);
+  --focus-ring:     0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-ring);
+  --scrim:          rgba(6, 9, 18, 0.62);
+}
+
+:root {
+  /* ── Typography · Families (two registers, both system) ─────── */
+  --font-ui:   ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ── Typography · Type scale (tool-dense, 14px base) ────────── */
+  --text-2xs:  0.6875rem;  /* 11px, mono ids, status detail */
+  --text-xs:   0.75rem;    /* 12px, support lines, captions, chips */
+  --text-sm:   0.8125rem;  /* 13px, controls, tabs, dense lists */
+  --text-base: 0.875rem;   /* 14px, body, inputs, comments */
+  --text-md:   1rem;       /* 16px, panel titles, dialog titles */
+  --text-lg:   1.125rem;   /* 18px, section titles */
+  --text-xl:   1.375rem;   /* 22px, page title, empty-state headline */
+
+  /* ── Typography · Weight axis ───────────────────────────────── */
+  --weight-regular:  400;   /* @kind font  body, support lines */
+  --weight-medium:   500;   /* @kind font  row titles, controls, tabs */
+  --weight-semibold: 600;   /* @kind font  titles, primary actions */
+
+  /* ── Typography · Leading (line spacing) ────────────────────── */
+  --leading-tight:  1.25;   /* @kind font  titles, single-line controls */
+  --leading-normal: 1.45;   /* @kind font  dense UI text, list rows */
+  --leading-body:   1.6;    /* @kind font  comments and any read-length text */
+
+  /* ── Typography · Tracking (letter-spacing) ─────────────────── */
+  --tracking-tight:  -0.01em;  /* @kind font  titles at 18px and up */
+  --tracking-normal: 0;        /* @kind font  everything else */
+  --tracking-mono:   0.01em;   /* @kind font  mono ids, keeps glyphs legible small */
+
+  /* ── Layout · Spacing scale (4pt base grid) ─────────────────── */
+  --space-1:  0.25rem;   /* @kind spacing  4px, glyph gaps */
+  --space-2:  0.5rem;    /* @kind spacing  8px, control padding */
+  --space-3:  0.75rem;   /* @kind spacing  12px, row inset */
+  --space-4:  1rem;      /* @kind spacing  16px, island inset, toolbar inset */
+  --space-5:  1.25rem;   /* @kind spacing  20px, panel section gap */
+  --space-6:  1.5rem;    /* @kind spacing  24px, dialog inset */
+  --space-8:  2rem;      /* @kind spacing  32px, block gap */
+  --space-10: 2.5rem;    /* @kind spacing  40px, region gap */
+  --space-12: 3rem;      /* @kind spacing  48px, page section gap */
+  --space-16: 4rem;      /* @kind spacing  64px, empty-state breathing room */
+
+  /* ── Layout · Chrome measures ───────────────────────────────── */
+  --toolbar-height:   3.25rem;  /* @kind spacing  52px top chrome */
+  --statusbar-height: 1.75rem;  /* @kind spacing  28px bottom chrome */
+  --panel-width:      18.5rem;  /* @kind spacing  296px layers+aspects island */
+  --measure-comment:  36rem;    /* @kind spacing  576px, comment text measure cap */
+
+  /* ── Layout · Corner radius ─────────────────────────────────── */
+  --radius-control: 6px;    /* @kind spacing  buttons, inputs, chips, wells */
+  --radius-panel:   10px;   /* @kind spacing  islands, dialogs, frames, blooms */
+
+  /* ── Motion · Easing curves ─────────────────────────────────── */
+  --ease-settle: cubic-bezier(0.2, 0.8, 0.2, 1);  /* @kind other  the one settle: decelerating entrance */
+  --ease-exit:   cubic-bezier(0.4, 0, 1, 1);      /* @kind other  brief accelerating exit */
+  --ease-hand:   cubic-bezier(0.4, 0, 0.2, 1);    /* @kind other  hover and pressed feedback, bound to the hand */
+
+  /* ── Motion · Duration steps ────────────────────────────────── */
+  --duration-tap:    80ms;    /* @kind other  pressed states */
+  --duration-hover:  140ms;   /* @kind other  hover washes, tab underline */
+  --duration-settle: 220ms;   /* @kind other  the one settle: island, bloom, dialog entrance */
+  --duration-exit:   120ms;   /* @kind other  dismissals */
+}
+
+/* ── Motion · Reduced-motion contract ─────────────────────────
+   Every duration collapses; nothing translates; state changes
+   remain instant and complete. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-tap:    0ms;
+    --duration-hover:  0ms;
+    --duration-settle: 0ms;
+    --duration-exit:   0ms;
+  }
+}

@@ -1,4 +1,6 @@
-# Tickets: React Flow review canvas
+# Tickets: React Flow review canvas (completed prototype slice)
+
+This file is the closed record of the prototype slice. New work tracks in the issue tracker at `.scratch/<feature-slug>/issues/` (see `docs/agents/issue-tracker.md`); the current effort is `.scratch/designmode-pivot/`.
 
 These tickets turn the approved React Flow review canvas spec into executable slices. The source is `specs/react-flow-review-canvas.md`.
 

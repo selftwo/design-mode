@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · foundations and components</title>
+<link rel="stylesheet" href="styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* Showcase scaffolding only; every specimen uses DLS classes.
+     One centered column, generous canvas air between regions. */
+  .page {
+    max-width: 66rem;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-6) var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  .page-head { max-width: 44rem; }
+  .page-head h1 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  .page-head p {
+    margin: 0;
+    color: var(--ink-secondary);
+    font-size: var(--text-base);
+    line-height: var(--leading-body);
+  }
+  section > h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  section > .lede {
+    margin: 0 0 var(--space-6);
+    max-width: 44rem;
+    color: var(--ink-secondary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-body);
+  }
+  .cluster { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+  .stack   { display: flex; flex-direction: column; gap: var(--space-5); }
+
+  /* Hue-job materials: each is the physical paper itself. */
+  .materials {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-4);
+  }
+  .material {
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-raise);
+    padding: 1rem;
+    display: grid;
+    gap: var(--space-2);
+    align-content: start;
+  }
+  .material h3 { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+  .material p { margin: 0; font-size: var(--text-xs); line-height: var(--leading-body); color: var(--ink-secondary); }
+  .material .dm-mono { font-size: var(--text-2xs); }
+  .material--anno  { background: var(--anno-surface);  border-color: var(--anno-border); }
+  .material--teach { background: var(--teach-surface); border-color: var(--teach-border); }
+  .material--anno h3  { color: var(--mark-text); }
+  .material--teach h3 { color: var(--teach-ink); }
+  .material--signal h3 { color: var(--accent-text); }
+
+  .swatches { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+  .swatch-card {
+    width: 5.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .swatch-card i { display: block; height: 2.5rem; }
+  .swatch-card span {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+
+  .type-specimen { display: flex; flex-direction: column; gap: var(--space-3); }
+  .type-specimen > div { display: flex; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; }
+  .type-specimen .dm-mono { min-width: 5.5rem; }
+
+  .space-bars { display: flex; flex-direction: column; gap: var(--space-2); }
+  .space-bars > div { display: flex; align-items: center; gap: var(--space-4); }
+  .space-bars .dm-mono { min-width: 7rem; }
+  .space-bars i { display: block; height: 0.75rem; background: var(--accent-wash); border-left: 2px solid var(--accent); }
+
+  .motion-rows { display: grid; gap: var(--space-2); max-width: 34rem; }
+  .motion-rows > div { display: flex; align-items: baseline; gap: var(--space-4); }
+  .motion-rows .dm-mono { min-width: 9.5rem; }
+  .motion-rows span:last-child { font-size: var(--text-xs); color: var(--ink-secondary); }
+
+  /* Specimen fields: patches of the canvas ground where floating
+     furniture is shown at rest. */
+  .field {
+    position: relative;
+    border-radius: var(--radius-panel);
+    background: var(--canvas);
+    padding: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+    align-items: flex-start;
+  }
+  .field > .dm-island { position: static; }
+
+  .islandcol { width: var(--panel-width); max-width: 100%; }
+  .islandcol .dm-tree { max-height: 14rem; }
+
+  /* Mark + bloom demos: each anchored pair in its own patch. */
+  .mark-demo {
+    position: relative;
+    flex: none;
+  }
+  .mark-demo .capture { width: 230px; }
+  /* Captured pixels keep their own fixture palette in both themes;
+     the dark chrome exists so light captures pop against it. */
+  .mock { position: relative; padding: 0.75rem; display: grid; gap: var(--space-2); background: #ffffff; }
+  .mock i { display: block; border-radius: 4px; background: #ececec; }
+  .mock .mocked-bar  { height: 1rem; width: 40%; }
+  .mock .mocked-hero { height: 3rem; }
+  .mock .mocked-row  { height: 0.875rem; width: 70%; }
+  .dm-bloom--demo { position: static; transform: none; opacity: 1; visibility: visible; padding: 1rem; }
+  .dm-teach-note--demo { position: static; transform: none; opacity: 1; visibility: visible; padding: 0.75rem 1rem; }
+
+  .field-grid { display: grid; gap: var(--space-4); max-width: 26rem; }
+  .frame-demo { max-width: 26rem; }
+
+  footer.dm-statusbar { border-radius: var(--radius-control); }
+
+  @media (max-width: 480px) {
+    .page { padding: var(--space-6) var(--space-4) var(--space-12); gap: var(--space-12); }
+    .field { padding: 1rem; }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main class="page">
+
+  <header class="dm-island dm-toolbar" aria-label="Showcase tools">
+    <span class="dm-toolbar-title">Designmode</span>
+    <div class="dm-toolbar-group" role="group" aria-label="Canvas tools">
+      <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="true">Select</button>
+      <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Circle</button>
+      <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Comment</button>
+      <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Learn</button>
+    </div>
+    <div class="dm-toolbar-spacer"></div>
+    <div class="dm-toolbar-group">
+      <button class="dm-btn dm-btn--sm" id="theme-toggle" aria-pressed="false">Dark</button>
+      <button class="dm-btn dm-btn--primary dm-btn--sm" id="open-dialog">Dispatch</button>
+    </div>
+  </header>
+
+  <div class="page-head">
+    <h1>Foundations and components</h1>
+    <p>The design review canvas: captured screens on a cool blue-gray field, white islands for chrome, and four hues with one job each: violet signals, coral annotates, teal teaches, green marks runs. The captures keep their own palette; the tool never colors them.</p>
+  </div>
+
+  <section class="sc-hue" aria-label="Hue jobs">
+    <h2>The four hue jobs</h2>
+    <p class="lede">Materials read apart by hue, not by tints of one neutral. Each card below is the material itself.</p>
+    <div class="stack">
+      <div class="materials">
+        <div class="material material--signal">
+          <h3>Violet · signal</h3>
+          <span class="dm-mono">accent #5b57d9 · text #4a46c8</span>
+          <p>The working accent: active tool, selection, pressed chips, focus rings, dispatch. Never a run, never an annotation.</p>
+          <div class="cluster"><button class="dm-btn dm-btn--sm" aria-pressed="true">Select</button><button class="dm-chip" aria-pressed="true">distill</button></div>
+        </div>
+        <div class="material material--anno">
+          <h3>Coral · annotation</h3>
+          <span class="dm-mono">mark #e0525f · paper anno-surface</span>
+          <p>The reviewer's ink and its paper: marks, blooms, thread states. Kept apart from danger red, so a mark never reads as an error.</p>
+          <div class="cluster"><span class="dm-scope-chip dm-scope-chip--live">○ circle · #1</span><span class="dm-mark-ref">mark-04</span></div>
+        </div>
+        <div class="material material--teach">
+          <h3>Teal · teach</h3>
+          <span class="dm-mono">ink teach-ink · paper teach-surface</span>
+          <p>The agent's second voice: the learn lens and anchored teach notes. Explains, never routes work.</p>
+          <div class="cluster"><span class="dm-teach-chip">✦ teach · anchored</span></div>
+        </div>
+        <div class="material">
+          <h3>Green · run state</h3>
+          <span class="dm-mono">run token · dots and run words</span>
+          <p>Agent presence only. A running dot is green everywhere; violet never marks a run.</p>
+          <div class="cluster"><span class="dm-dot" data-state="running"></span><span class="dm-mono">r-143 · recapturing /pricing</span></div>
+        </div>
+      </div>
+      <div class="swatches">
+        <div class="swatch-card"><i style="background:var(--canvas)"></i><span>canvas</span></div>
+        <div class="swatch-card"><i style="background:var(--surface)"></i><span>surface</span></div>
+        <div class="swatch-card"><i style="background:var(--surface-sunken)"></i><span>sunken</span></div>
+        <div class="swatch-card"><i style="background:var(--border)"></i><span>border</span></div>
+        <div class="swatch-card"><i style="background:var(--ink-muted)"></i><span>ink muted</span></div>
+        <div class="swatch-card"><i style="background:var(--ink)"></i><span>ink</span></div>
+        <div class="swatch-card"><i style="background:var(--accent)"></i><span>accent</span></div>
+        <div class="swatch-card"><i style="background:var(--mark)"></i><span>mark</span></div>
+        <div class="swatch-card"><i style="background:var(--teach-ink)"></i><span>teach ink</span></div>
+        <div class="swatch-card"><i style="background:var(--run)"></i><span>run</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sc-type" aria-label="Typography">
+    <h2>Type</h2>
+    <p class="lede">Two registers only: the system UI sans and the system mono for ids, code, and frame names.</p>
+    <div class="type-specimen">
+      <div><span class="dm-mono">22 xl</span><span style="font-size:var(--text-xl);font-weight:var(--weight-semibold);letter-spacing:var(--tracking-tight)">smalltools · landing review</span></div>
+      <div><span class="dm-mono">18 lg</span><span style="font-size:var(--text-lg);font-weight:var(--weight-semibold);letter-spacing:var(--tracking-tight)">Captures on the board</span></div>
+      <div><span class="dm-mono">16 md</span><span style="font-size:var(--text-md);font-weight:var(--weight-semibold)">Layers and aspects</span></div>
+      <div><span class="dm-mono">14 base</span><span style="font-size:var(--text-base)">Hero measure runs the full row; cap it at 60ch.</span></div>
+      <div><span class="dm-mono">13 sm</span><span style="font-size:var(--text-sm);font-weight:var(--weight-medium)">Send to agent</span></div>
+      <div><span class="dm-mono">12 xs</span><span style="font-size:var(--text-xs);color:var(--ink-muted)">Captured from localhost:3000, pricing route</span></div>
+      <div><span class="dm-mono">11 2xs</span><span class="dm-mono">run r-142 · s-9 · pricing@1440</span></div>
+    </div>
+  </section>
+
+  <section class="sc-space" aria-label="Spacing">
+    <h2>Spacing</h2>
+    <p class="lede">A 4pt base grid; islands inset at space-4, dialogs at space-6.</p>
+    <div class="space-bars">
+      <div><span class="dm-mono">space-1 · 4</span><i style="width:0.25rem"></i></div>
+      <div><span class="dm-mono">space-2 · 8</span><i style="width:0.5rem"></i></div>
+      <div><span class="dm-mono">space-3 · 12</span><i style="width:0.75rem"></i></div>
+      <div><span class="dm-mono">space-4 · 16</span><i style="width:1rem"></i></div>
+      <div><span class="dm-mono">space-6 · 24</span><i style="width:1.5rem"></i></div>
+      <div><span class="dm-mono">space-8 · 32</span><i style="width:2rem"></i></div>
+      <div><span class="dm-mono">space-12 · 48</span><i style="width:3rem"></i></div>
+    </div>
+  </section>
+
+  <section class="sc-motion" aria-label="Motion">
+    <h2>Motion</h2>
+    <p class="lede">One settle per surface: decelerating in at 220ms, brief out, bound to the hand, never looping. Reduced motion collapses every duration to zero.</p>
+    <div class="motion-rows">
+      <div><span class="dm-mono">ease-settle</span><span>decelerating entrance for islands, blooms, dialogs</span></div>
+      <div><span class="dm-mono">ease-exit</span><span>brief accelerating exit, 120ms</span></div>
+      <div><span class="dm-mono">ease-hand</span><span>hover washes 140ms, pressed 80ms</span></div>
+      <div><span class="dm-mono">duration-settle</span><span>220ms, the one entrance</span></div>
+    </div>
+  </section>
+
+  <section class="sc-islands" aria-label="Islands">
+    <h2>Islands</h2>
+    <p class="lede">All chrome floats: white material, cool edge, soft lift. The learn lens, runs island, and layers+aspects island drag by their headers; arrow keys nudge a focused handle; a user placement wins for the session.</p>
+    <div class="field">
+      <div class="dm-island dm-status-island" role="status">3 screens · 3 annotations · saved · live off</div>
+      <aside class="dm-island" aria-label="Agent runs" style="min-width:15rem; padding: var(--space-2) 0;">
+        <div class="dm-sect dm-drag-handle" tabindex="0" aria-label="Runs island — drag or press arrow keys to move">Runs<span class="dm-grip" aria-hidden="true">⠿</span></div>
+        <div class="dm-run-row"><span class="dm-dot" data-state="done"></span><span class="dm-mono">r-142</span><span>measure patch staged</span></div>
+        <div class="dm-run-row"><span class="dm-dot" data-state="running"></span><span class="dm-mono">r-143</span><span>recapturing /pricing</span></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="sc-panel" aria-label="Layers and aspects">
+    <h2>Layers + aspects island</h2>
+    <p class="lede">The one inspector, summoned on selection and opening opposite the selected object. Layers tree above; aspects below in stable order (Layout, Flex, Radius, Fill, Border, Type) with mono value wells.</p>
+    <div class="field">
+      <aside class="dm-island islandcol" aria-label="Layers and aspects">
+        <div class="dm-island-head dm-drag-handle" tabindex="0" aria-label="Layers and aspects island — drag or press arrow keys to move">
+          <span class="dm-island-title">smalltools · landing review</span>
+          <span class="dm-grip" aria-hidden="true">⠿</span>
+          <button class="dm-island-x" aria-label="Dismiss panel">✕</button>
+        </div>
+        <div class="dm-sect">Layers</div>
+        <div class="dm-tree" role="listbox" aria-label="Layers tree">
+          <button class="dm-tree-row" style="--lvl:0" aria-selected="false"><span class="dm-tree-glyph">▦</span>smalltools · landing review</button>
+          <button class="dm-tree-row dm-tree-row--frame" style="--lvl:1" aria-selected="false"><span class="dm-tree-glyph">▣</span>Pricing · /pricing<span class="dm-tree-meta">1440</span></button>
+          <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>nav</button>
+          <button class="dm-tree-row" style="--lvl:2" aria-selected="true"><span class="dm-tree-glyph">▢</span>plan-keep</button>
+          <button class="dm-tree-row dm-tree-row--mark dm-tree-row--stale" style="--lvl:3" aria-selected="false"><span class="dm-tree-glyph">▢</span>#2 element<span class="dm-tree-meta">stale</span></button>
+          <button class="dm-tree-row dm-tree-row--frame" style="--lvl:1" aria-selected="false"><span class="dm-tree-glyph">▣</span>Home · /<span class="dm-tree-meta">390 · rev 2</span></button>
+          <button class="dm-tree-row dm-tree-row--mark" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">●</span>#3 comment<span class="dm-tree-meta">draft</span></button>
+        </div>
+        <div class="dm-sect">Aspects · plan-keep</div>
+        <div>
+          <div class="dm-insp-sect dm-insp-sect--first">Layout</div>
+          <div class="dm-well-grid">
+            <div class="dm-well"><span class="dm-well-l">W</span><span class="dm-well-v">176</span></div>
+            <div class="dm-well"><span class="dm-well-l">H</span><span class="dm-well-v">118</span></div>
+            <div class="dm-well"><span class="dm-well-l">X</span><span class="dm-well-v">206</span></div>
+            <div class="dm-well"><span class="dm-well-l">Y</span><span class="dm-well-v">82</span></div>
+          </div>
+          <div class="dm-insp-sect">Flex</div>
+          <div class="dm-well-grid">
+            <div class="dm-well"><span class="dm-well-l">dir</span><span class="dm-well-v">column</span></div>
+            <div class="dm-well"><span class="dm-well-l">gap</span><span class="dm-well-v">4px</span></div>
+          </div>
+          <div class="dm-align-picker" role="img" aria-label="Alignment: top left">
+            <span class="dm-align-dot" data-active="true"></span><span class="dm-align-dot"></span><span class="dm-align-dot"></span>
+            <span class="dm-align-dot"></span><span class="dm-align-dot"></span><span class="dm-align-dot"></span>
+            <span class="dm-align-dot"></span><span class="dm-align-dot"></span><span class="dm-align-dot"></span>
+          </div>
+          <div class="dm-insp-sect">Radius</div>
+          <div class="dm-well-grid">
+            <div class="dm-well"><span class="dm-well-l">all</span><span class="dm-well-v">6px</span></div>
+          </div>
+          <div class="dm-insp-sect">Fill</div>
+          <div class="dm-swatch-row"><span class="dm-swatch" style="background:#ffffff"></span><span class="dm-swatch-name">--surface</span><span class="dm-swatch-val">#ffffff</span></div>
+          <div class="dm-swatch-row"><span class="dm-swatch" style="background:#1c1c1c"></span><span class="dm-swatch-name">--btn-fill</span><span class="dm-swatch-val">#1c1c1c</span></div>
+          <div class="dm-insp-sect">Border</div>
+          <div class="dm-well-grid">
+            <div class="dm-well"><span class="dm-well-l">edge</span><span class="dm-well-v">1px #e6e6e6</span></div>
+          </div>
+          <div class="dm-insp-sect">Type</div>
+          <div class="dm-type-rows" style="padding-bottom: var(--space-4)">
+            <div class="dm-type-row"><span class="dm-tlabel">family</span><span class="dm-tval">Inter</span></div>
+            <div class="dm-type-row"><span class="dm-tlabel">size / lh</span><span class="dm-tval">9px / 1.4</span></div>
+            <div class="dm-type-row"><span class="dm-tlabel">weight</span><span class="dm-tval">650</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="sc-marks" aria-label="Marks and blooms">
+    <h2>Marks and bloom threads</h2>
+    <p class="lede">The reviewer's coral ink over captured pixels: circle, element rect, and comment pin. The thread blooms out of its mark on coral paper: human comment plus intent chips, agent candidate reply with its ⌁ provenance line, routing state in the foot.</p>
+    <div class="field">
+      <div class="mark-demo">
+        <div class="dm-frame capture">
+          <div class="mock" role="img" aria-label="Captured hero with a circle mark">
+            <i class="mocked-bar"></i>
+            <i class="mocked-hero"></i>
+            <i class="mocked-row"></i>
+          </div>
+          <span class="dm-frame-label">Home · / · 1440</span>
+        </div>
+        <button class="dm-mark dm-mark-circle" aria-label="Annotation 1, circle mark on hero" style="left:58%; top:34px;"><span class="dm-mark-num">1</span></button>
+      </div>
+      <div class="dm-bloom dm-bloom--demo demo-open" data-open="true">
+        <div class="dm-thread">
+          <div class="dm-thread-head">
+            <span class="dm-dot" data-state="running"></span>
+            <span class="dm-thread-state dm-thread-state--open">open</span>
+            <span class="dm-scope-chip dm-scope-chip--live">○ circle · #1</span>
+          </div>
+          <div class="dm-thread-c">
+            <div class="dm-comment-head">
+              <span class="dm-avatar dm-avatar--human">B</span>
+              <span class="dm-comment-author">Ben</span>
+              <span class="dm-comment-time">2m</span>
+            </div>
+            <p class="dm-comment-body">Hero measure runs the full row. Cap it and let the cards carry the width.</p>
+            <div class="dm-chip-row"><button class="dm-chip" aria-pressed="true">distill</button></div>
+          </div>
+          <div class="dm-thread-c">
+            <div class="dm-comment-head">
+              <span class="dm-avatar dm-avatar--agent">FB</span>
+              <span class="dm-comment-author">Fable</span>
+              <span class="dm-chip-candidate">Candidate</span>
+              <span class="dm-comment-time">1m</span>
+            </div>
+            <span class="dm-prov dm-mono">⌁ run r-142 · s-9 · 1m</span>
+            <p class="dm-comment-body">Proposed: measure capped at 60ch, cards move up 32px. Patch staged.</p>
+          </div>
+          <div class="dm-thread-foot dm-thread-foot--returned">
+            <span class="dm-rdot" data-r="returned"></span> returned
+          </div>
+        </div>
+      </div>
+      <div class="dm-bloom dm-bloom--demo demo-resolved" data-open="true">
+        <div class="dm-thread">
+          <div class="dm-thread-head">
+            <span class="dm-thread-state">✓ resolved</span>
+            <span class="dm-scope-chip">▢ element · stale</span>
+          </div>
+          <div class="dm-thread-c">
+            <div class="dm-comment-head">
+              <span class="dm-avatar dm-avatar--human">B</span>
+              <span class="dm-comment-author">Ben</span>
+              <span class="dm-comment-time">38m</span>
+            </div>
+            <p class="dm-comment-body">Both plans read the same weight. The paid one should feel like the object.</p>
+            <div class="dm-chip-row"><button class="dm-chip" aria-pressed="true">bolder</button></div>
+          </div>
+          <div class="dm-thread-foot">made against rev 1 · anchor is approximate</div>
+        </div>
+      </div>
+      <div class="dm-bloom dm-bloom--demo demo-draft" data-open="true">
+        <div class="dm-thread">
+          <div class="dm-thread-head">
+            <span class="dm-dot" data-state="waiting"></span>
+            <span class="dm-thread-state">draft</span>
+            <span class="dm-scope-chip dm-scope-chip--live">pin · #3</span>
+          </div>
+          <textarea class="dm-textarea" placeholder="No instruction yet" aria-label="Annotation instruction"></textarea>
+          <div class="dm-chip-row">
+            <button class="dm-chip" aria-pressed="false">distill</button>
+            <button class="dm-chip" aria-pressed="false">bolder</button>
+            <button class="dm-chip" aria-pressed="false">adapt</button>
+          </div>
+        </div>
+      </div>
+      <div class="mark-demo" style="align-self:center">
+        <button class="dm-mark dm-mark-pin" style="position:static" aria-label="Annotation 3, comment pin, draft">3</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sc-learn" aria-label="Learn and teach">
+    <h2>Learn lens and teach note</h2>
+    <p class="lede">Teal is the agent's second voice. The lens floats and drags; clicking elements updates it in place. The teach note anchors an explanation on the canvas. No routing, no dispatch.</p>
+    <div class="field">
+      <aside class="dm-island dm-learn" aria-label="Learn" style="max-height:none">
+        <div class="dm-learn-head dm-drag-handle" tabindex="0" aria-label="Learn lens — drag or press arrow keys to move">
+          <span class="dm-learn-title">Learn</span>
+          <span class="dm-learn-sub">▢ plan-keep</span>
+          <span class="dm-grip" aria-hidden="true">⠿</span>
+          <button class="dm-island-x" aria-label="Close learn lens">✕</button>
+        </div>
+        <div class="dm-learn-body">
+          <pre class="dm-learn-anatomy">plan-card
+├─ plan-name   9px / 650
+├─ plan-price  13px / 650
+└─ cta         filled button</pre>
+          <p class="dm-learn-term">This is <b>visual weight</b>: the filled button is the only solid-ink block in either card, so this plan reads heavier at the same size.</p>
+          <p class="dm-learn-why">Same type, same border; the signal does the lifting. Weight comes from value contrast, not from scale.</p>
+        </div>
+      </aside>
+      <div class="dm-teach-note dm-teach-note--demo" data-open="true" aria-label="Teach annotation on plan-keep">
+        <span class="dm-teach-chip">✦ teach · anchored ▢ plan-keep</span>
+        <div class="dm-thread-c">
+          <div class="dm-comment-head">
+            <span class="dm-avatar dm-avatar--agent">FB</span>
+            <span class="dm-comment-author">Fable</span>
+            <span class="dm-comment-time">now</span>
+          </div>
+          <span class="dm-prov dm-mono">⌁ run r-142 · learn</span>
+          <p class="dm-comment-body">The filled button is the only solid-ink block in either card, so Keep carries more visual weight.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sc-chips" aria-label="Chips, badges and dots">
+    <h2>Intent chips, badges, dots</h2>
+    <div class="stack">
+      <div class="cluster">
+        <button class="dm-chip" aria-pressed="true">distill</button>
+        <button class="dm-chip" aria-pressed="false">bolder</button>
+        <button class="dm-chip" aria-pressed="false">quieter</button>
+        <button class="dm-chip" aria-pressed="false">typeset</button>
+        <button class="dm-chip" aria-pressed="false">adapt</button>
+      </div>
+      <div class="cluster">
+        <span class="dm-badge" data-tone="ok">merged</span>
+        <span class="dm-badge" data-tone="info">queued</span>
+        <span class="dm-badge" data-tone="warn">stale capture</span>
+        <span class="dm-badge" data-tone="danger">failed</span>
+        <span class="dm-badge" data-tone="muted">draft</span>
+      </div>
+      <div class="cluster">
+        <span class="dm-dot" data-state="running"></span><span class="dm-mono">running</span>
+        <span class="dm-dot" data-state="done"></span><span class="dm-mono">done</span>
+        <span class="dm-dot" data-state="waiting"></span><span class="dm-mono">waiting</span>
+        <span class="dm-dot" data-state="failed"></span><span class="dm-mono">failed</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sc-controls" aria-label="Buttons and inputs">
+    <h2>Buttons, inputs, select</h2>
+    <div class="stack">
+      <div class="cluster">
+        <button class="dm-btn dm-btn--primary">Dispatch to agent</button>
+        <button class="dm-btn">Import</button>
+        <button class="dm-btn dm-btn--quiet">Rename</button>
+        <button class="dm-btn dm-btn--danger">Delete capture</button>
+        <button class="dm-btn" disabled>Dispatch to agent</button>
+      </div>
+      <div class="dm-tabs" role="tablist">
+        <button class="dm-tab" role="tab" aria-selected="true">Comments</button>
+        <button class="dm-tab" role="tab" aria-selected="false">Context</button>
+        <button class="dm-tab" role="tab" aria-selected="false">Runs</button>
+      </div>
+      <div class="field-grid">
+        <div>
+          <label class="dm-field-label" for="capture-name">Capture name</label>
+          <input class="dm-input" id="capture-name" value="pricing@1440">
+        </div>
+        <div>
+          <label class="dm-field-label" for="agent-select">Agent</label>
+          <select class="dm-select" id="agent-select">
+            <option>fable</option>
+            <option>codex-luna</option>
+            <option>sonnet</option>
+          </select>
+        </div>
+        <div>
+          <label class="dm-field-label" for="comment-input">Comment</label>
+          <textarea class="dm-textarea" id="comment-input" placeholder="Add a note to this mark"></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sc-rows" aria-label="Rows and activity">
+    <h2>Rows, activity, comment</h2>
+    <div class="stack">
+      <ul class="dm-list" style="max-width:36rem">
+        <li class="dm-row" aria-selected="true">
+          <span class="dm-row-title">smalltools · landing review</span>
+          <span class="dm-row-meta">proj-a41d</span>
+          <span class="dm-row-support">Three captures, two marks awaiting dispatch</span>
+        </li>
+        <li class="dm-row">
+          <span class="dm-row-title">Checkout flow</span>
+          <span class="dm-row-meta">proj-c98e</span>
+          <span class="dm-row-support">Reviewed this morning, agent run in progress</span>
+        </li>
+      </ul>
+      <ul class="dm-list" style="max-width:36rem">
+        <li class="dm-agent-row">
+          <span class="dm-dot" data-state="running"></span>
+          <span class="dm-agent-title">fable is capping the hero measure</span>
+          <span class="dm-row-meta">r-142</span>
+          <span class="dm-agent-detail">Editing home.tsx against mark #1</span>
+        </li>
+        <li class="dm-agent-row">
+          <span class="dm-dot" data-state="done"></span>
+          <span class="dm-agent-title">codex-luna recaptured /pricing</span>
+          <span class="dm-row-meta">r-143</span>
+          <span class="dm-agent-detail">Revision advanced; mark #2 is stale</span>
+        </li>
+        <li class="dm-agent-row">
+          <span class="dm-dot" data-state="failed"></span>
+          <span class="dm-agent-title">Illustration swap stopped on a missing asset</span>
+          <span class="dm-row-meta">r-140</span>
+          <span class="dm-agent-detail">cart-empty.svg was not found in the repo</span>
+        </li>
+      </ul>
+      <div class="dm-comment">
+        <div class="dm-comment-head">
+          <span class="dm-comment-author">Ben</span>
+          <span class="dm-comment-time">14:32</span>
+          <span class="dm-mark-ref">mark #1</span>
+        </div>
+        <p class="dm-comment-body">Hero measure runs the full row. Hold the grid and cap the measure at 60ch; the cards carry the width from there.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sc-notices" aria-label="Notices">
+    <h2>Notices</h2>
+    <div class="stack" style="max-width:36rem">
+      <div class="dm-notice" role="status">Capture connected on port 4710.<button class="dm-notice-dismiss" aria-label="Dismiss">×</button></div>
+      <div class="dm-notice" data-tone="success" role="status">Export delivered to the agent inbox.<button class="dm-notice-action">Open run</button><button class="dm-notice-dismiss" aria-label="Dismiss">×</button></div>
+      <div class="dm-notice" data-tone="warn" role="status">Frame advanced to rev 2; mark #2 is stale.<button class="dm-notice-dismiss" aria-label="Dismiss">×</button></div>
+      <div class="dm-notice" data-tone="error" role="alert">Dispatch failed, the agent socket closed.<button class="dm-notice-action">Retry</button><button class="dm-notice-dismiss" aria-label="Dismiss">×</button></div>
+    </div>
+  </section>
+
+  <section class="sc-frame" aria-label="Captured frame and status">
+    <h2>Captured frame, status bar</h2>
+    <p class="lede">The capture is a true physical object with edge, lift, and mono label, and its pixels keep their own palette in both themes.</p>
+    <div class="stack">
+      <div class="dm-frame frame-demo" aria-selected="true">
+        <div class="mock" role="img" aria-label="Captured pricing screen, selected">
+          <i class="mocked-bar"></i>
+          <i class="mocked-hero"></i>
+          <i class="mocked-row"></i>
+          <i class="mocked-row" style="width:55%"></i>
+        </div>
+        <span class="dm-frame-label">Pricing · /pricing · 1440</span>
+      </div>
+      <footer class="dm-statusbar">
+        <span class="dm-mono">frame pricing</span>
+        <span>100%</span>
+        <span>saved</span>
+        <span class="dm-statusbar-end">
+          <span class="dm-dot" data-state="running"></span>
+          <span class="dm-badge" data-tone="muted">agent working</span>
+        </span>
+      </footer>
+    </div>
+  </section>
+
+</main>
+
+<div class="dm-scrim" id="dialog-scrim" hidden>
+  <div class="dm-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <h3 class="dm-dialog-title" id="dialog-title">Dispatch mark #1</h3>
+    <p class="dm-dialog-body">fable will edit home.tsx to cap the hero measure. The run appears in the runs island when it starts.</p>
+    <div class="dm-dialog-actions">
+      <button class="dm-btn dm-btn--quiet" id="dialog-cancel">Cancel</button>
+      <button class="dm-btn dm-btn--primary" id="dialog-confirm">Dispatch</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var toggle = document.getElementById('theme-toggle');
+  function syncToggle() {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    toggle.textContent = dark ? 'Light' : 'Dark';
+    toggle.setAttribute('aria-pressed', String(dark));
+  }
+  syncToggle();
+  toggle.addEventListener('click', function () {
+    var root = document.documentElement;
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('dm-theme', next); } catch (e) {}
+    syncToggle();
+  });
+
+  var scrim = document.getElementById('dialog-scrim');
+  document.getElementById('open-dialog').addEventListener('click', function () {
+    scrim.hidden = false;
+  });
+  function closeDialog() { scrim.hidden = true; }
+  document.getElementById('dialog-cancel').addEventListener('click', closeDialog);
+  document.getElementById('dialog-confirm').addEventListener('click', closeDialog);
+  scrim.addEventListener('click', function (e) { if (e.target === scrim) closeDialog(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDialog(); });
+</script>
+
+</body>
+</html>

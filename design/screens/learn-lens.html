@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · Learn lens</title>
+<link rel="stylesheet" href="../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* ── Screen spec: the teach flow ─────────────────────────────
+     The Learn tool is on; the lens floats as a teal island showing
+     the clicked element's anatomy, its vocabulary term, and the
+     why-line. Ben's one question and the agent's answer sit inside
+     the lens, and the same answer is pinned on canvas as an
+     anchored teach annotation carrying the ⌁ provenance glyph. */
+  html, body { height: 100%; overflow: hidden; }
+
+  #canvas {
+    position: fixed;
+    inset: 0;
+    overflow: auto;
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--border) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+
+  #stage { position: relative; min-width: 1240px; min-height: 880px; width: 100%; height: 100%; }
+
+  .island { position: fixed; z-index: 50; }
+
+  #island-toolbar {
+    top: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 16px);
+  }
+
+  #island-status { bottom: var(--space-4); right: var(--space-4); }
+
+  /* The lens: draggable teal island, parked clear of the frame. */
+  #island-learn { top: 6rem; left: var(--space-4); z-index: 60; max-height: calc(100vh - 8rem); }
+
+  .learn-ask { display: grid; gap: var(--space-2); padding-top: 0.5rem; border-top: 1px solid var(--teach-border); }
+  .learn-q { margin: 0; font-size: var(--text-sm); font-style: italic; color: var(--ink-secondary); line-height: var(--leading-body); }
+  .learn-a { margin: 0; font-size: var(--text-sm); color: var(--ink); line-height: var(--leading-body); }
+  .learn-answered {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--teach-ink);
+  }
+
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+
+  /* ── Captured frames ──────────────────────────────────────── */
+  .frame-unit { position: absolute; }
+  .frame-hit { position: relative; }
+  .frame-body { cursor: default; }
+  .frame-body--d { width: 400px; height: 250px; }
+  .dm-frame-label { padding: 0 2px var(--space-1); white-space: nowrap; font-family: var(--font-mono); }
+
+  .el { position: relative; }
+  .el:hover { outline: 1px solid var(--accent-ring); outline-offset: -1px; }
+  .el[data-selected="true"] { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+
+  /* ── Mock captures: the fixture's OWN palette, never DLS hues ── */
+  .mk { background: #ffffff; color: #1c1c1c; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .mk-nav { display: flex; align-items: center; gap: 10px; padding: 9px 16px; }
+  .mk-wordmark { font-size: 10px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-links { display: flex; gap: 10px; margin-left: auto; font-size: 8px; color: #6f6f6f; }
+  .mk-h1 { margin: 0; padding: 14px 20px 10px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-plans { display: flex; gap: 12px; padding: 0 20px; }
+  .mk-plan { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 12px; }
+  .mk-plan-name { font-size: 9px; font-weight: 650; }
+  .mk-plan-price { margin-top: 4px; font-size: 13px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-plan-tag { margin-top: 3px; font-size: 7.5px; color: #6f6f6f; line-height: 1.4; }
+  .mk-btn { display: inline-block; padding: 4px 10px; border-radius: 4px; background: #1c1c1c; color: #fff; font-size: 8px; font-weight: 550; margin-top: 9px; }
+
+  /* ── 390: the lens becomes a sheet; the canvas pans ───────── */
+  @media (max-width: 640px) {
+    #island-toolbar { left: var(--space-2); right: var(--space-2); transform: none; max-width: none; }
+    #island-status { right: var(--space-2); bottom: auto; top: 5.5rem; }
+    #island-learn {
+      top: auto;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: auto;
+      max-height: 56vh;
+      border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+      border-bottom: 0;
+    }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main id="canvas" aria-label="Review canvas">
+  <div id="stage">
+
+    <!-- Frame 2 · Pricing — plan-keep is the clicked element. -->
+    <div class="frame-unit" style="left:520px; top:190px;">
+      <span class="dm-frame-label">Pricing · /pricing · 1440</span>
+      <div class="frame-hit">
+        <div class="dm-frame frame-body frame-body--d mk mock">
+          <div class="mk-nav el">
+            <span class="mk-wordmark">smalltools</span>
+            <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+          </div>
+          <h2 class="mk-h1 el">Pricing</h2>
+          <div class="mk-plans">
+            <div class="mk-plan el">
+              <div class="mk-plan-name">Free</div>
+              <div class="mk-plan-price">$0</div>
+              <div class="mk-plan-tag">the shelf</div>
+            </div>
+            <div class="mk-plan el" data-selected="true" aria-label="Clicked element: plan-keep">
+              <div class="mk-plan-name">Keep</div>
+              <div class="mk-plan-price">$4/mo</div>
+              <div class="mk-plan-tag">your margins everywhere</div>
+              <span class="mk-btn">Keep everything</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- The answer pinned on canvas: teal paper, agent voice,
+             ⌁ provenance, no routing, no dispatch. -->
+        <div class="dm-teach-stem" data-open="true" style="left:100%; top:150px; width:32px; height:1px;"></div>
+        <div class="dm-teach-note" data-open="true" aria-label="Teach annotation on plan-keep"
+             style="left:calc(100% + 32px); top:96px;">
+          <span class="dm-teach-chip">✦ teach · anchored ▢ plan-keep</span>
+          <div class="dm-thread-c">
+            <div class="dm-comment-head">
+              <span class="dm-avatar dm-avatar--agent">FB</span>
+              <span class="dm-comment-author">Fable</span>
+              <span class="dm-comment-time">now</span>
+            </div>
+            <span class="dm-prov dm-mono">⌁ run r-142 · learn</span>
+            <p class="dm-comment-body">The filled button is the only solid-ink block in either card, so Keep carries more visual weight. Same type, same border — the signal does the lifting.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══ Islands ═══ -->
+<header id="island-toolbar" class="island dm-island dm-toolbar" aria-label="Tools">
+  <span class="dm-toolbar-title">Design review canvas</span>
+  <div class="dm-toolbar-group" role="group" aria-label="Canvas tools">
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="true">Select</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Circle</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Comment</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="true">Learn</button>
+  </div>
+  <div class="dm-toolbar-group">
+    <button class="dm-btn dm-btn--sm">Import</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">
+      <span class="live-dot"></span> Live
+    </button>
+  </div>
+</header>
+
+<div id="island-status" class="island dm-island dm-status-island" role="status">
+  3 screens · 3 annotations · saved · learn on
+</div>
+
+<!-- The lens: floating, draggable by its header, closable. Clicking
+     another element updates this content in place; the lens never
+     snaps back to a default position. Never actionable. -->
+<aside id="island-learn" class="island dm-island dm-island--summoned dm-learn" data-open="true" aria-label="Learn lens">
+  <div class="dm-learn-head dm-drag-handle" tabindex="0" aria-label="Learn lens — drag or press arrow keys to move">
+    <span class="dm-learn-title">Learn</span>
+    <span class="dm-learn-sub">plan-keep</span>
+    <span class="dm-grip" aria-hidden="true">⠿</span>
+    <button class="dm-island-x" aria-label="Close learn lens">✕</button>
+  </div>
+  <div class="dm-learn-body">
+    <pre class="dm-learn-anatomy">card = flex column · gap 8px
+  &gt; name &gt; price &gt; tag
+  &gt; button (solid fill)</pre>
+    <p class="dm-learn-term"><b>signal</b>: the one saturated or solid element that draws the eye first.</p>
+    <p class="dm-learn-why">Same type and border as Free, but the filled button adds a block of solid ink. Weight arrives from the signal, not the typography.</p>
+    <div class="learn-ask">
+      <p class="learn-q">Ben: “Why does this card read heavier than the others?”</p>
+      <p class="learn-a">The filled button is the only solid-ink block in either card, so Keep carries more visual weight. Same type, same border — the signal does the lifting.</p>
+      <span class="learn-answered">⌁ answered · pinned to canvas at ▢ plan-keep</span>
+    </div>
+  </div>
+</aside>
+
+</body>
+</html>

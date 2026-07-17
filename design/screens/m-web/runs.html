@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>designmode m-web · Activity</title>
+<link rel="stylesheet" href="../../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* m-web scaffolding: one centered phone column over the canvas.
+     Every interactive element is at least 44px tall. */
+  .mw-page {
+    max-width: 26.25rem;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: var(--space-4) var(--space-4) var(--space-12);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .mw-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-top: var(--space-2);
+  }
+
+  .mw-title {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+
+  .mw-sub {
+    margin: var(--space-1) 0 0;
+    color: var(--ink-muted);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  .mw-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: var(--ink-secondary);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-control);
+    white-space: nowrap;
+  }
+
+  .mw-back:hover { color: var(--ink); }
+
+  /* Section word, mono uppercase, on the canvas itself. */
+  .mw-sect {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-regular);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /* Run rows sit directly on the canvas as a lattice: no box,
+     separation by whitespace. Green is the only hue here. */
+  .mw-run {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: var(--space-3);
+    row-gap: var(--space-1);
+    min-height: 2.75rem;
+    padding: var(--space-2) 0;
+  }
+
+  .mw-run .dm-dot { align-self: center; }
+
+  .mw-run-title {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
+
+  .mw-run-detail {
+    grid-column: 2;
+    font-size: var(--text-xs);
+    color: var(--ink-muted);
+  }
+
+  /* Live tail of the running run: mono lines in a sunken well. */
+  .mw-tail {
+    grid-column: 2 / 4;
+    margin: var(--space-1) 0 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-control);
+    background: var(--surface-sunken);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    line-height: 1.8;
+    color: var(--ink-muted);
+    white-space: pre-line;
+    overflow-x: auto;
+  }
+
+  /* "View change" is a tool action: violet text, 44px row. */
+  .mw-view {
+    grid-column: 2 / 4;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    justify-self: start;
+    color: var(--accent-text);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-control);
+  }
+
+  .mw-view:hover { text-decoration: underline; }
+
+  /* Teach entry: teal paper, a physical note. Never actionable. */
+  .mw-teach {
+    padding: var(--space-4);
+    background: var(--teach-surface);
+    border: 1px solid var(--teach-border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-raise);
+  }
+
+  .mw-teach-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .mw-teach-head .dm-mono { margin-left: auto; }
+
+  .mw-teach-term {
+    margin: var(--space-3) 0 0;
+    font-size: var(--text-sm);
+    line-height: var(--leading-body);
+    color: var(--ink);
+  }
+
+  .mw-teach-term b { font-weight: var(--weight-semibold); color: var(--teach-ink); }
+
+  .mw-teach .dm-prov {
+    display: inline-block;
+    margin-top: var(--space-3);
+    background: var(--teach-well);
+  }
+</style>
+</head>
+<body class="dm">
+<div class="mw-page">
+
+  <header class="mw-top">
+    <div>
+      <h1 class="mw-title">Activity</h1>
+      <p class="mw-sub">smalltools — landing review · runs and teach notes</p>
+    </div>
+    <a class="mw-back" href="boards.html">‹ Boards</a>
+  </header>
+
+  <h2 class="mw-sect">Runs</h2>
+
+  <div class="mw-run">
+    <span class="dm-dot" data-state="running"></span>
+    <span class="mw-run-title">codex · recapturing /pricing</span>
+    <span class="dm-mono">r-143</span>
+    <span class="mw-run-detail">running · started 40s ago</span>
+    <pre class="mw-tail">› goto /pricing @1440
+› waiting for fonts
+› capture 2 of 3</pre>
+  </div>
+
+  <div class="mw-run">
+    <span class="dm-dot" data-state="done"></span>
+    <span class="mw-run-title">fable · measure patch staged</span>
+    <span class="dm-mono">r-142</span>
+    <span class="mw-run-detail">done · 1m ago · annotation #1</span>
+    <a class="mw-view" href="thread.html">View change ›</a>
+  </div>
+
+  <h2 class="mw-sect">Teach</h2>
+
+  <article class="mw-teach">
+    <div class="mw-teach-head">
+      <span class="dm-teach-chip">⌁ teach</span>
+      <span class="dm-mono">on Home · hero</span>
+    </div>
+    <p class="mw-teach-term"><b>Measure</b> is the length of a text line. Long measures tire the eye on the way back to the left edge; 45 to 75 characters reads best, which is why the hero asks for a cap.</p>
+    <span class="dm-prov dm-mono">⌁ run r-141 · lens · 12m</span>
+  </article>
+
+</div>
+
+<script>
+  /* Screen-to-screen links carry the resolved theme. */
+  (function () {
+    var t = document.documentElement.getAttribute('data-theme') || 'light';
+    document.querySelectorAll('a[href$=".html"]').forEach(function (a) {
+      a.href = a.getAttribute('href') + '?theme=' + t;
+    });
+  })();
+</script>
+</body>
+</html>

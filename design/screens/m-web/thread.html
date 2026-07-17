@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>designmode m-web · Thread</title>
+<link rel="stylesheet" href="../../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* m-web scaffolding: one centered phone column over the canvas.
+     Every interactive element is at least 44px tall. Two type
+     registers: the UI sans, and mono for ids and frame names. */
+  .dm-mono { font-family: var(--font-mono); }
+
+  .mw-page {
+    max-width: 26.25rem;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: var(--space-4) var(--space-4) 30rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .mw-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .mw-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: var(--ink-secondary);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-control);
+    white-space: nowrap;
+  }
+
+  .mw-back:hover { color: var(--ink); }
+
+  /* The capture behind the sheet, dimmed by the scrim veil. */
+  .mw-capture { position: relative; }
+
+  .mw-veil {
+    position: fixed;
+    inset: 0;
+    background: var(--scrim);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  /* smalltools fixture palette (warm paper, its own inks). */
+  .st-shot {
+    background: #fbfaf8;
+    color: #35322c;
+    padding: 12px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .st-nav { display: flex; align-items: center; gap: 10px; }
+  .st-wordmark { font-weight: 700; }
+  .st-link { color: #6f6a5f; }
+  .st-nav .st-link:first-of-type { margin-left: auto; }
+  .st-hero { padding: 14px 0 4px; max-width: 85%; }
+
+  .st-h1 {
+    margin: 0 0 4px;
+    font-size: 17px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .st-sub { margin: 0 0 10px; color: #6f6a5f; }
+
+  .st-btn {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: #35322c;
+    color: #fbfaf8;
+    font-weight: 600;
+  }
+
+  .st-cards { display: flex; gap: 8px; }
+
+  .st-card {
+    flex: 1;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid #e4e0d6;
+    border-radius: 4px;
+  }
+
+  .st-card b { display: block; margin-bottom: 2px; }
+  .st-card span { color: #6f6a5f; }
+
+  .mw-mark-static {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .mw-mark-static .dm-mark-circle { position: relative; display: block; }
+
+  /* ── The thread sheet, open: coral annotation material, the
+     heart of m-web. Drag handle, thread, reply, approve. ── */
+  .mw-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: 26.25rem;
+    max-height: 82vh;
+    margin-inline: auto;
+    overflow-y: auto;
+    background: var(--anno-surface);
+    border: 1px solid var(--anno-border);
+    border-bottom: 0;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    box-shadow: var(--shadow-panel);
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: dm-settle var(--duration-settle) var(--ease-settle) both;
+  }
+
+  .mw-handle {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  }
+
+  .mw-handle-bar {
+    width: 2.25rem;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--anno-border);
+  }
+
+  .mw-handle:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .mw-sheet-body { padding: 0 var(--space-4) var(--space-4); }
+
+  .mw-sheet .dm-thread-head .dm-scope-chip { margin-left: auto; }
+
+  .mw-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+
+  .mw-actions .dm-btn { min-height: 2.75rem; }
+</style>
+</head>
+<body class="dm">
+<div class="mw-page">
+
+  <header class="mw-top">
+    <a class="mw-back" href="capture.html">‹ Capture</a>
+    <span class="dm-mono">Home · / · 1440 · rev 1</span>
+  </header>
+
+  <figure class="mw-capture" style="margin: 0;">
+    <div class="dm-frame">
+      <span class="dm-frame-label">Home · / · 1440</span>
+      <div class="st-shot" aria-hidden="true">
+        <div class="st-nav">
+          <span class="st-wordmark">smalltools</span>
+          <span class="st-link">Shelf</span>
+          <span class="st-link">Notes</span>
+          <span class="st-link">About</span>
+        </div>
+        <div class="st-hero">
+          <p class="st-h1">Small tools for slow thinking</p>
+          <p class="st-sub">A shelf of little instruments that stay out of your way.</p>
+          <span class="st-btn">Browse the shelf</span>
+        </div>
+        <div class="st-cards">
+          <span class="st-card"><b>Ledger</b><span>Plain accounts, kept by hand.</span></span>
+          <span class="st-card"><b>Stopwatch</b><span>One dial, no laps to lose.</span></span>
+          <span class="st-card"><b>Margins</b><span>Notes that live beside the page.</span></span>
+        </div>
+      </div>
+    </div>
+    <span class="mw-mark-static" style="top: 22%; left: 55%;" aria-hidden="true">
+      <span class="dm-mark-circle"><span class="dm-mark-num">1</span></span>
+    </span>
+  </figure>
+
+</div>
+
+<!-- Veil dims the capture while the thread has the floor. -->
+<button class="mw-veil" id="veil" aria-label="Close thread and return to the capture"></button>
+
+<!-- The thread sheet, open: annotation #1 end to end. -->
+<section class="mw-sheet" aria-label="Annotation 1 thread">
+  <button class="mw-handle" id="sheet-close" aria-label="Close thread">
+    <span class="mw-handle-bar" aria-hidden="true"></span>
+  </button>
+
+  <div class="mw-sheet-body">
+    <div class="dm-thread">
+      <div class="dm-thread-head">
+        <span class="dm-thread-state dm-thread-state--open">Open</span>
+        <span class="dm-mono">on Home · /</span>
+        <span class="dm-scope-chip dm-scope-chip--live">◯ circle · #1</span>
+      </div>
+
+      <div class="dm-thread-c">
+        <div class="dm-comment-head">
+          <span class="dm-avatar dm-avatar--human">B</span>
+          <span class="dm-comment-author">Ben</span>
+          <span class="dm-comment-time">2m</span>
+        </div>
+        <p class="dm-comment-body">Hero measure runs the full row. Cap it and let the cards carry the width.</p>
+        <div class="dm-chip-row">
+          <span class="dm-scope-chip dm-scope-chip--live">distill</span>
+        </div>
+      </div>
+
+      <div class="dm-thread-c">
+        <div class="dm-comment-head">
+          <span class="dm-avatar dm-avatar--agent">FB</span>
+          <span class="dm-comment-author">fable</span>
+          <span class="dm-chip-candidate">Candidate</span>
+          <span class="dm-comment-time">1m</span>
+        </div>
+        <p class="dm-comment-body">Proposed: measure capped at 60ch, cards move up 32px. Patch staged.</p>
+        <span class="dm-prov dm-mono">⌁ run r-142 · s-9 · 1m</span>
+      </div>
+
+      <div class="dm-thread-foot dm-thread-foot--returned">
+        <span class="dm-rdot" data-r="returned"></span> returned · patch staged
+      </div>
+
+      <textarea class="dm-textarea" placeholder="Reply to this thread" aria-label="Reply to this thread"></textarea>
+      <div class="mw-actions">
+        <button class="dm-btn">Reply</button>
+        <button class="dm-btn dm-btn--primary">Approve change</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  /* Screen-to-screen links carry the resolved theme. */
+  (function () {
+    var t = document.documentElement.getAttribute('data-theme') || 'light';
+    document.querySelectorAll('a[href$=".html"]').forEach(function (a) {
+      a.href = a.getAttribute('href') + '?theme=' + t;
+    });
+    /* Handle and veil return to the capture, closed state. */
+    var back = 'capture.html?theme=' + t;
+    document.getElementById('veil').addEventListener('click', function () { location.href = back; });
+    document.getElementById('sheet-close').addEventListener('click', function () { location.href = back; });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') location.href = back;
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · Full-screen and edge states</title>
+<link rel="stylesheet" href="../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* ── Screen spec: the states matrix ──────────────────────────
+     Every full-screen and edge state on one sheet: project picker
+     with its loading, empty, and error states, waiting-for-a-board,
+     the four notice tones on the one notice component, the reset
+     dialog open, and the runs island in activity and empty states. */
+  .page {
+    max-width: 66rem;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-6) var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+  .page-head { max-width: 44rem; }
+  .page-head h1 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  .page-head p {
+    margin: 0;
+    color: var(--ink-secondary);
+    font-size: var(--text-base);
+    line-height: var(--leading-body);
+  }
+  section > h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  section > .lede {
+    margin: 0 0 var(--space-5);
+    max-width: 44rem;
+    color: var(--ink-secondary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-body);
+  }
+  .cluster { display: flex; flex-wrap: wrap; gap: var(--space-5); align-items: flex-start; }
+  .stack { display: flex; flex-direction: column; gap: var(--space-3); }
+
+  /* Specimen patch: a piece of the canvas ground with floating
+     furniture at rest on it. */
+  .patch {
+    position: relative;
+    border-radius: var(--radius-panel);
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--border) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+    padding: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+    align-items: flex-start;
+  }
+
+  .picker { width: 24rem; max-width: 100%; padding-bottom: var(--space-4); }
+  .picker .dm-list { padding: 0 var(--space-2); }
+  .picker form { display: grid; gap: var(--space-3); padding: var(--space-2) var(--space-4) 0; }
+
+  .state-row {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: var(--space-3);
+    padding: 2px var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+  .state-row .dm-badge { text-transform: uppercase; }
+
+  /* Waiting for a board: the full-screen empty state. */
+  .waiting {
+    display: grid;
+    place-items: center;
+    text-align: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-16) var(--space-6);
+  }
+  .waiting h3 {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+  }
+  .waiting p {
+    margin: 0;
+    max-width: 26rem;
+    color: var(--ink-secondary);
+    font-size: var(--text-base);
+    line-height: var(--leading-body);
+  }
+
+  .notices { display: grid; gap: var(--space-3); width: 100%; max-width: 36rem; }
+
+  /* The reset dialog rendered open: scrim contained in the patch. */
+  .dialog-patch { min-height: 22rem; }
+  .dialog-patch .scrim-demo {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-panel);
+    background: var(--scrim);
+    display: grid;
+    place-items: center;
+    padding: var(--space-6);
+  }
+  dialog.dm-dialog { position: static; margin: 0; }
+
+  .runs-demo { min-width: 16rem; padding-bottom: var(--space-2); }
+  .runs-empty {
+    margin: 0;
+    padding: var(--space-2) var(--space-4) var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--ink-secondary);
+    line-height: var(--leading-body);
+    max-width: 16rem;
+  }
+
+  @media (max-width: 640px) {
+    .page { padding: var(--space-6) var(--space-4) var(--space-12); gap: var(--space-10); }
+    .patch { padding: 1rem; }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main class="page">
+
+  <div class="page-head">
+    <h1>Full-screen and edge states</h1>
+    <p>The states outside the happy path: the project picker and its three service states, the wait for a first board, every notice tone on the one notice shape, the blocking reset confirmation, and the runs island with and without history.</p>
+  </div>
+
+  <!-- ── Project picker ─────────────────────────────────────── -->
+  <section aria-label="Project picker">
+    <h2>Project picker</h2>
+    <p class="lede">The entry surface: registered projects as a lattice of rows, the register form beneath, and the three service states as words. Selecting a project boots its dev server and opens its board.</p>
+    <div class="patch">
+      <div class="dm-island picker">
+        <div class="dm-island-head">
+          <span class="dm-island-title">Projects</span>
+        </div>
+        <ul class="dm-list">
+          <li class="dm-row" aria-selected="true">
+            <span class="dm-row-title">smalltools — landing review</span>
+            <span class="dm-row-meta">3 screens</span>
+            <span class="dm-row-support">localhost:5173 · captured 4m ago</span>
+          </li>
+          <li class="dm-row">
+            <span class="dm-row-title">coach — inner game</span>
+            <span class="dm-row-meta">12 screens</span>
+            <span class="dm-row-support">localhost:4310 · captured 2d ago</span>
+          </li>
+        </ul>
+        <div class="dm-sect">Register a project</div>
+        <form>
+          <div>
+            <label class="dm-field-label" for="repo">Repository path</label>
+            <input class="dm-input" id="repo" type="text" placeholder="~/Documents/work/smalltools">
+          </div>
+          <div>
+            <label class="dm-field-label" for="cmd">Dev command</label>
+            <input class="dm-input" id="cmd" type="text" placeholder="npm run dev">
+          </div>
+          <div><button class="dm-btn dm-btn--primary" type="button">Register</button></div>
+        </form>
+      </div>
+      <div class="dm-island runs-demo" aria-label="Picker service states">
+        <div class="dm-sect">Spec · picker states</div>
+        <div class="state-row"><span class="dm-badge" data-tone="muted">loading</span><span>“loading projects…” one quiet line, no spinner theater</span></div>
+        <div class="state-row"><span class="dm-badge" data-tone="info">empty</span><span>“No projects yet. Register one below.”</span></div>
+        <div class="state-row"><span class="dm-badge" data-tone="danger">error</span><span>error notice with Retry · host unreachable at localhost:4700</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Waiting for a board ────────────────────────────────── -->
+  <section aria-label="Waiting for a board">
+    <h2>Waiting for a board</h2>
+    <p class="lede">The full-screen state between picking a project and the first capture landing. The canvas ground is already present; the words carry the wait.</p>
+    <div class="patch">
+      <div class="waiting">
+        <h3>Waiting for a board</h3>
+        <p>Open a project or import a capture to begin. The first capture lands here as a frame.</p>
+        <div><button class="dm-btn">Import images</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Notices ────────────────────────────────────────────── -->
+  <section aria-label="Notices">
+    <h2>Notices</h2>
+    <p class="lede">One notification shape for every kind. Tone changes color only, never geometry; each notice keeps its dismiss and an optional action slot.</p>
+    <div class="patch">
+      <div class="notices">
+        <div class="dm-notice" role="status">
+          <span>r-143 recaptured /pricing — revision 2 is ready.</span>
+          <button class="dm-notice-action">Reload board</button>
+          <button class="dm-notice-dismiss" aria-label="Dismiss">✕</button>
+        </div>
+        <div class="dm-notice" data-tone="warn" role="status">
+          <span>Dispatch blocked · annotation #3 has no instruction.</span>
+          <button class="dm-notice-dismiss" aria-label="Dismiss">✕</button>
+        </div>
+        <div class="dm-notice" data-tone="error" role="alert">
+          <span>Capture failed · dev server did not answer on localhost:5173.</span>
+          <button class="dm-notice-action">Retry</button>
+          <button class="dm-notice-dismiss" aria-label="Dismiss">✕</button>
+        </div>
+        <div class="dm-notice" data-tone="success" role="status">
+          <span>Batch delivered · 1 annotation sent to fable.</span>
+          <button class="dm-notice-dismiss" aria-label="Dismiss">✕</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Reset dialog ───────────────────────────────────────── -->
+  <section aria-label="Reset dialog">
+    <h2>Reset dialog</h2>
+    <p class="lede">The one blocking confirmation, a native dialog over the scrim, entering with the one settle. Nothing else on the canvas blocks.</p>
+    <div class="patch dialog-patch">
+      <div class="scrim-demo">
+        <dialog class="dm-dialog" open aria-labelledby="reset-title">
+          <h3 class="dm-dialog-title" id="reset-title">Reset this board?</h3>
+          <p class="dm-dialog-body">Removes all marks, threads, and captures on smalltools — landing review. The captured project's source files are untouched.</p>
+          <div class="dm-dialog-actions">
+            <button class="dm-btn">Cancel</button>
+            <button class="dm-btn dm-btn--danger">Reset board</button>
+          </div>
+        </dialog>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Runs island states ─────────────────────────────────── -->
+  <section aria-label="Runs island states">
+    <h2>Runs island</h2>
+    <p class="lede">With activity, history stays visible even when a run fails; with none, the island states its own emptiness and stays out of the way.</p>
+    <div class="patch">
+      <div class="dm-island runs-demo" aria-label="Runs with activity">
+        <div class="dm-sect">Runs</div>
+        <div class="dm-run-row">
+          <span class="dm-dot" data-state="done"></span>
+          <span class="dm-mono">r-142 · fable</span>
+          <span>measure patch staged</span>
+        </div>
+        <div class="dm-run-row">
+          <span class="dm-dot" data-state="running"></span>
+          <span class="dm-mono">r-143 · codex</span>
+          <span>recapturing /pricing</span>
+        </div>
+        <div class="dm-run-row">
+          <span class="dm-dot" data-state="failed"></span>
+          <span class="dm-mono">r-141 · codex</span>
+          <span>patch rejected · see tail</span>
+        </div>
+      </div>
+      <div class="dm-island runs-demo" aria-label="Runs, empty">
+        <div class="dm-sect">Runs</div>
+        <p class="runs-empty">No runs yet. Dispatch an annotation to start one.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · Review and dispatch</title>
+<link rel="stylesheet" href="../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* ── Screen spec: review and dispatch ────────────────────────
+     Mark #1 is selected; its thread blooms in place at the mark
+     with the instruction, the ten intent chips (distill chosen),
+     the agent select, and Send. The ReviewBatch delivery states
+     render as a labeled spec row. */
+  html, body { height: 100%; overflow: hidden; }
+
+  #canvas {
+    position: fixed;
+    inset: 0;
+    overflow: auto;
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--border) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+
+  #stage { position: relative; min-width: 1340px; min-height: 900px; width: 100%; height: 100%; }
+
+  .island { position: fixed; z-index: 50; }
+
+  #island-toolbar {
+    top: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 16px);
+  }
+
+  #island-status { bottom: var(--space-4); left: var(--space-4); }
+
+  #island-runs {
+    bottom: var(--space-4);
+    right: var(--space-4);
+    min-width: 13rem;
+    padding-bottom: var(--space-2);
+  }
+
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+
+  /* Spec island: the delivery-state matrix a builder implements. */
+  #island-spec {
+    bottom: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26rem;
+    max-width: calc(100vw - 16px);
+    padding-bottom: var(--space-3);
+  }
+  .spec-row {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: var(--space-3);
+    padding: 2px var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+  .spec-row .dm-badge { text-transform: uppercase; }
+
+  /* ── Captured frames ──────────────────────────────────────── */
+  .frame-unit { position: absolute; transition: opacity var(--duration-hover) var(--ease-hand); }
+  #stage[data-dim="true"] .frame-unit:not([data-lit="true"]) { opacity: 0.55; }
+  .frame-hit { position: relative; }
+  .frame-body { cursor: default; }
+  .frame-body--d { width: 400px; height: 250px; }
+  .frame-body--m { width: 168px; height: 364px; }
+  .dm-frame-label { padding: 0 2px var(--space-1); white-space: nowrap; font-family: var(--font-mono); }
+
+  /* Bloom sizing for the compose form. */
+  .dm-bloom { width: 304px; }
+  .dm-bloom .dm-select { font-size: var(--text-sm); padding: var(--space-1) var(--space-2); }
+  .compose-foot { display: flex; align-items: center; gap: var(--space-2); }
+  .compose-foot .dm-select { flex: 1; width: auto; }
+
+  /* ── Mock captures: the fixture's OWN palette, never DLS hues ── */
+  .mk { background: #ffffff; color: #1c1c1c; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .mk-nav { display: flex; align-items: center; gap: 10px; padding: 9px 16px; }
+  .mk-wordmark { font-size: 10px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-links { display: flex; gap: 10px; margin-left: auto; font-size: 8px; color: #6f6f6f; }
+  .mk-menu { margin-left: auto; font-size: 11px; color: #1c1c1c; line-height: 1; }
+  .mk-hero { padding: 16px 20px 14px; }
+  .mk-h { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.15; max-width: 230px; }
+  .mk-sub { margin: 6px 0 11px; font-size: 8.5px; color: #6f6f6f; line-height: 1.4; max-width: 220px; }
+  .mk-btn { display: inline-block; padding: 4px 10px; border-radius: 4px; background: #1c1c1c; color: #fff; font-size: 8px; font-weight: 550; }
+  .mk-cards { display: flex; gap: 10px; padding: 4px 20px 0; }
+  .mk-card { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 10px 10px 12px; }
+  .mk-card-t { font-size: 9px; font-weight: 650; }
+  .mk-card-s { margin-top: 3px; font-size: 7.5px; color: #6f6f6f; line-height: 1.45; }
+  .mk-h1 { margin: 0; padding: 14px 20px 10px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-plans { display: flex; gap: 12px; padding: 0 20px; }
+  .mk-plan { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 12px; }
+  .mk-plan-name { font-size: 9px; font-weight: 650; }
+  .mk-plan-price { margin-top: 4px; font-size: 13px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-plan-tag { margin-top: 3px; font-size: 7.5px; color: #6f6f6f; line-height: 1.4; }
+  .mk-plan .mk-btn { margin-top: 9px; }
+
+  /* ── 390: islands hug the edges; the canvas pans ──────────── */
+  @media (max-width: 640px) {
+    #island-toolbar { left: var(--space-2); right: var(--space-2); transform: none; max-width: none; }
+    #island-status { left: var(--space-2); bottom: var(--space-2); }
+    #island-runs { display: none; }
+    #island-spec { left: var(--space-2); right: var(--space-2); transform: none; width: auto; bottom: 3.25rem; }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main id="canvas" aria-label="Review canvas">
+  <div id="stage" data-dim="true">
+
+    <!-- Frame 1 · Home desktop — carries the selected mark. -->
+    <div class="frame-unit" data-lit="true" style="left:96px; top:150px;">
+      <span class="dm-frame-label">Home · / · 1440</span>
+      <div class="frame-hit">
+        <div class="dm-frame frame-body frame-body--d mk mock">
+          <div class="mk-nav">
+            <span class="mk-wordmark">smalltools</span>
+            <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+          </div>
+          <div class="mk-hero">
+            <h2 class="mk-h">Small tools for slow thinking</h2>
+            <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+            <span class="mk-btn">Browse the shelf</span>
+          </div>
+          <div class="mk-cards">
+            <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+            <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+            <div class="mk-card"><div class="mk-card-t">Margins</div><div class="mk-card-s">Notes that live beside the text.</div></div>
+          </div>
+        </div>
+
+        <!-- Selected mark: the focus ring is the selection treatment. -->
+        <button class="dm-mark dm-mark-circle" aria-selected="true"
+                aria-label="Annotation 1, circle mark on hero, selected"
+                style="left:57%; top:42px;"><span class="dm-mark-num">1</span></button>
+
+        <!-- The thread blooms in place at the mark: instruction,
+             the ten intents (distill chosen), agent, Send. -->
+        <div class="dm-bloom" data-open="true" style="left:calc(57% + 44px); top:26px; transform-origin:-12px 28px;">
+          <div class="dm-thread">
+            <div class="dm-thread-head">
+              <span class="dm-dot" data-state="waiting"></span>
+              <span class="dm-thread-state dm-thread-state--open">open</span>
+              <span class="dm-scope-chip dm-scope-chip--live">○ circle · #1</span>
+            </div>
+            <div class="dm-thread-c">
+              <div class="dm-comment-head">
+                <span class="dm-avatar dm-avatar--human">B</span>
+                <span class="dm-comment-author">Ben</span>
+                <span class="dm-comment-time">2m</span>
+              </div>
+            </div>
+            <label class="dm-field-label" for="instruction">Instruction</label>
+            <textarea class="dm-textarea" id="instruction"
+              aria-label="Annotation instruction">Hero measure runs the full row. Cap it and let the cards carry the width.</textarea>
+            <div class="dm-chip-row" role="group" aria-label="Intent, single choice">
+              <button class="dm-chip" aria-pressed="false">bolder</button>
+              <button class="dm-chip" aria-pressed="false">quieter</button>
+              <button class="dm-chip" aria-pressed="true">distill</button>
+              <button class="dm-chip" aria-pressed="false">typeset</button>
+              <button class="dm-chip" aria-pressed="false">layout</button>
+              <button class="dm-chip" aria-pressed="false">colorize</button>
+              <button class="dm-chip" aria-pressed="false">animate</button>
+              <button class="dm-chip" aria-pressed="false">delight</button>
+              <button class="dm-chip" aria-pressed="false">clarify</button>
+              <button class="dm-chip" aria-pressed="false">harden</button>
+            </div>
+            <div class="compose-foot">
+              <select class="dm-select" aria-label="Agent">
+                <option selected>fable · claude</option>
+                <option>codex</option>
+              </select>
+              <button class="dm-btn dm-btn--primary dm-btn--sm">Send</button>
+            </div>
+            <div class="dm-thread-foot">
+              <span class="dm-rdot"></span> not routed · dispatch sends 1 annotation
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Frame 2 · Pricing desktop, dimmed while another selection holds. -->
+    <div class="frame-unit" style="left:620px; top:150px;">
+      <span class="dm-frame-label">Pricing · /pricing · 1440</span>
+      <div class="frame-hit">
+        <div class="dm-frame frame-body frame-body--d mk mock">
+          <div class="mk-nav">
+            <span class="mk-wordmark">smalltools</span>
+            <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+          </div>
+          <h2 class="mk-h1">Pricing</h2>
+          <div class="mk-plans">
+            <div class="mk-plan">
+              <div class="mk-plan-name">Free</div>
+              <div class="mk-plan-price">$0</div>
+              <div class="mk-plan-tag">the shelf</div>
+            </div>
+            <div class="mk-plan">
+              <div class="mk-plan-name">Keep</div>
+              <div class="mk-plan-price">$4/mo</div>
+              <div class="mk-plan-tag">your margins everywhere</div>
+              <span class="mk-btn">Keep everything</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="dm-mark dm-mark-rect" aria-label="Annotation 2, element mark on Keep plan, resolved and stale"
+                style="left:51.5%; top:82px; width:44%; height:118px;">
+          <span class="dm-scope-chip">▢ element · stale</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══ Islands ═══ -->
+<header id="island-toolbar" class="island dm-island dm-toolbar" aria-label="Tools">
+  <span class="dm-toolbar-title">Design review canvas</span>
+  <div class="dm-toolbar-group" role="group" aria-label="Canvas tools">
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="true">Select</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Circle</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Comment</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Learn</button>
+  </div>
+  <div class="dm-toolbar-group">
+    <button class="dm-btn dm-btn--sm">Import</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">
+      <span class="live-dot"></span> Live
+    </button>
+  </div>
+</header>
+
+<div id="island-status" class="island dm-island dm-status-island" role="status">
+  3 screens · 3 annotations · 1 selected · saved · live off
+</div>
+
+<aside id="island-runs" class="island dm-island" aria-label="Agent runs, collapsed">
+  <div class="dm-sect">Runs · 2 <span class="dm-grip" aria-hidden="true">⌄</span></div>
+  <div class="dm-run-row">
+    <span class="dm-dot" data-state="running"></span>
+    <span class="dm-mono">r-143 · codex</span>
+    <span>running</span>
+  </div>
+</aside>
+
+<!-- Spec: ReviewBatch delivery states. buildReviewBatch() collects
+     marked, intent-tagged annotations into an agent-neutral batch. -->
+<aside id="island-spec" class="island dm-island" aria-label="Spec: ReviewBatch states">
+  <div class="dm-sect">Spec · ReviewBatch delivery states</div>
+  <div class="spec-row"><span class="dm-badge" data-tone="muted">idle</span><span>nothing queued; Send enabled once instruction + intent are set</span></div>
+  <div class="spec-row"><span class="dm-badge" data-tone="info">delivering</span><span>batch handed to the agent adapter; Send disabled</span></div>
+  <div class="spec-row"><span class="dm-badge" data-tone="ok">delivered</span><span>adapter accepted the batch; status strip says "delivered"</span></div>
+  <div class="spec-row"><span class="dm-badge" data-tone="warn">blocked</span><span>instruction incomplete, or screenshot path is absolute and cannot resolve — the reason renders beside the word</span></div>
+  <div class="spec-row"><span class="dm-badge" data-tone="danger">error</span><span>adapter failed; notice with Retry, batch kept intact</span></div>
+  <div class="spec-row"><span class="dm-mono">blocked ·</span><span>e.g. "blocked · annotation #3 has no instruction"</span></div>
+</aside>
+
+</body>
+</html>

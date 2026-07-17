@@ -1,0 +1,19 @@
+/* Designmode DLS entry point. */
+@import url("tokens/tokens.css");
+@import url("components/components.css");
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
+body {
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, a, input, textarea { font: inherit; }

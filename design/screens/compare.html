@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · Blind compare</title>
+<link rel="stylesheet" href="../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* ── Screen spec: the blind compare lane ─────────────────────
+     Two frames side by side, sides assigned by id hash and labeled
+     with neutral letters only. One pick, ties allowed, one reason
+     per pick. Technical gates run on both sides before a pick is
+     asked. The arena protocol is the reference implementation. */
+  html, body { height: 100%; overflow: hidden; }
+
+  #canvas {
+    position: fixed;
+    inset: 0;
+    overflow: auto;
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--border) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+
+  #stage { position: relative; min-width: 1100px; min-height: 820px; width: 100%; height: 100%; }
+
+  .island { position: fixed; z-index: 50; }
+
+  #island-toolbar {
+    top: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 16px);
+  }
+
+  #island-status { bottom: var(--space-4); left: var(--space-4); }
+
+  /* Pick controls: one island, bottom center. */
+  #island-pick {
+    bottom: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30rem;
+    max-width: calc(100vw - 16px);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    display: grid;
+    gap: var(--space-3);
+  }
+  .pick-row { display: flex; gap: var(--space-2); }
+  .pick-row .dm-btn { flex: 1; }
+  .gates-note {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+
+  .side-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-secondary);
+  }
+
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+
+  /* ── The two sides ────────────────────────────────────────── */
+  .frame-unit { position: absolute; }
+  .frame-body { cursor: default; width: 400px; height: 250px; }
+  .dm-frame-label { padding: 0 2px var(--space-1); white-space: nowrap; display: flex; gap: var(--space-2); align-items: baseline; }
+
+  /* ── Mock captures: the fixture's OWN palette, never DLS hues.
+     The sides differ only in the hero measure and card position —
+     the change under trial. ─────────────────────────────────── */
+  .mk { background: #ffffff; color: #1c1c1c; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .mk-nav { display: flex; align-items: center; gap: 10px; padding: 9px 16px; }
+  .mk-wordmark { font-size: 10px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-links { display: flex; gap: 10px; margin-left: auto; font-size: 8px; color: #6f6f6f; }
+  .mk-hero { padding: 16px 20px 14px; }
+  .mk-h { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.15; }
+  .mk-sub { margin: 6px 0 11px; font-size: 8.5px; color: #6f6f6f; line-height: 1.4; }
+  .mk-btn { display: inline-block; padding: 4px 10px; border-radius: 4px; background: #1c1c1c; color: #fff; font-size: 8px; font-weight: 550; }
+  .mk-cards { display: flex; gap: 10px; padding: 4px 20px 0; }
+  .mk-card { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 10px 10px 12px; }
+  .mk-card-t { font-size: 9px; font-weight: 650; }
+  .mk-card-s { margin-top: 3px; font-size: 7.5px; color: #6f6f6f; line-height: 1.45; }
+  /* Side A: hero measure runs the full row. */
+  .mk--a .mk-h { max-width: 360px; }
+  .mk--a .mk-sub { max-width: 340px; }
+  .mk--a .mk-hero { padding-bottom: 22px; }
+  /* Side B: measure capped, cards up. */
+  .mk--b .mk-h { max-width: 230px; }
+  .mk--b .mk-sub { max-width: 220px; }
+
+  /* ── 390: islands hug the edges; the canvas pans ──────────── */
+  @media (max-width: 640px) {
+    #island-toolbar { left: var(--space-2); right: var(--space-2); transform: none; max-width: none; }
+    #island-status { display: none; }
+    #island-pick { left: var(--space-2); right: var(--space-2); transform: none; width: auto; bottom: var(--space-2); }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main id="canvas" aria-label="Compare lane">
+  <div id="stage">
+
+    <!-- Side A -->
+    <div class="frame-unit" style="left:120px; top:170px;">
+      <span class="dm-frame-label"><span class="side-label">A</span> Home · / · 1440</span>
+      <div class="dm-frame frame-body mk mk--a mock" aria-label="Side A">
+        <div class="mk-nav">
+          <span class="mk-wordmark">smalltools</span>
+          <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+        </div>
+        <div class="mk-hero">
+          <h2 class="mk-h">Small tools for slow thinking</h2>
+          <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+          <span class="mk-btn">Browse the shelf</span>
+        </div>
+        <div class="mk-cards">
+          <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+          <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+          <div class="mk-card"><div class="mk-card-t">Margins</div><div class="mk-card-s">Notes that live beside the text.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side B -->
+    <div class="frame-unit" style="left:600px; top:170px;">
+      <span class="dm-frame-label"><span class="side-label">B</span> Home · / · 1440</span>
+      <div class="dm-frame frame-body mk mk--b mock" aria-label="Side B">
+        <div class="mk-nav">
+          <span class="mk-wordmark">smalltools</span>
+          <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+        </div>
+        <div class="mk-hero">
+          <h2 class="mk-h">Small tools for slow thinking</h2>
+          <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+          <span class="mk-btn">Browse the shelf</span>
+        </div>
+        <div class="mk-cards">
+          <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+          <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+          <div class="mk-card"><div class="mk-card-t">Margins</div><div class="mk-card-s">Notes that live beside the text.</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══ Islands ═══ -->
+<header id="island-toolbar" class="island dm-island dm-toolbar" aria-label="Tools">
+  <span class="dm-toolbar-title">Compare · blind</span>
+  <div class="dm-toolbar-group">
+    <span class="dm-mono">sides assigned by id hash · agents not named until the pick lands</span>
+  </div>
+</header>
+
+<div id="island-status" class="island dm-island dm-status-island" role="status">
+  compare · 1 pair · pick pending
+</div>
+
+<!-- Pick controls: one pick, ties allowed, one reason per pick. -->
+<aside id="island-pick" class="island dm-island" aria-label="Pick controls">
+  <div class="pick-row" role="group" aria-label="Pick">
+    <button class="dm-btn">Pick A</button>
+    <button class="dm-btn">Pick B</button>
+    <button class="dm-btn dm-btn--quiet">Tie</button>
+  </div>
+  <div>
+    <label class="dm-field-label" for="reason">One reason for the pick</label>
+    <input class="dm-input" id="reason" type="text" placeholder="e.g. the capped measure lets the cards carry the width">
+  </div>
+  <div class="gates-note">gates ran on both sides · A 7/7 pass · B 7/7 pass · verdicts age with captures</div>
+</aside>
+
+</body>
+</html>

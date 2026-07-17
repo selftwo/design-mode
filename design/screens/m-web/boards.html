@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>designmode m-web · Boards</title>
+<link rel="stylesheet" href="../../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* m-web scaffolding: one centered phone column over the canvas.
+     Every interactive element is at least 44px tall. Two type
+     registers: the UI sans, and mono for ids and run names. */
+  .dm-mono { font-family: var(--font-mono); }
+
+  .mw-page {
+    max-width: 26.25rem;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: var(--space-4) var(--space-4) var(--space-12);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .mw-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-top: var(--space-2);
+  }
+
+  .mw-title {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+
+  .mw-sub {
+    margin: var(--space-1) 0 0;
+    color: var(--ink-muted);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  /* Board card: a physical object, so it keeps edge and lift.
+     The whole card is the tap target. */
+  .mw-board {
+    display: block;
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-raise);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color var(--duration-hover) var(--ease-hand);
+  }
+
+  .mw-board:hover { border-color: var(--border-strong); }
+
+  .mw-board-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .mw-board-title {
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+    line-height: var(--leading-tight);
+  }
+
+  /* Capture thumbnail strip. Thumbs are miniature captures, so
+     each keeps a hairline edge; their pixels use the reviewed
+     product's own palette, never the tool's hues. */
+  .mw-thumbs {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    height: 4.5rem;
+  }
+
+  .mw-thumb {
+    flex: 2;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .mw-thumb--narrow { flex: 1; }
+
+  .mw-board-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+  }
+
+  /* Open-thread count is annotation information: coral ink. */
+  .mw-open {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    color: var(--mark-text);
+  }
+
+  .mw-open--none { color: var(--ink-muted); font-weight: var(--weight-regular); }
+
+  .mw-run {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* smalltools fixture palette (warm paper, its own inks). */
+  .st { background: #fbfaf8; }
+  .st-bar   { height: 5px; border-radius: 2px; background: #d8d3c8; }
+  .st-head  { height: 8px; border-radius: 2px; background: #35322c; }
+  .st-block { flex: 1; border-radius: 2px; background: #efece5; }
+  .st-row   { display: flex; gap: 4px; flex: 1; }
+  .st-row > span { flex: 1; border-radius: 2px; background: #efece5; }
+
+  /* coach fixture palette (cool paper, its own inks). */
+  .co { background: #f6f7f8; }
+  .co-head  { height: 8px; border-radius: 2px; background: #3a3f45; }
+  .co-bar   { height: 5px; border-radius: 2px; background: #ccd2d8; }
+  .co-block { flex: 1; border-radius: 2px; background: #e8ebee; }
+</style>
+</head>
+<body class="dm">
+<div class="mw-page">
+
+  <header class="mw-top">
+    <div>
+      <h1 class="mw-title">Boards</h1>
+      <p class="mw-sub">Reviews in progress. Read, reply, approve.</p>
+    </div>
+    <span class="dm-mono">m-web</span>
+  </header>
+
+  <a class="mw-board" href="capture.html">
+    <div class="mw-board-head">
+      <span class="mw-board-title">smalltools — landing review</span>
+      <span class="dm-mono">4m</span>
+    </div>
+    <div class="mw-thumbs" aria-hidden="true">
+      <span class="mw-thumb st">
+        <span class="st-bar" style="width: 55%"></span>
+        <span class="st-head" style="width: 80%"></span>
+        <span class="st-row"><span></span><span></span><span></span></span>
+      </span>
+      <span class="mw-thumb st">
+        <span class="st-bar" style="width: 40%"></span>
+        <span class="st-row"><span></span><span></span></span>
+      </span>
+      <span class="mw-thumb mw-thumb--narrow st">
+        <span class="st-bar" style="width: 70%"></span>
+        <span class="st-head"></span>
+        <span class="st-block"></span>
+      </span>
+    </div>
+    <div class="mw-board-foot">
+      <span class="mw-open">2 threads open</span>
+      <span class="mw-run">
+        <span class="dm-dot" data-state="done"></span>
+        <span class="dm-mono">r-142 done</span>
+      </span>
+    </div>
+  </a>
+
+  <a class="mw-board" href="capture.html">
+    <div class="mw-board-head">
+      <span class="mw-board-title">coach — inner game</span>
+      <span class="dm-mono">2d</span>
+    </div>
+    <div class="mw-thumbs" aria-hidden="true">
+      <span class="mw-thumb co">
+        <span class="co-bar" style="width: 50%"></span>
+        <span class="co-head" style="width: 75%"></span>
+        <span class="co-block"></span>
+      </span>
+      <span class="mw-thumb mw-thumb--narrow co">
+        <span class="co-bar" style="width: 65%"></span>
+        <span class="co-block"></span>
+      </span>
+    </div>
+    <div class="mw-board-foot">
+      <span class="mw-open mw-open--none">No open threads</span>
+      <span class="mw-run">
+        <span class="dm-dot" data-state="waiting"></span>
+        <span class="dm-mono">no runs</span>
+      </span>
+    </div>
+  </a>
+
+</div>
+
+<script>
+  /* Screen-to-screen links carry the resolved theme. */
+  (function () {
+    var t = document.documentElement.getAttribute('data-theme') || 'light';
+    document.querySelectorAll('a[href$=".html"]').forEach(function (a) {
+      a.href = a.getAttribute('href') + '?theme=' + t;
+    });
+  })();
+</script>
+</body>
+</html>

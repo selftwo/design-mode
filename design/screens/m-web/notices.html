@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>designmode m-web · Notices</title>
+<link rel="stylesheet" href="../../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* m-web scaffolding: one centered phone column over the canvas.
+     Every interactive element is at least 44px tall. */
+  .mw-page {
+    max-width: 26.25rem;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: var(--space-4) var(--space-4) var(--space-12);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .mw-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-top: var(--space-2);
+  }
+
+  .mw-title {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+
+  .mw-sub {
+    margin: var(--space-1) 0 0;
+    color: var(--ink-muted);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  .mw-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: var(--ink-secondary);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-control);
+    white-space: nowrap;
+  }
+
+  .mw-back:hover { color: var(--ink); }
+
+  /* Spec label above each specimen. */
+  .mw-sect {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-regular);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .mw-spec { display: grid; gap: var(--space-2); }
+
+  /* Notices on a phone hold the 44px rule: actions grow tall,
+     the notice centers its row. */
+  .mw-spec .dm-notice { align-items: center; }
+  .mw-spec .dm-notice > span:first-child { flex: 1; min-width: 0; }
+
+  .mw-spec .dm-notice-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .mw-spec .dm-notice-dismiss {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: var(--space-2);
+  }
+
+  /* The stale thread row under the stale notice: neutral, never
+     alarmist. Dashed chip, muted ink. */
+  .mw-stale-row {
+    display: grid;
+    gap: var(--space-1);
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-raise);
+  }
+
+  .mw-stale-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+  }
+
+  .mw-stale-head .dm-thread-state,
+  .mw-stale-head .dm-mono { white-space: nowrap; }
+
+  .mw-stale-head .dm-scope-chip { margin-left: auto; }
+
+  .mw-stale-row .dm-comment-body { font-size: var(--text-sm); }
+
+  .mw-stale-note {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+
+  /* Empty states: calm words on the canvas, no box. */
+  .mw-empty {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-6) 0;
+    text-align: center;
+  }
+
+  .mw-empty-title {
+    margin: 0;
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
+
+  .mw-empty-line {
+    margin: 0;
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+    color: var(--ink-muted);
+  }
+</style>
+</head>
+<body class="dm">
+<div class="mw-page">
+
+  <header class="mw-top">
+    <div>
+      <h1 class="mw-title">Notices</h1>
+      <p class="mw-sub">Every banner, stale treatment, and empty state on the one notice shape.</p>
+    </div>
+    <a class="mw-back" href="boards.html">‹ Boards</a>
+  </header>
+
+  <section class="mw-spec">
+    <h2 class="mw-sect">Stale · board advanced</h2>
+    <div class="dm-notice" data-tone="warn" role="status">
+      <span>Board advanced. Annotation #2 is stale.</span>
+      <button class="dm-notice-action">Review</button>
+      <button class="dm-notice-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+    <div class="mw-stale-row">
+      <div class="mw-stale-head">
+        <span class="dm-thread-state">✓ Resolved</span>
+        <span class="dm-mono">on Pricing · /pricing</span>
+        <span class="dm-scope-chip">▢ element · stale</span>
+      </div>
+      <p class="dm-comment-body">Both plans read the same weight. The paid one should feel like the object.</p>
+      <span class="mw-stale-note">made against rev 1 · anchor is approximate</span>
+    </div>
+  </section>
+
+  <section class="mw-spec">
+    <h2 class="mw-sect">Reload · run finished</h2>
+    <div class="dm-notice" data-tone="success" role="status">
+      <span>Run r-142 finished. Reload the board to see the change.</span>
+      <button class="dm-notice-action">Reload</button>
+      <button class="dm-notice-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+  </section>
+
+  <section class="mw-spec">
+    <h2 class="mw-sect">Error · agent unreachable</h2>
+    <div class="dm-notice" data-tone="error" role="alert">
+      <span>Reply not sent. The agent host is unreachable.</span>
+      <button class="dm-notice-action">Retry</button>
+      <button class="dm-notice-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+  </section>
+
+  <section class="mw-spec">
+    <h2 class="mw-sect">Empty · no threads</h2>
+    <div class="mw-empty">
+      <p class="mw-empty-title">No open threads</p>
+      <p class="mw-empty-line">Marks made on the desktop canvas appear here when a review starts.</p>
+    </div>
+  </section>
+
+  <section class="mw-spec">
+    <h2 class="mw-sect">Empty · no runs</h2>
+    <div class="mw-empty">
+      <p class="mw-empty-title">No runs yet</p>
+      <p class="mw-empty-line">Dispatched work shows up here while agents are on it.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  /* Screen-to-screen links carry the resolved theme. */
+  (function () {
+    var t = document.documentElement.getAttribute('data-theme') || 'light';
+    document.querySelectorAll('a[href$=".html"]').forEach(function (a) {
+      a.href = a.getAttribute('href') + '?theme=' + t;
+    });
+  })();
+</script>
+</body>
+</html>

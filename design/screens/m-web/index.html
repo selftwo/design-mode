@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>designmode m-web · Screens</title>
+<link rel="stylesheet" href="../../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* Gallery scaffolding: one centered phone column. Two type
+     registers: the UI sans, and mono for file names. */
+  .dm-mono { font-family: var(--font-mono); }
+
+  .mw-page {
+    max-width: 26.25rem;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: var(--space-4) var(--space-4) var(--space-12);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .mw-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-top: var(--space-2);
+  }
+
+  .mw-title {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+
+  .mw-sub {
+    margin: var(--space-1) 0 0;
+    color: var(--ink-muted);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  #theme-toggle { min-height: 2.75rem; }
+
+  .mw-screens {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mw-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-4);
+    min-height: 2.75rem;
+    padding: var(--space-3) var(--space-3);
+    border-radius: var(--radius-control);
+    color: inherit;
+    text-decoration: none;
+    transition: background var(--duration-hover) var(--ease-hand);
+  }
+
+  .mw-screen:hover { background: var(--surface-hover); }
+
+  .mw-screen-title {
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+    line-height: var(--leading-tight);
+  }
+
+  .mw-screen-line {
+    grid-column: 1;
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+    color: var(--ink-muted);
+  }
+</style>
+</head>
+<body class="dm">
+<div class="mw-page">
+
+  <header class="mw-top">
+    <div>
+      <h1 class="mw-title">designmode · m-web</h1>
+      <p class="mw-sub">The simplified review companion: read, reply, approve. Designed at 390×844.</p>
+    </div>
+    <button class="dm-btn dm-btn--sm" id="theme-toggle" aria-pressed="false">Dark</button>
+  </header>
+
+  <ul class="mw-screens">
+    <li><a class="mw-screen" data-screen="boards.html">
+      <span class="mw-screen-title">Boards</span>
+      <span class="dm-mono">boards.html</span>
+      <span class="mw-screen-line">Entry list: board cards with capture thumbnails, open-thread count, last run state.</span>
+    </a></li>
+    <li><a class="mw-screen" data-screen="capture.html">
+      <span class="mw-screen-title">Capture</span>
+      <span class="dm-mono">capture.html</span>
+      <span class="mw-screen-line">One capture with tappable coral marks and the thread sheet closed as a jump bar.</span>
+    </a></li>
+    <li><a class="mw-screen" data-screen="thread.html">
+      <span class="mw-screen-title">Thread</span>
+      <span class="dm-mono">thread.html</span>
+      <span class="mw-screen-line">The sheet open: annotation #1, agent candidate with ⌁ provenance, reply, approve.</span>
+    </a></li>
+    <li><a class="mw-screen" data-screen="runs.html">
+      <span class="mw-screen-title">Activity</span>
+      <span class="dm-mono">runs.html</span>
+      <span class="mw-screen-line">Runs r-142 done and r-143 running with a live tail, plus a teal teach note.</span>
+    </a></li>
+    <li><a class="mw-screen" data-screen="notices.html">
+      <span class="mw-screen-title">Notices</span>
+      <span class="dm-mono">notices.html</span>
+      <span class="mw-screen-line">Stale, reload, and error banners on the one notice shape, with both empty states.</span>
+    </a></li>
+  </ul>
+
+</div>
+
+<script>
+  /* Theme toggle persists the choice and passes it to every
+     screen link as ?theme=, which each screen honors before
+     first paint. */
+  (function () {
+    var toggle = document.getElementById('theme-toggle');
+    function theme() {
+      return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    }
+    function sync() {
+      var dark = theme() === 'dark';
+      toggle.textContent = dark ? 'Light' : 'Dark';
+      toggle.setAttribute('aria-pressed', String(dark));
+      document.querySelectorAll('a[data-screen]').forEach(function (a) {
+        a.href = a.getAttribute('data-screen') + '?theme=' + theme();
+      });
+    }
+    sync();
+    toggle.addEventListener('click', function () {
+      var next = theme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('dm-theme', next); } catch (e) {}
+      sync();
+    });
+  })();
+</script>
+</body>
+</html>

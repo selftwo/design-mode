@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · Layers and aspects</title>
+<link rel="stylesheet" href="../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* ── Screen spec: the layers+aspects island ──────────────────
+     The plan-keep element is selected mid-canvas, right of center,
+     so the summoned island dodges to the LEFT edge. The layers
+     tree highlights the selection; the aspects side speaks the
+     product's own CSS: Layout, Flex, Radius, Fill, Border, Type. */
+  html, body { height: 100%; overflow: hidden; }
+
+  #canvas {
+    position: fixed;
+    inset: 0;
+    overflow: auto;
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--border) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+
+  #stage { position: relative; min-width: 1340px; min-height: 900px; width: 100%; height: 100%; }
+
+  .island { position: fixed; z-index: 50; }
+
+  #island-toolbar {
+    top: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 16px);
+  }
+
+  #island-status { bottom: var(--space-4); left: auto; right: var(--space-4); }
+
+  /* The summoned island, dodged clear of the selection. */
+  #island-panel {
+    top: var(--space-4);
+    left: var(--space-4);
+    width: var(--panel-width);
+    max-height: calc(100vh - 2rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #island-panel .panel-scroll { overflow-y: auto; min-height: 0; padding-bottom: var(--space-3); }
+  #island-panel .dm-tree { max-height: 8.5rem; flex: none; }
+
+  .flex-dir {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 var(--space-4) var(--space-1);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--ink-secondary);
+  }
+  .flex-dir .glyph { color: var(--accent); font-size: var(--text-xs); }
+  .well-solo { margin: var(--space-1) var(--space-4) 0; }
+
+  /* Spec caption: the dodge rule, stated where a builder reads it. */
+  #island-spec {
+    bottom: var(--space-4);
+    left: 44%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 16px);
+    padding: var(--space-2) var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+
+  /* ── Captured frames ──────────────────────────────────────── */
+  .frame-unit { position: absolute; transition: opacity var(--duration-hover) var(--ease-hand); }
+  #stage[data-dim="true"] .frame-unit:not([data-lit="true"]) { opacity: 0.55; }
+  .frame-hit { position: relative; }
+  .frame-body { cursor: default; }
+  .frame-body--d { width: 400px; height: 250px; }
+  .frame-body--m { width: 168px; height: 364px; }
+  .dm-frame-label { padding: 0 2px var(--space-1); white-space: nowrap; font-family: var(--font-mono); }
+
+  /* Extracted element regions: hover answers, selection rings. */
+  .el { position: relative; }
+  .el:hover { outline: 1px solid var(--accent-ring); outline-offset: -1px; }
+  .el[data-selected="true"] { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+
+  /* ── Mock captures: the fixture's OWN palette, never DLS hues ── */
+  .mk { background: #ffffff; color: #1c1c1c; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .mk-nav { display: flex; align-items: center; gap: 10px; padding: 9px 16px; }
+  .mk-wordmark { font-size: 10px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-links { display: flex; gap: 10px; margin-left: auto; font-size: 8px; color: #6f6f6f; }
+  .mk-menu { margin-left: auto; font-size: 11px; color: #1c1c1c; line-height: 1; }
+  .mk-hero { padding: 16px 20px 14px; }
+  .mk-h { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.15; max-width: 230px; }
+  .mk-sub { margin: 6px 0 11px; font-size: 8.5px; color: #6f6f6f; line-height: 1.4; max-width: 220px; }
+  .mk-btn { display: inline-block; padding: 4px 10px; border-radius: 4px; background: #1c1c1c; color: #fff; font-size: 8px; font-weight: 550; }
+  .mk-cards { display: flex; gap: 10px; padding: 4px 20px 0; }
+  .mk-card { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 10px 10px 12px; }
+  .mk-card-t { font-size: 9px; font-weight: 650; }
+  .mk-card-s { margin-top: 3px; font-size: 7.5px; color: #6f6f6f; line-height: 1.45; }
+  .mk-h1 { margin: 0; padding: 14px 20px 10px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-plans { display: flex; gap: 12px; padding: 0 20px; }
+  .mk-plan { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 12px; }
+  .mk-plan-name { font-size: 9px; font-weight: 650; }
+  .mk-plan-price { margin-top: 4px; font-size: 13px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-plan-tag { margin-top: 3px; font-size: 7.5px; color: #6f6f6f; line-height: 1.4; }
+  .mk-plan .mk-btn { margin-top: 9px; }
+  .mk--m .mk-nav { padding: 8px 12px; }
+  .mk--m .mk-wordmark { font-size: 9px; }
+  .mk--m .mk-hero { padding: 12px 12px 10px; }
+  .mk--m .mk-h { font-size: 14px; max-width: 130px; }
+  .mk--m .mk-sub { font-size: 7px; max-width: 130px; margin: 5px 0 9px; }
+  .mk--m .mk-btn { font-size: 7px; padding: 3px 8px; }
+  .mk-stack { display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 0; }
+  .mk-stack .mk-card { flex: none; }
+
+  /* ── 390: the island becomes a sheet; the canvas pans ─────── */
+  @media (max-width: 640px) {
+    #island-toolbar { left: var(--space-2); right: var(--space-2); transform: none; max-width: none; }
+    #island-status { right: var(--space-2); bottom: auto; top: 5.5rem; }
+    #island-spec { display: none; }
+    #island-panel {
+      top: auto;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: auto;
+      max-height: 58vh;
+      border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+      border-bottom: 0;
+    }
+    #island-panel .dm-tree { max-height: 8rem; }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main id="canvas" aria-label="Review canvas">
+  <div id="stage" data-dim="true">
+
+    <!-- Frame 1 · Home desktop, dimmed. -->
+    <div class="frame-unit" style="left:420px; top:560px;">
+      <span class="dm-frame-label">Home · / · 1440</span>
+      <div class="frame-hit">
+        <div class="dm-frame frame-body frame-body--d mk mock">
+          <div class="mk-nav">
+            <span class="mk-wordmark">smalltools</span>
+            <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+          </div>
+          <div class="mk-hero">
+            <h2 class="mk-h">Small tools for slow thinking</h2>
+            <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+            <span class="mk-btn">Browse the shelf</span>
+          </div>
+          <div class="mk-cards">
+            <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+            <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+            <div class="mk-card"><div class="mk-card-t">Margins</div><div class="mk-card-s">Notes that live beside the text.</div></div>
+          </div>
+        </div>
+        <button class="dm-mark dm-mark-circle" aria-label="Annotation 1, circle mark on hero, open"
+                style="left:57%; top:42px;"><span class="dm-mark-num">1</span></button>
+      </div>
+    </div>
+
+    <!-- Frame 2 · Pricing desktop — carries the selected element,
+         sitting right of center: the island dodges left. -->
+    <div class="frame-unit" data-lit="true" style="left:800px; top:190px;">
+      <span class="dm-frame-label">Pricing · /pricing · 1440</span>
+      <div class="frame-hit">
+        <div class="dm-frame frame-body frame-body--d mk mock">
+          <div class="mk-nav el">
+            <span class="mk-wordmark">smalltools</span>
+            <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+          </div>
+          <h2 class="mk-h1 el">Pricing</h2>
+          <div class="mk-plans">
+            <div class="mk-plan el">
+              <div class="mk-plan-name">Free</div>
+              <div class="mk-plan-price">$0</div>
+              <div class="mk-plan-tag">the shelf</div>
+            </div>
+            <div class="mk-plan el" data-selected="true" aria-label="Selected element: plan-keep">
+              <div class="mk-plan-name">Keep</div>
+              <div class="mk-plan-price">$4/mo</div>
+              <div class="mk-plan-tag">your margins everywhere</div>
+              <span class="mk-btn">Keep everything</span>
+            </div>
+          </div>
+        </div>
+        <button class="dm-mark dm-mark-rect" aria-label="Annotation 2, element mark on Keep plan, resolved and stale"
+                style="left:51.5%; top:82px; width:44%; height:118px;">
+          <span class="dm-scope-chip">▢ element · stale</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Frame 3 · Home mobile, dimmed. -->
+    <div class="frame-unit" style="left:1140px; top:520px;">
+      <span class="dm-frame-label">Home · / · 390 · rev 2</span>
+      <div class="frame-hit">
+        <div class="dm-frame frame-body frame-body--m mk mk--m mock">
+          <div class="mk-nav">
+            <span class="mk-wordmark">smalltools</span>
+            <span class="mk-menu">≡</span>
+          </div>
+          <div class="mk-hero">
+            <h2 class="mk-h">Small tools for slow thinking</h2>
+            <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+            <span class="mk-btn">Browse the shelf</span>
+          </div>
+          <div class="mk-stack">
+            <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+            <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+          </div>
+        </div>
+        <button class="dm-mark dm-mark-pin" aria-label="Annotation 3, comment pin on card stack, draft"
+                style="left:70%; top:238px;">3</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══ Islands ═══ -->
+<header id="island-toolbar" class="island dm-island dm-toolbar" aria-label="Tools">
+  <span class="dm-toolbar-title">Design review canvas</span>
+  <div class="dm-toolbar-group" role="group" aria-label="Canvas tools">
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="true">Select</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Circle</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Comment</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Learn</button>
+  </div>
+  <div class="dm-toolbar-group">
+    <button class="dm-btn dm-btn--sm">Import</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">
+      <span class="live-dot"></span> Live
+    </button>
+  </div>
+</header>
+
+<div id="island-status" class="island dm-island dm-status-island" role="status">
+  3 screens · 3 annotations · 1 selected · saved · live off
+</div>
+
+<div id="island-spec" class="island dm-island" aria-label="Spec: dodge rule">
+  dodge: selection right of center → island opens left · a drag wins for the session
+</div>
+
+<!-- The one inspector: layers tree above, aspects below, summoned
+     on selection, dragged by its header. -->
+<aside id="island-panel" class="island dm-island dm-island--summoned" data-open="true" aria-label="Layers and aspects">
+  <div class="dm-island-head dm-drag-handle" tabindex="0" aria-label="Layers and aspects island — drag or press arrow keys to move">
+    <span class="dm-island-title">smalltools — landing review</span>
+    <span class="dm-grip" aria-hidden="true">⠿</span>
+    <button class="dm-island-x" aria-label="Dismiss panel">✕</button>
+  </div>
+
+  <div class="dm-sect">Layers</div>
+  <div class="dm-tree" role="listbox" aria-label="Layers tree">
+    <button class="dm-tree-row" style="--lvl:0" aria-selected="false"><span class="dm-tree-glyph">▦</span>smalltools — landing review</button>
+    <button class="dm-tree-row dm-tree-row--frame" style="--lvl:1" aria-selected="false"><span class="dm-tree-glyph">▣</span>Home · /<span class="dm-tree-meta">1440</span></button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>nav</button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>hero</button>
+    <button class="dm-tree-row dm-tree-row--mark" style="--lvl:3" aria-selected="false"><span class="dm-tree-glyph">○</span>#1 circle<span class="dm-tree-meta">open</span></button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>card-row</button>
+    <button class="dm-tree-row dm-tree-row--frame" style="--lvl:1" aria-selected="false"><span class="dm-tree-glyph">▣</span>Pricing · /pricing<span class="dm-tree-meta">1440</span></button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>nav</button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">¶</span>heading</button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>plan-free</button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="true"><span class="dm-tree-glyph">▢</span>plan-keep</button>
+    <button class="dm-tree-row dm-tree-row--mark dm-tree-row--stale" style="--lvl:3" aria-selected="false"><span class="dm-tree-glyph">▢</span>#2 element<span class="dm-tree-meta">stale</span></button>
+    <button class="dm-tree-row dm-tree-row--frame" style="--lvl:1" aria-selected="false"><span class="dm-tree-glyph">▣</span>Home · /<span class="dm-tree-meta">390 · rev 2</span></button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>nav</button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>hero</button>
+    <button class="dm-tree-row" style="--lvl:2" aria-selected="false"><span class="dm-tree-glyph">▢</span>card-stack</button>
+    <button class="dm-tree-row dm-tree-row--mark" style="--lvl:3" aria-selected="false"><span class="dm-tree-glyph">●</span>#3 comment<span class="dm-tree-meta">draft</span></button>
+  </div>
+
+  <div class="dm-sect">Aspects · element</div>
+  <div class="panel-scroll">
+    <div class="dm-arow"><span class="dm-alabel">Label</span><span class="dm-aval">plan-keep</span></div>
+    <div class="dm-arow"><span class="dm-alabel">Frame</span><span class="dm-aval">Pricing · /pricing · 1440</span></div>
+
+    <div class="dm-insp-sect">Layout</div>
+    <div class="dm-well-grid">
+      <div class="dm-well"><span class="dm-well-l">x</span><span class="dm-well-v">720</span></div>
+      <div class="dm-well"><span class="dm-well-l">y</span><span class="dm-well-v">164</span></div>
+      <div class="dm-well"><span class="dm-well-l">w</span><span class="dm-well-v">648</span></div>
+      <div class="dm-well"><span class="dm-well-l">h</span><span class="dm-well-v">158</span></div>
+    </div>
+    <div class="well-solo"><div class="dm-well"><span class="dm-well-l">rotation</span><span class="dm-well-v">0°</span></div></div>
+
+    <div class="dm-insp-sect">Flex</div>
+    <div class="flex-dir"><span class="glyph">↓</span> column</div>
+    <div class="dm-well-grid">
+      <div class="dm-well"><span class="dm-well-l">gap</span><span class="dm-well-v">8px</span></div>
+      <div class="dm-well"><span class="dm-well-l">padding</span><span class="dm-well-v">24 / 24</span></div>
+    </div>
+    <div class="dm-align-picker" role="img" aria-label="Alignment: top left">
+      <span class="dm-align-dot" data-active="true"></span><span class="dm-align-dot"></span><span class="dm-align-dot"></span>
+      <span class="dm-align-dot"></span><span class="dm-align-dot"></span><span class="dm-align-dot"></span>
+      <span class="dm-align-dot"></span><span class="dm-align-dot"></span><span class="dm-align-dot"></span>
+    </div>
+
+    <div class="dm-insp-sect">Radius</div>
+    <div class="well-solo"><div class="dm-well"><span class="dm-well-l">radius</span><span class="dm-well-v">6px</span></div></div>
+
+    <div class="dm-insp-sect">Fill</div>
+    <div class="dm-swatch-row"><span class="dm-swatch" style="background:#ffffff"></span><span class="dm-swatch-name">card-bg</span><span class="dm-swatch-val">#ffffff</span></div>
+    <div class="dm-swatch-row"><span class="dm-swatch" style="background:#1c1c1c"></span><span class="dm-swatch-name">ink-strong</span><span class="dm-swatch-val">#1c1c1c</span></div>
+    <div class="dm-swatch-row"><span class="dm-swatch" style="background:#6f6f6f"></span><span class="dm-swatch-name">ink-soft</span><span class="dm-swatch-val">oklch(0.53 0 0)</span></div>
+
+    <div class="dm-insp-sect">Border</div>
+    <div class="well-solo"><div class="dm-well"><span class="dm-well-l">width</span><span class="dm-well-v">1px</span></div></div>
+    <div class="dm-swatch-row"><span class="dm-swatch" style="background:#e6e6e6"></span><span class="dm-swatch-name">hairline</span><span class="dm-swatch-val">#e6e6e6</span></div>
+
+    <div class="dm-insp-sect">Type</div>
+    <div class="dm-type-rows">
+      <div class="dm-type-row"><span class="dm-tlabel">size / leading</span><span class="dm-tval">20 / 26</span></div>
+      <div class="dm-type-row"><span class="dm-tlabel">family</span><span class="dm-tval">Inter</span></div>
+      <div class="dm-type-row"><span class="dm-tlabel">weight</span><span class="dm-tval">650</span></div>
+    </div>
+
+    <div class="dm-insp-sect">Annotations</div>
+    <div class="dm-arow"><span class="dm-alabel">On this element</span><span class="dm-aval">#2 element · resolved · stale</span></div>
+  </div>
+</aside>
+
+<script>
+  /* The tree scrolls its selected row into view, matching the
+     canvas ⇄ tree selection sync. */
+  (function () {
+    var tree = document.querySelector('.dm-tree');
+    var sel = tree.querySelector('[aria-selected="true"]');
+    if (sel) tree.scrollTop = Math.max(0, sel.offsetTop - tree.clientHeight / 2);
+  })();
+</script>
+
+</body>
+</html>

@@ -167,3 +167,15 @@ Reason: Reviewed Impeccable's Live Mode and command set: its adjective-level voc
 Rejected: Free-text intent tags, which agents cannot interpret consistently. Depending on the impeccable package at runtime.
 
 Revisit when: Reviewers need per-project custom vocabularies.
+
+## 2026-07-17: Pivot to the handed-off designmode DLS; islands supersede docked panels
+
+Status: Accepted
+
+Decision: The design language system handed off at `design/` (from `claude-design/dls/designmode`) is the single design source. The product rebuilds on it in four ticketed phases (`.scratch/designmode-pivot/`): re-skin on the DLS tokens, restructure to floating islands over an edge-to-edge canvas with dodge-by-default placement and bloom threads at marks, the learn/ask lens with teach annotations, and a mobile-web review companion. `specs/redesign-visual-system.md` was rewritten accordingly.
+
+Reason: The prior work was prototyping to prove feasibility. The DLS direction was settled upstream through a wayfinder run and three grill rounds (provenance in `design/_wayfinder/`), so re-deriving it here would only fork it. Islands with dodge-then-drag beat docked panels for a spatial judgment tool: chrome never owns viewport bands, and the subject stays the captured screens.
+
+Rejected: The earlier draft's phase 2 of resizable docked panels with pointer-drag splitters. Adding a runtime dependency for drag or placement (buildable with the existing stack). Generation chat on the canvas.
+
+Revisit when: A later-phase trigger in `design/HANDOFF.md` fires, or the islands layout fails the phase 2 gate's keyboard workflow.

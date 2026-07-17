@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · Screens</title>
+<link rel="stylesheet" href="../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  .page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-6) var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .page-head { display: flex; align-items: flex-start; gap: var(--space-4); }
+  .page-head > div { flex: 1; }
+  .page-head h1 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+  .page-head p {
+    margin: 0;
+    color: var(--ink-secondary);
+    font-size: var(--text-base);
+    line-height: var(--leading-body);
+  }
+  .gallery { padding-bottom: var(--space-2); }
+  .gallery .dm-row-meta { font-family: var(--font-mono); }
+  .gallery .dm-list { padding: 0 var(--space-2) 0; }
+  .gallery a.dm-row { text-decoration: none; color: inherit; display: grid; }
+  @media (max-width: 640px) {
+    .page { padding: var(--space-6) var(--space-4) var(--space-12); }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main class="page">
+
+  <div class="page-head">
+    <div>
+      <h1>Designmode · screens</h1>
+      <p>The screen-by-screen spec of the design review canvas. Each screen is a spec sheet: every required state is visible on load, in both themes, on the DLS token seam alone.</p>
+    </div>
+    <button class="dm-btn dm-btn--sm" id="theme-toggle" aria-pressed="false">Dark</button>
+  </div>
+
+  <section class="dm-island gallery" aria-label="Desktop screens">
+    <div class="dm-sect">Desktop</div>
+    <nav class="dm-list">
+      <a class="dm-row" href="board.html">
+        <span class="dm-row-title">Board at rest</span>
+        <span class="dm-row-meta">board.html</span>
+        <span class="dm-row-support">The calm baseline: dot-grid canvas, three frames, marks, floating chrome, nothing selected.</span>
+      </a>
+      <a class="dm-row" href="review-dispatch.html">
+        <span class="dm-row-title">Review and dispatch</span>
+        <span class="dm-row-meta">review-dispatch.html</span>
+        <span class="dm-row-support">Mark #1 selected, thread bloomed with instruction, the ten intents, agent select, Send, and the ReviewBatch state matrix.</span>
+      </a>
+      <a class="dm-row" href="returned-run.html">
+        <span class="dm-row-title">Returned run</span>
+        <span class="dm-row-meta">returned-run.html</span>
+        <span class="dm-row-support">The agent's candidate reply with ⌁ provenance, the runs island expanded with an output tail, the reload notice, and the stale mark.</span>
+      </a>
+      <a class="dm-row" href="aspects.html">
+        <span class="dm-row-title">Layers and aspects</span>
+        <span class="dm-row-meta">aspects.html</span>
+        <span class="dm-row-support">An element selected mid-canvas; the summoned island dodges clear and speaks the product's own CSS.</span>
+      </a>
+      <a class="dm-row" href="learn-lens.html">
+        <span class="dm-row-title">Learn lens</span>
+        <span class="dm-row-meta">learn-lens.html</span>
+        <span class="dm-row-support">The teach flow: anatomy, vocabulary, why-line, one asked question, and the answer pinned on canvas as a teach annotation.</span>
+      </a>
+      <a class="dm-row" href="live-view.html">
+        <span class="dm-row-title">Live view</span>
+        <span class="dm-row-meta">live-view.html</span>
+        <span class="dm-row-support">The focused frame hosting the proxied dev page: live chrome, ready state, the connecting and unavailable states, exit affordance.</span>
+      </a>
+      <a class="dm-row" href="compare.html">
+        <span class="dm-row-title">Blind compare</span>
+        <span class="dm-row-meta">compare.html</span>
+        <span class="dm-row-support">Two frames labeled by neutral letters, pick and tie with one reason, gates run on both sides first.</span>
+      </a>
+      <a class="dm-row" href="states.html">
+        <span class="dm-row-title">Full-screen and edge states</span>
+        <span class="dm-row-meta">states.html</span>
+        <span class="dm-row-support">Project picker with service states, waiting for a board, the four notice tones, the reset dialog, and the runs island states.</span>
+      </a>
+    </nav>
+  </section>
+
+  <section class="dm-island gallery" aria-label="Mobile-web screens">
+    <div class="dm-sect">m-web · the review companion</div>
+    <nav class="dm-list">
+      <a class="dm-row" href="m-web/boards.html">
+        <span class="dm-row-title">Boards</span>
+        <span class="dm-row-meta">m-web/boards.html</span>
+        <span class="dm-row-support">The boards a review is in progress on.</span>
+      </a>
+      <a class="dm-row" href="m-web/capture.html">
+        <span class="dm-row-title">Capture</span>
+        <span class="dm-row-meta">m-web/capture.html</span>
+        <span class="dm-row-support">A captured screen and its marks, read-only.</span>
+      </a>
+      <a class="dm-row" href="m-web/thread.html">
+        <span class="dm-row-title">Thread</span>
+        <span class="dm-row-meta">m-web/thread.html</span>
+        <span class="dm-row-support">Read a bloomed thread, reply, approve.</span>
+      </a>
+      <a class="dm-row" href="m-web/runs.html">
+        <span class="dm-row-title">Runs</span>
+        <span class="dm-row-meta">m-web/runs.html</span>
+        <span class="dm-row-support">Agent run history and tails.</span>
+      </a>
+      <a class="dm-row" href="m-web/notices.html">
+        <span class="dm-row-title">Notices</span>
+        <span class="dm-row-meta">m-web/notices.html</span>
+        <span class="dm-row-support">Notice tones at mobile widths.</span>
+      </a>
+    </nav>
+  </section>
+
+</main>
+
+<script>
+  /* Theme toggle: persisted, and passed to every screen link via
+     ?theme= so each screen honors it before first paint. */
+  (function () {
+    var toggle = document.getElementById('theme-toggle');
+    var root = document.documentElement;
+    function sync() {
+      var dark = root.getAttribute('data-theme') === 'dark';
+      toggle.textContent = dark ? 'Light' : 'Dark';
+      toggle.setAttribute('aria-pressed', String(dark));
+      var theme = dark ? 'dark' : 'light';
+      document.querySelectorAll('a.dm-row').forEach(function (a) {
+        var href = a.getAttribute('href').split('?')[0];
+        a.setAttribute('href', href + '?theme=' + theme);
+      });
+    }
+    toggle.addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('dm-theme', next); } catch (e) {}
+      sync();
+    });
+    sync();
+  })();
+</script>
+
+</body>
+</html>

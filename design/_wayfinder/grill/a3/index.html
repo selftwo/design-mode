@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Islands · A3 Electric — design review canvas</title>
+<link rel="stylesheet" href="/dls/designmode/styles.css">
+<style>
+/* ============================================================
+   VARIANT A3 · ISLANDS, ELECTRIC (the flashy pole)
+   Lineage: branches round-2 winner A1 ("Islands, three
+   materials"). Keeps every A1 commitment — edge-to-edge canvas,
+   floating islands, blooms from marks, summoned aspects with the
+   dodge, CSS-speaking inspector, tree sync, Escape cascade.
+
+   What this branch owns:
+   1. Electric palette: deep dual-value blue-gray field (dot
+      lattice + violet/cyan corner glows), dark-ink contrast
+      islands for toolbar/status/runs, cool white aspects island,
+      punchy violet signal with lit-edge selected states, a cyan
+      electric trace for the teach voice, saturated coral
+      annotation paper. One job per hue. AA in all tool chrome.
+   2. The learn lens floats: drag it by its header, nudge it with
+      arrow keys, close it with ✕. Content keeps updating in
+      place on element clicks. It never repositions itself.
+   3. The runs island and the layers+aspects island drag too.
+      The dodge stays the DEFAULT; once the user places an
+      island, their placement wins for the session.
+   4. A centered test case: the mobile frame (and mark #3) sits
+      mid-canvas, so the dodge is demonstrable on a centered
+      selection — the panel picks the roomier side.
+   ============================================================ */
+
+html, body { height: 100%; overflow: hidden; }
+
+/* ── Local retone: ELECTRIC ──────────────────────────────────
+   Overrides the DLS aliases for THIS bench only — tokens.css is
+   untouched. Deep blue-gray field, cool white panel material,
+   violet signal, coral annotation ink, cyan teach trace.
+   Every small-text pair below is AA against its ground. */
+:root {
+  --canvas:         #232838;   /* deep blue-slate field */
+  --surface:        #f4f6fc;   /* panel material: cool white */
+  --surface-hover:  #e9edf9;
+  --border:         #cdd4ea;   /* panel / frame edge */
+  --border-control: #cdd4ea;
+  --border-strong:  #aeb8d9;
+  --ink:            #171a26;   /* primary on light panels */
+  --ink-secondary:  #454c63;   /* secondary — 8.2:1 on --surface */
+  --ink-muted:      #5a6280;   /* muted / meta — 5.6:1 on --surface */
+  --ink-faint:      #646d8d;   /* faintest legal gray — 4.7:1 */
+  --hairline:       #e2e7f4;   /* dividers inside panels */
+  --well-fill:      #edf0fa;   /* Layout/Fill/Border value wells */
+  --well-border:    #d4daee;
+
+  /* Violet signal — the one working accent (selection, pressed,
+     focus, dispatch). Fill #6443f0 holds white text at 5.8:1;
+     text form #4c2fd6 holds 5.6:1 on --surface and 5.5:1 on
+     coral paper; #8b6bff is the non-text lit edge/ring. */
+  --accent:        #6443f0;
+  --accent-strong: #4c2fd6;
+  --accent-ink:    #ffffff;
+  --accent-ring:   #8b6bff;
+  --accent-wash:   rgba(100, 67, 240, 0.10);
+  --focus-ring:    0 0 0 2px #10131f, 0 0 0 4px #8b6bff;
+
+  /* Annotation hue — saturated coral. Mark strokes/pins #d92f1f
+     (white pin text 4.8:1); on coral paper the accent text form
+     is #b31f16 (4.8:1) and muted text is #7a2c21 (6.8:1). */
+  --mark:      #d92f1f;
+  --mark-fill: rgba(217, 47, 31, 0.10);
+}
+
+/* ── Material tokens (this variant's extension) ────────────── */
+:root {
+  /* Dark-ink contrast blocks: toolbar, status, runs, pill. */
+  --block-ink:    #141927;
+  --block-border: #2b3247;
+  --block-text:   #e8ebf5;   /* 13.9:1 on block */
+  --block-text-2: #a9b2cc;   /* 8.3:1 on block */
+  --block-text-3: #8892b0;   /* 5.7:1 on block — smallest meta */
+
+  /* Annotation material: saturated coral paper. It pops against
+     the deep field, the white captures, and the white island. */
+  --anno-surface: #ffcfc2;
+  --anno-border:  #e8674f;
+  --anno-ink:     #241009;
+  --anno-muted:   #7a2c21;
+  --anno-accent:  #b31f16;
+  --anno-well:    rgba(179, 31, 22, 0.12);
+
+  /* Teach material: dark cyan-teal glass with an electric edge —
+     the second trace. Title cyan #67e8f9 (9.8:1), body #dff6f9,
+     muted #9fd0da (≥7:1). Cyan's one job: the learn/teach voice. */
+  --teach-surface: #0e2f38;
+  --teach-border:  #155e6e;
+  --teach-edge:    #22d3ee;
+  --teach-title:   #67e8f9;
+  --teach-text:    #dff6f9;
+  --teach-muted:   #9fd0da;
+  --teach-well:    rgba(34, 211, 238, 0.10);
+  --teach-press:   #0e7490;   /* Learn tool pressed — white text 5.4:1 */
+
+  /* Summoned-panel tone: cool white island over the deep field. */
+  --panel-tone:   var(--surface);
+  --panel-border: var(--border);
+}
+
+/* ── The field: dual-value electric ground ─────────────────────
+   Deep blue-slate base, a violet glow pooling top-left and a cyan
+   glow low-right (the two traces, ambient), and a dot lattice one
+   value lighter. The white captures burn against it. */
+#canvas {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  background:
+    radial-gradient(1200px 700px at 16% -12%, rgba(100, 67, 240, 0.20), transparent 62%),
+    radial-gradient(1000px 620px at 102% 112%, rgba(34, 211, 238, 0.12), transparent 58%),
+    var(--canvas);
+}
+
+#stage {
+  position: relative;
+  min-width: 1180px;
+  min-height: 880px;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(rgba(190, 200, 235, 0.14) 1px, transparent 1.4px);
+  background-size: 26px 26px;
+}
+
+/* ── Islands (the only chrome) ─────────────────────────────── */
+.island {
+  position: fixed;
+  z-index: 50;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 14px 40px rgba(8, 10, 20, 0.5), 0 2px 8px rgba(8, 10, 20, 0.35);
+}
+
+/* Dark-ink contrast blocks: toolbar · status · runs · pill. */
+.island--block {
+  background: var(--block-ink);
+  border-color: var(--block-border);
+  color: var(--block-text);
+  box-shadow: 0 14px 40px rgba(8, 10, 20, 0.6), 0 0 0 1px rgba(139, 107, 255, 0.10);
+}
+
+/* Drag furniture: grips + handles. */
+.grip {
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--ink-faint);
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+.island--block .grip { color: var(--block-text-3); }
+.drag-handle { cursor: grab; touch-action: none; }
+.drag-handle:active { cursor: grabbing; }
+.drag-handle:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-control); }
+
+/* Toolbar island, top center. */
+#island-toolbar {
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+#island-toolbar .dm-toolbar-title {
+  padding: 0 var(--space-2) 0 var(--space-1);
+  white-space: nowrap;
+  color: var(--block-text);
+}
+
+.tool-group { display: flex; align-items: center; gap: var(--space-1); }
+
+.dm-btn--sm { min-height: 1.75rem; padding: 0 var(--space-2); font-size: var(--text-xs); }
+
+/* Toolbar buttons on the dark block: quiet light-gray words,
+   violet when pressed. Learn presses cyan (the teach trace). */
+#island-toolbar .dm-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--block-text-2);
+}
+#island-toolbar .dm-btn:hover { background: rgba(255, 255, 255, 0.07); color: var(--block-text); }
+#island-toolbar .tool[aria-pressed="true"],
+#island-toolbar #btn-live[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 14px rgba(124, 92, 255, 0.45);
+}
+#island-toolbar #btn-learn[aria-pressed="true"] {
+  background: var(--teach-press);
+  border-color: var(--teach-press);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.4);
+}
+#island-toolbar #btn-import {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+#island-toolbar #btn-import:hover { background: var(--accent-strong); }
+
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--block-text-3);
+}
+.dm-btn[aria-pressed="true"] .live-dot {
+  background: var(--accent-ink);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+/* Status island, bottom left. */
+#island-status {
+  bottom: var(--space-4);
+  left: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--block-text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Agent island, bottom right — present only while runs exist. */
+#island-agent {
+  bottom: var(--space-4);
+  right: var(--space-4);
+  padding: var(--space-2) 0 var(--space-2);
+  min-width: 15rem;
+}
+#island-agent[hidden] { display: none; }
+#island-agent .sect { color: var(--block-text-3); display: flex; align-items: center; gap: var(--space-2); }
+
+.run-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--block-text-2);
+}
+.run-row .dm-mono { color: var(--block-text-3); }
+
+/* ── Summoned layers+aspects island ────────────────────────────
+   Not a docked column. It appears on selection (or from the pill),
+   sits on its own muted sunken tone, and opens on the side OPPOSITE
+   the selected object so it never covers the selection. */
+#panel-pill {
+  position: fixed;
+  z-index: 50;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--block-border);
+  background: var(--block-ink);
+  border-radius: var(--radius-panel);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--block-text-2);
+  cursor: pointer;
+  box-shadow: 0 14px 40px rgba(8, 10, 20, 0.6);
+}
+#panel-pill:hover { color: var(--block-text); background: #1b2133; }
+#panel-pill .tglyph { color: var(--accent-ring); }
+#panel-pill[hidden] { display: none; }
+#panel-pill .tglyph { width: auto; }
+
+#island-panel {
+  top: var(--space-4);
+  width: 18.5rem;
+  max-height: calc(100vh - 8.75rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel-tone);
+  border-color: var(--panel-border);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition:
+    opacity var(--duration-exit) var(--ease-exit),
+    transform var(--duration-exit) var(--ease-exit),
+    visibility 0s linear var(--duration-exit);
+}
+#island-panel[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity var(--duration-settle) var(--ease-settle),
+    transform var(--duration-settle) var(--ease-settle);
+}
+#island-panel[data-side="right"] { right: var(--space-4); left: auto; }
+#island-panel[data-side="left"]  { left: var(--space-4); right: auto; }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+}
+
+.panel-head-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-normal);
+}
+
+.panel-x {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.panel-x:hover { background: var(--surface-hover); color: var(--ink); }
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sect {
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+#tree { overflow-y: auto; max-height: 16rem; padding-bottom: var(--space-2); flex: none; }
+
+.trow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 3px var(--space-3) 3px calc(var(--space-4) + var(--lvl, 0) * 14px);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  text-align: left;
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+.trow:hover { background: var(--surface-hover); color: var(--ink); }
+.trow[aria-selected="true"] {
+  background: linear-gradient(90deg, rgba(100, 67, 240, 0.16), rgba(100, 67, 240, 0.05));
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--ink);
+}
+.trow--frame { font-weight: var(--weight-medium); }
+.tglyph {
+  width: 14px;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}
+.trow--mark .tglyph { color: var(--mark); }
+.trow--stale .tglyph { color: var(--ink-faint); }
+.tmeta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+#aspects { overflow-y: auto; min-height: 0; padding-bottom: var(--space-3); }
+
+.arow {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 3px var(--space-4);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+.alabel { color: var(--ink-muted); }
+.aval { color: var(--ink); overflow-wrap: anywhere; }
+.aval.dm-mono { font-size: var(--text-2xs); }
+
+/* Aspects speak CSS: the product's own declarations, mono lattice. */
+.css-lat {
+  margin: var(--space-1) var(--space-4) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.crow {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  line-height: 1.7;
+}
+.cprop { color: var(--ink-muted); }
+.cval  { color: var(--ink); overflow-wrap: anywhere; }
+.cval .sw {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  border: 1px solid var(--border-strong);
+  vertical-align: baseline;
+  margin-right: 4px;
+}
+
+.a-actions { padding: var(--space-3) var(--space-4) var(--space-1); }
+.a-chips { display: flex; gap: var(--space-1); padding: var(--space-1) var(--space-4); flex-wrap: wrap; }
+
+/* ── Paper inspector anatomy (element aspects) ─────────────────
+   Layout · Flex · Radius · Fill · Border · Type — stable order,
+   fully drawn static fixtures. Sentence-case headers, hairline
+   between sections only, mono value wells. */
+.insp-sect {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-top: 1px solid var(--hairline);
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+.insp-sect--first { margin-top: 0; border-top: 0; padding-top: var(--space-2); }
+
+.well {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius-control);
+  background: var(--well-fill);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+.well .wl { color: var(--ink-muted); }
+.well .wv { color: var(--ink); }
+
+.well-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding: 0 var(--space-4);
+}
+.well-rot {
+  margin: var(--space-1) var(--space-4) 0;
+}
+
+.flex-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 var(--space-4) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-secondary);
+}
+.flex-dir .glyph { color: var(--accent); font-size: var(--text-xs); }
+.flex-wells { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); padding: 0 var(--space-4) var(--space-2); }
+
+.align-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 4.5rem;
+  margin: var(--space-1) var(--space-4) var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius-control);
+  background: var(--well-fill);
+}
+.align-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  justify-self: center;
+  align-self: center;
+}
+.align-dot[data-active="true"] { background: var(--accent); width: 8px; height: 8px; }
+
+.swatch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+.swatch {
+  width: 12px; height: 12px;
+  flex: none;
+  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+}
+.swatch-name { color: var(--ink); }
+.swatch-val { margin-left: auto; color: var(--ink-muted); overflow-wrap: anywhere; }
+
+.type-rows { padding: 0 var(--space-4); display: grid; gap: 2px; }
+.type-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+.type-row .tlabel { color: var(--ink-muted); }
+.type-row .tval { color: var(--ink); }
+
+/* ── Captured frames ───────────────────────────────────────── */
+.frame-unit { position: absolute; }
+.frame-unit { transition: opacity var(--duration-hover) var(--ease-hand); }
+#stage[data-dim="true"] .frame-unit:not([data-lit="true"]) { opacity: 0.45; }
+
+.frame-label {
+  display: block;
+  padding: 0 2px var(--space-1);
+  white-space: nowrap;
+  color: #aeb6d4;   /* 7.0:1 on the deep field */
+}
+.frame-unit[data-lit="true"] .frame-label { color: #cdb9ff; }
+
+.frame-hit { position: relative; }
+
+.frame-body {
+  cursor: default;
+  box-shadow: 0 12px 34px rgba(8, 10, 20, 0.55);
+}
+.frame-body--d { width: 400px; height: 250px; }
+.frame-body--m { width: 168px; height: 364px; }
+.frame-body[aria-selected="true"] {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 7px rgba(124, 92, 255, 0.20), 0 0 36px rgba(124, 92, 255, 0.40), 0 12px 34px rgba(8, 10, 20, 0.55);
+}
+
+/* Extracted element regions: hover answers, energetic selection. */
+.el { position: relative; }
+.el:hover { outline: 1px solid var(--accent-ring); outline-offset: -1px; }
+.el[data-selected="true"] {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 4px rgba(124, 92, 255, 0.18), 0 0 18px rgba(124, 92, 255, 0.35);
+}
+
+/* ── Mock screens (captured pixels — their own quiet voice) ── */
+.mk { background: #ffffff; color: #1c1c1c; font-family: var(--font-ui); }
+.mk-nav { display: flex; align-items: center; gap: 10px; padding: 9px 16px; }
+.mk-wordmark { font-size: 10px; font-weight: 650; letter-spacing: -0.01em; }
+.mk-links { display: flex; gap: 10px; margin-left: auto; font-size: 8px; color: #7d7d7d; }
+.mk-menu { margin-left: auto; font-size: 11px; color: #1c1c1c; line-height: 1; }
+.mk-hero { padding: 16px 20px 14px; }
+.mk-h { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.15; max-width: 230px; }
+.mk-sub { margin: 6px 0 11px; font-size: 8.5px; color: #7a7a7a; line-height: 1.4; max-width: 220px; }
+.mk-btn {
+  display: inline-block; padding: 4px 10px; border-radius: 4px;
+  background: #1c1c1c; color: #fff; font-size: 8px; font-weight: 550;
+}
+.mk-cards { display: flex; gap: 10px; padding: 4px 20px 0; }
+.mk-card { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 10px 10px 12px; }
+.mk-card-t { font-size: 9px; font-weight: 650; }
+.mk-card-s { margin-top: 3px; font-size: 7.5px; color: #8b8b8b; line-height: 1.45; }
+.mk-h1 { margin: 0; padding: 14px 20px 10px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.mk-plans { display: flex; gap: 12px; padding: 0 20px; }
+.mk-plan { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 12px; }
+.mk-plan-name { font-size: 9px; font-weight: 650; }
+.mk-plan-price { margin-top: 4px; font-size: 13px; font-weight: 650; letter-spacing: -0.01em; }
+.mk-plan-tag { margin-top: 3px; font-size: 7.5px; color: #8b8b8b; line-height: 1.4; }
+.mk-plan .mk-btn { margin-top: 9px; }
+/* Mobile capture */
+.mk--m .mk-nav { padding: 8px 12px; }
+.mk--m .mk-wordmark { font-size: 9px; }
+.mk--m .mk-hero { padding: 12px 12px 10px; }
+.mk--m .mk-h { font-size: 14px; max-width: 130px; }
+.mk--m .mk-sub { font-size: 7px; max-width: 130px; margin: 5px 0 9px; }
+.mk--m .mk-btn { font-size: 7px; padding: 3px 8px; }
+.mk-stack { display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 0; }
+.mk-stack .mk-card { flex: none; }
+
+/* ── Marks (the reviewer's rose ink) ───────────────────────── */
+.mark {
+  position: absolute;
+  z-index: 5;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.mark[aria-selected="true"] { box-shadow: var(--focus-ring); border-radius: 50%; }
+.mark:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 50%; }
+
+.mark-circle {
+  width: 30px; height: 30px;
+  border: 2px solid var(--mark);
+  border-radius: 50%;
+  background: var(--mark-fill);
+}
+.mark-num {
+  position: absolute;
+  top: -7px; right: -8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--mark);
+}
+.mark-rect {
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: transparent;
+}
+.mark-rect[aria-selected="true"], .mark-rect:focus-visible { border-radius: 4px; }
+.mark-rect .scope-chip {
+  position: absolute;
+  top: -9px; left: 6px;
+}
+.mark-pin {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--mark);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scope-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* ── Bloom: the thread grows out of its mark ───────────────────
+   THIRD MATERIAL. Saturated coral paper — pops against the deep
+   field, the white captures, and the white island. Never
+   confusable with either. */
+.bloom {
+  position: absolute;
+  z-index: 30;
+  width: 288px;
+  padding: var(--space-4);
+  background: var(--anno-surface);
+  border: 1px solid var(--anno-border);
+  border-radius: var(--radius-panel);
+  color: var(--anno-ink);
+  box-shadow: 0 14px 40px rgba(8, 10, 20, 0.5), 0 0 0 1px rgba(232, 103, 79, 0.35);
+  transform: scale(0.1);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform var(--duration-exit) var(--ease-exit),
+    opacity var(--duration-exit) var(--ease-exit),
+    visibility 0s linear var(--duration-exit);
+}
+.bloom[data-open="true"] {
+  transform: scale(1);
+  opacity: 1;
+  visibility: visible;
+  transition:
+    transform var(--duration-settle) var(--ease-settle),
+    opacity var(--duration-settle) var(--ease-settle);
+}
+.bloom .scope-chip { background: transparent; border-color: var(--anno-border); color: var(--anno-muted); }
+.bloom .dm-comment-author { color: var(--anno-ink); }
+.bloom .dm-comment-time { color: var(--anno-muted); }
+.bloom .dm-comment-body { color: var(--anno-ink); }
+
+.thread { display: grid; gap: var(--space-3); }
+.thread-head { display: flex; align-items: center; gap: var(--space-2); }
+.thread-state {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--anno-muted);
+}
+.thread-state--open { color: var(--anno-accent); }
+.thread-head .scope-chip { margin-left: auto; }
+.thread-head .dm-dot { width: 6px; height: 6px; }
+
+.thread-c { display: grid; gap: var(--space-1); }
+.avatar {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: var(--weight-semibold);
+  flex: none;
+  align-self: center;
+}
+.avatar--human { background: var(--mark); color: #fff; }
+.avatar--agent { background: var(--accent); color: var(--accent-ink); }
+
+.chip-candidate {
+  padding: 0 5px;
+  border: 1px solid var(--accent-strong);
+  border-radius: var(--radius-control);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.prov {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--anno-well);
+  color: var(--anno-muted);
+  justify-self: start;
+}
+
+.thread .dm-comment-body { font-size: var(--text-sm); }
+.chip-row { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+.bloom .dm-chip { background: transparent; border-color: rgba(179, 31, 22, 0.4); color: var(--anno-ink); }
+.bloom .dm-chip[aria-pressed="true"] {
+  border-color: var(--anno-accent);
+  color: var(--anno-accent);
+  background: var(--anno-well);
+}
+
+.thread-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--anno-muted);
+}
+.rdot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--anno-muted); }
+.rdot[data-r="returned"], .rdot[data-r="sent"] { background: var(--accent-strong); }
+.thread-foot--returned { color: var(--accent-strong); }
+
+.thread .dm-textarea {
+  min-height: 3.25rem;
+  font-size: var(--text-sm);
+  background: #fff7f4;
+  border-color: rgba(179, 31, 22, 0.35);
+  color: var(--anno-ink);
+}
+
+/* ── Learn lens + teach annotation (the cyan electric trace) ────
+   The lens FLOATS: default bottom-center, but the user grabs its
+   header and puts it anywhere; arrow keys nudge it when the
+   header is focused; ✕ closes it. It never repositions itself —
+   content updates in place as elements are clicked. */
+#island-learn {
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  width: 22.5rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--teach-surface);
+  border-color: var(--teach-border);
+  color: var(--teach-text);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 26px rgba(34, 211, 238, 0.18),
+    0 14px 40px rgba(8, 10, 20, 0.6);
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--duration-exit) var(--ease-exit),
+    transform var(--duration-exit) var(--ease-exit),
+    visibility 0s linear var(--duration-exit);
+}
+#island-learn[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  transition:
+    opacity var(--duration-settle) var(--ease-settle),
+    transform var(--duration-settle) var(--ease-settle);
+}
+#island-learn[data-user-placed="true"],
+#island-learn[data-user-placed="true"][data-open="true"] { transform: none; }
+
+.learn-head { display: flex; align-items: center; gap: var(--space-2); }
+.learn-title { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--teach-title); }
+.learn-sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--teach-muted);
+}
+.learn-head .panel-x { margin-left: auto; color: var(--teach-muted); }
+.learn-head .panel-x:hover { background: rgba(255, 255, 255, 0.08); color: var(--teach-text); }
+
+.learn-empty { margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--teach-text); line-height: var(--leading-body); }
+
+.learn-body { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
+.learn-anatomy {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--teach-well);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  line-height: 1.8;
+  color: #a5f3fc;
+  white-space: pre;
+  overflow-x: auto;
+}
+.learn-term { font-size: var(--text-sm); line-height: var(--leading-body); color: var(--teach-text); }
+.learn-term b { font-weight: var(--weight-semibold); color: var(--teach-title); }
+.learn-why { font-size: var(--text-sm); line-height: var(--leading-body); color: var(--teach-muted); }
+
+.learn-ask { display: grid; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--teach-border); }
+.learn-q { font-size: var(--text-sm); font-style: italic; color: var(--teach-muted); line-height: var(--leading-body); }
+.learn-ask .dm-btn {
+  justify-self: start;
+  background: transparent;
+  border: 1px solid var(--teach-edge);
+  color: var(--teach-title);
+}
+.learn-ask .dm-btn:hover { background: var(--teach-well); }
+.learn-answered {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--teach-title);
+}
+
+/* Teach annotation: anchored explanation on the canvas. Cyan
+   glass, agent voice, no routing, no dispatch. */
+.teach-note {
+  position: absolute;
+  z-index: 28;
+  width: 264px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--teach-surface);
+  border: 1px solid var(--teach-border);
+  border-radius: var(--radius-panel);
+  color: var(--teach-text);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 22px rgba(34, 211, 238, 0.16),
+    0 14px 40px rgba(8, 10, 20, 0.6);
+  transform: scale(0.1);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform var(--duration-exit) var(--ease-exit),
+    opacity var(--duration-exit) var(--ease-exit),
+    visibility 0s linear var(--duration-exit);
+}
+.teach-note[data-open="true"] {
+  transform: scale(1);
+  opacity: 1;
+  visibility: visible;
+  transition:
+    transform var(--duration-settle) var(--ease-settle),
+    opacity var(--duration-settle) var(--ease-settle);
+}
+.teach-stem {
+  position: absolute;
+  z-index: 27;
+  width: 1px;
+  background: var(--teach-edge);
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.7);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-settle) var(--ease-settle);
+}
+.teach-stem[data-open="true"] { opacity: 0.85; visibility: visible; }
+.teach-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--teach-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--teach-title);
+  white-space: nowrap;
+}
+.teach-note .thread-c { margin-top: var(--space-2); }
+.teach-note .prov { background: var(--teach-well); color: var(--teach-title); }
+.teach-note .dm-comment-author { color: var(--teach-text); }
+.teach-note .dm-comment-time { color: var(--teach-muted); }
+.teach-note .dm-comment-body { color: var(--teach-text); }
+
+/* ── 390: islands stack (drag is a desktop affordance) ─────── */
+@media (max-width: 640px) {
+  html, body { overflow: auto; }
+  #canvas { position: static; overflow: visible; min-height: 100dvh; }
+  .grip { display: none; }
+  .drag-handle { cursor: default; }
+  #stage {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-6);
+    padding: 7.25rem var(--space-4) 8.5rem;
+  }
+  .frame-unit { position: static; transform: scale(0.88); transform-origin: top left; }
+  .frame-wrap-d { width: 352px; height: 240px; }
+  .frame-wrap-m { width: 148px; height: 340px; }
+  .fu-outer { flex: none; }
+
+  #island-toolbar {
+    left: var(--space-2);
+    right: var(--space-2);
+    top: var(--space-2);
+    transform: none;
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+  #island-status { bottom: 4.25rem; left: var(--space-2); }
+  #island-agent { bottom: 4.25rem; right: var(--space-2); min-width: 0; max-width: 60vw; }
+  #island-agent .run-note { display: none; }
+
+  #panel-pill { top: auto; bottom: var(--space-2); left: 50%; right: auto; transform: translateX(-50%); }
+
+  #island-panel,
+  #island-panel[data-side="left"],
+  #island-panel[data-side="right"] {
+    z-index: 55;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 62vh;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    border-bottom: 0;
+  }
+  #tree { max-height: 10rem; }
+
+  #island-learn,
+  #island-learn[data-user-placed="true"] {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: auto;
+    transform: none;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    border-bottom: 0;
+    z-index: 70;
+    max-height: 56vh;
+  }
+  #island-learn[data-open="true"] { transform: none; }
+
+  .teach-note { width: 280px; left: 4px !important; top: 118px !important; }
+  .teach-stem { display: none; }
+
+  .bloom { width: 320px !important; transform-origin: 50% 0 !important; }
+  #bloom-m1 { left: 8px !important; top: 118px !important; }
+  #bloom-m2 { left: 8px !important; right: auto !important; top: 118px !important; }
+  #bloom-m3 { left: -84px !important; right: auto !important; top: 264px !important; }
+}
+</style>
+</head>
+<body class="dm">
+
+<!-- ═══ The field ═══ -->
+<main id="canvas" aria-label="Review canvas">
+  <div id="stage" data-dim="false">
+
+    <!-- Frame 1 · Home desktop -->
+    <div class="frame-unit fu-outer" data-frame="f1" style="left:72px; top:128px;">
+      <div class="frame-wrap-d">
+        <span class="frame-label dm-mono">Home · / · 1440</span>
+        <div class="frame-hit">
+          <div class="dm-frame frame-body frame-body--d mk" data-sel="f1" data-type="frame">
+            <div class="mk-nav el" data-sel="f1-nav" data-type="el">
+              <span class="mk-wordmark">smalltools</span>
+              <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+            </div>
+            <div class="mk-hero el" data-sel="f1-hero" data-type="el">
+              <h2 class="mk-h">Small tools for slow thinking</h2>
+              <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+              <span class="mk-btn">Browse the shelf</span>
+            </div>
+            <div class="mk-cards el" data-sel="f1-cards" data-type="el">
+              <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+              <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+              <div class="mk-card"><div class="mk-card-t">Margins</div><div class="mk-card-s">Notes that live beside the text.</div></div>
+            </div>
+          </div>
+
+          <button class="mark mark-circle" data-sel="m1" data-type="mark"
+                  aria-label="Annotation 1, circle mark on hero"
+                  style="left:57%; top:42px;"><span class="mark-num">1</span></button>
+
+          <div class="bloom" id="bloom-m1" data-mark="m1"
+               style="left:calc(57% + 44px); top:26px; transform-origin:-12px 28px;">
+            <div class="thread">
+              <div class="thread-head">
+                <span class="dm-dot" data-state="running"></span>
+                <span class="thread-state thread-state--open">open</span>
+                <span class="scope-chip" style="border-style:solid; color:var(--anno-accent); border-color:var(--anno-accent);">○ circle · #1</span>
+              </div>
+              <div class="thread-c">
+                <div class="dm-comment-head">
+                  <span class="avatar avatar--human">B</span>
+                  <span class="dm-comment-author">Ben</span>
+                  <span class="dm-comment-time">2m</span>
+                </div>
+                <p class="dm-comment-body">Hero measure runs the full row. Cap it and let the cards carry the width.</p>
+                <div class="chip-row"><button class="dm-chip" aria-pressed="true">distill</button></div>
+              </div>
+              <div class="thread-c">
+                <div class="dm-comment-head">
+                  <span class="avatar avatar--agent">FB</span>
+                  <span class="dm-comment-author">Fable</span>
+                  <span class="chip-candidate">Candidate</span>
+                  <span class="dm-comment-time">1m</span>
+                </div>
+                <span class="prov dm-mono">⌁ run r-142 · s-9 · 1m</span>
+                <p class="dm-comment-body">Proposed: measure capped at 60ch, cards move up 32px. Patch staged.</p>
+              </div>
+              <div class="thread-foot thread-foot--returned">
+                <span class="rdot" data-r="returned"></span> returned
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Frame 2 · Pricing desktop (right side of the field) -->
+    <div class="frame-unit fu-outer" data-frame="f2" style="left:560px; top:128px;">
+      <div class="frame-wrap-d">
+        <span class="frame-label dm-mono">Pricing · /pricing · 1440</span>
+        <div class="frame-hit">
+          <div class="dm-frame frame-body frame-body--d mk" data-sel="f2" data-type="frame">
+            <div class="mk-nav el" data-sel="f2-nav" data-type="el">
+              <span class="mk-wordmark">smalltools</span>
+              <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+            </div>
+            <h2 class="mk-h1 el" data-sel="f2-heading" data-type="el">Pricing</h2>
+            <div class="mk-plans">
+              <div class="mk-plan el" data-sel="f2-free" data-type="el">
+                <div class="mk-plan-name">Free</div>
+                <div class="mk-plan-price">$0</div>
+                <div class="mk-plan-tag">the shelf</div>
+              </div>
+              <div class="mk-plan el" data-sel="f2-keep" data-type="el">
+                <div class="mk-plan-name">Keep</div>
+                <div class="mk-plan-price">$4/mo</div>
+                <div class="mk-plan-tag">your margins everywhere</div>
+                <span class="mk-btn">Keep everything</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="mark mark-rect" data-sel="m2" data-type="mark"
+                  aria-label="Annotation 2, element mark on Keep plan, resolved and stale"
+                  style="left:51.5%; top:82px; width:44%; height:118px;">
+            <span class="scope-chip">▢ element · stale</span>
+          </button>
+
+          <div class="bloom" id="bloom-m2" data-mark="m2"
+               style="left:auto; right:calc(48.5% + 14px); top:70px; transform-origin:calc(100% + 14px) 28px;">
+            <div class="thread">
+              <div class="thread-head">
+                <span class="thread-state">✓ resolved</span>
+                <span class="scope-chip">▢ element · stale</span>
+              </div>
+              <div class="thread-c">
+                <div class="dm-comment-head">
+                  <span class="avatar avatar--human">B</span>
+                  <span class="dm-comment-author">Ben</span>
+                  <span class="dm-comment-time">38m</span>
+                </div>
+                <p class="dm-comment-body">Both plans read the same weight. The paid one should feel like the object.</p>
+                <div class="chip-row"><button class="dm-chip" aria-pressed="true">bolder</button></div>
+              </div>
+              <div class="thread-foot">made against rev 1 · anchor is approximate</div>
+            </div>
+          </div>
+
+          <!-- Teach annotation: the Ask answer lands here, anchored to plan-keep. -->
+          <div class="teach-stem" id="teach-stem" style="left:95.5%; top:150px; width:32px; height:1px;"></div>
+          <div class="teach-note" id="teach-note" data-open="false" aria-label="Teach annotation on plan-keep">
+            <span class="teach-chip">✦ teach · anchored ▢ plan-keep</span>
+            <div class="thread-c">
+              <div class="dm-comment-head">
+                <span class="avatar avatar--agent">FB</span>
+                <span class="dm-comment-author">Fable</span>
+                <span class="dm-comment-time">now</span>
+              </div>
+              <span class="prov dm-mono">⌁ run r-142 · learn</span>
+              <p class="dm-comment-body">The filled button is the only solid-ink block in either card, so Keep carries more visual weight. Same type, same border — the signal does the lifting.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Frame 3 · Home mobile, rev 2 — sits mid-canvas: the
+         centered-selection test case for the dodge. -->
+    <div class="frame-unit fu-outer" data-frame="f3" style="left:620px; top:440px;">
+      <div class="frame-wrap-m">
+        <span class="frame-label dm-mono">Home · / · 390 · rev 2</span>
+        <div class="frame-hit">
+          <div class="dm-frame frame-body frame-body--m mk mk--m" data-sel="f3" data-type="frame">
+            <div class="mk-nav el" data-sel="f3-nav" data-type="el">
+              <span class="mk-wordmark">smalltools</span>
+              <span class="mk-menu">≡</span>
+            </div>
+            <div class="mk-hero el" data-sel="f3-hero" data-type="el">
+              <h2 class="mk-h">Small tools for slow thinking</h2>
+              <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+              <span class="mk-btn">Browse the shelf</span>
+            </div>
+            <div class="mk-stack el" data-sel="f3-stack" data-type="el">
+              <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+              <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+              <div class="mk-card"><div class="mk-card-t">Margins</div><div class="mk-card-s">Notes that live beside the text.</div></div>
+            </div>
+          </div>
+
+          <button class="mark mark-pin" data-sel="m3" data-type="mark"
+                  aria-label="Annotation 3, comment pin on card stack, draft"
+                  style="left:70%; top:238px;">3</button>
+
+          <div class="bloom" id="bloom-m3" data-mark="m3"
+               style="left:auto; right:calc(30% + 26px); top:226px; transform-origin:calc(100% + 26px) 24px;">
+            <div class="thread">
+              <div class="thread-head">
+                <span class="dm-dot" data-state="waiting"></span>
+                <span class="thread-state">draft</span>
+                <span class="scope-chip" style="border-style:solid; color:var(--anno-accent); border-color:var(--anno-accent);">pin · #3</span>
+              </div>
+              <textarea class="dm-textarea" placeholder="No instruction yet" aria-label="Annotation instruction"></textarea>
+              <div class="chip-row">
+                <button class="dm-chip" aria-pressed="false">distill</button>
+                <button class="dm-chip" aria-pressed="false">bolder</button>
+                <button class="dm-chip" aria-pressed="false">adapt</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══ Islands ═══ -->
+<header id="island-toolbar" class="island island--block" aria-label="Tools">
+  <span class="dm-toolbar-title">Design review canvas</span>
+  <div class="tool-group" role="group" aria-label="Canvas tools">
+    <button class="dm-btn dm-btn--quiet dm-btn--sm tool" aria-pressed="true">Select</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm tool" aria-pressed="false">Circle</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm tool" aria-pressed="false">Comment</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" id="btn-learn" aria-pressed="false">Learn</button>
+  </div>
+  <div class="tool-group">
+    <button class="dm-btn dm-btn--sm" id="btn-import">Import</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" id="btn-live" aria-pressed="false">
+      <span class="live-dot"></span> Live
+    </button>
+  </div>
+</header>
+
+<div id="island-status" class="island island--block" role="status">
+  <span id="status-line">3 screens · 3 annotations · saved · live off</span>
+</div>
+
+<button id="panel-pill" aria-label="Open layers and aspects">
+  <span class="tglyph">▦</span> smalltools — landing review
+</button>
+
+<aside id="island-panel" class="island" data-open="false" data-side="right" aria-label="Layers and aspects">
+  <div class="panel-head" id="panel-head">
+    <span class="grip" aria-hidden="true">⠿</span>
+    <span class="panel-head-title">smalltools — landing review</span>
+    <button class="panel-x" id="btn-panel-x" aria-label="Dismiss panel">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="sect">Layers</div>
+    <div id="tree" role="listbox" aria-label="Layers tree">
+      <button class="trow" data-sel="board" style="--lvl:0" aria-selected="true"><span class="tglyph">▦</span>smalltools — landing review</button>
+      <button class="trow trow--frame" data-sel="f1" style="--lvl:1"><span class="tglyph">▣</span>Home · /<span class="tmeta">1440</span></button>
+      <button class="trow" data-sel="f1-nav" style="--lvl:2"><span class="tglyph">▢</span>nav</button>
+      <button class="trow" data-sel="f1-hero" style="--lvl:2"><span class="tglyph">▢</span>hero</button>
+      <button class="trow trow--mark" data-sel="m1" style="--lvl:3"><span class="tglyph">○</span>#1 circle<span class="tmeta">open</span></button>
+      <button class="trow" data-sel="f1-cards" style="--lvl:2"><span class="tglyph">▢</span>card-row</button>
+      <button class="trow trow--frame" data-sel="f2" style="--lvl:1"><span class="tglyph">▣</span>Pricing · /pricing<span class="tmeta">1440</span></button>
+      <button class="trow" data-sel="f2-nav" style="--lvl:2"><span class="tglyph">▢</span>nav</button>
+      <button class="trow" data-sel="f2-heading" style="--lvl:2"><span class="tglyph">¶</span>heading</button>
+      <button class="trow" data-sel="f2-free" style="--lvl:2"><span class="tglyph">▢</span>plan-free</button>
+      <button class="trow" data-sel="f2-keep" style="--lvl:2"><span class="tglyph">▢</span>plan-keep</button>
+      <button class="trow trow--mark trow--stale" data-sel="m2" style="--lvl:3"><span class="tglyph">▢</span>#2 element<span class="tmeta">stale</span></button>
+      <button class="trow trow--frame" data-sel="f3" style="--lvl:1"><span class="tglyph">▣</span>Home · /<span class="tmeta">390 · rev 2</span></button>
+      <button class="trow" data-sel="f3-nav" style="--lvl:2"><span class="tglyph">▢</span>nav</button>
+      <button class="trow" data-sel="f3-hero" style="--lvl:2"><span class="tglyph">▢</span>hero</button>
+      <button class="trow" data-sel="f3-stack" style="--lvl:2"><span class="tglyph">▢</span>card-stack</button>
+      <button class="trow trow--mark" data-sel="m3" style="--lvl:3"><span class="tglyph">●</span>#3 comment<span class="tmeta">draft</span></button>
+    </div>
+    <div class="sect" id="aspects-title">Aspects · board</div>
+    <div id="aspects"></div>
+  </div>
+</aside>
+
+<aside id="island-agent" class="island island--block" aria-label="Agent runs">
+  <div class="sect" id="runs-head"><span class="grip" aria-hidden="true">⠿</span>Runs</div>
+  <div id="run-rows"></div>
+</aside>
+
+<!-- ═══ Learn island (summoned by the Learn tool word) ═══ -->
+<aside id="island-learn" class="island" data-open="false" aria-label="Learn">
+  <div class="learn-head" id="learn-head">
+    <span class="grip" aria-hidden="true">⠿</span>
+    <span class="learn-title">Learn</span>
+    <span class="learn-sub" id="learn-sub">click an element</span>
+    <button class="panel-x" id="btn-learn-x" aria-label="Close learn">✕</button>
+  </div>
+  <div id="learn-content">
+    <p class="learn-empty">Click any element on a capture to see its anatomy and the word for what it is doing.</p>
+  </div>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+  const $  = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+
+  /* ── Fixed content ─────────────────────────────────────── */
+  const RUNS = [
+    { id: 'r-142', agent: 'fable', state: 'done',    note: 'measure patch staged' },
+    { id: 'r-143', agent: 'codex', state: 'running', note: 'recapturing /pricing' },
+  ];
+
+  const FRAME_NAMES = { f1: 'Home · / · 1440', f2: 'Pricing · /pricing · 1440', f3: 'Home · / · 390' };
+
+  const row = (l, v, mono) =>
+    `<div class="arow"><span class="alabel">${l}</span><span class="aval${mono ? ' dm-mono' : ''}">${v}</span></div>`;
+
+  const FRAME_ASPECTS = {
+    f1: [['Route', '/'], ['Viewport', '1440×900'], ['Revision', '1'], ['Capture', 'c41f…9a', 1], ['Staleness', 'current · captured 4m ago'], ['Elements', '3']],
+    f2: [['Route', '/pricing'], ['Viewport', '1440×900'], ['Revision', '1'], ['Capture', 'b7d2…4e', 1], ['Staleness', 'r-143 recapturing'], ['Elements', '4']],
+    f3: [['Route', '/'], ['Viewport', '390×844'], ['Revision', '2 · recaptured'], ['Capture', 'e93a…1c', 1], ['Staleness', 'current · captured 4m ago'], ['Elements', '3']],
+  };
+
+  /* Aspects speak CSS: each element shows the product's own
+     declarations as captured, not abstract geometry. `layout`
+     carries the Paper inspector anatomy fixture: x/y/w/h, flex
+     (when the element is a flex container), radius, fill, border,
+     type — plausible CSS for the drawn mock screens. */
+  const EL_ASPECTS = {
+    'f1-nav':     { label: 'nav', frame: 'f1', ann: '0', css: [
+      ['display', 'flex'], ['align-items', 'center'], ['gap', '32px'],
+      ['padding', '20px 48px'], ['font-size', '14px / 1.4']],
+      layout: { x: 0, y: 0, w: 1440, h: 64,
+        flex: { dir: 'row', gap: 32, pad: '20 / 48', align: [1, 0] },
+        radius: 0,
+        fill: [['bg', '#ffffff'], ['text', '#1c1c1c'], ['text-muted', '#7d7d7d']],
+        border: { w: 0, name: 'border', val: 'none' } } },
+    'f1-hero':    { label: 'hero', frame: 'f1', ann: '1 annotation', css: [
+      ['display', 'block'], ['padding', '64px 80px 48px'], ['max-width', 'none'],
+      ['font-size', '44px / 1.15'], ['color', '#1c1c1c', '#1c1c1c']],
+      layout: { x: 0, y: 64, w: 1440, h: 280,
+        radius: 0,
+        fill: [['bg', '#ffffff'], ['text', '#1c1c1c'], ['text-muted', '#7a7a7a']],
+        border: { w: 0, name: 'border', val: 'none' },
+        type: { size: 44, leading: 1.15, family: 'Inter', weight: 650 } } },
+    'f1-cards':   { label: 'card-row', frame: 'f1', ann: '0', css: [
+      ['display', 'flex'], ['gap', '24px'], ['padding', '0 48px'],
+      ['width', '100%']],
+      layout: { x: 48, y: 344, w: 1344, h: 132,
+        flex: { dir: 'row', gap: 24, pad: '0 / 0', align: [1, 1] },
+        radius: 0,
+        fill: [['bg', '#ffffff'], ['border', '#e6e6e6']],
+        border: { w: 0, name: 'border', val: 'none' } } },
+    'f2-nav':     { label: 'nav', frame: 'f2', ann: '0', css: [
+      ['display', 'flex'], ['align-items', 'center'], ['gap', '32px'],
+      ['padding', '20px 48px'], ['font-size', '14px / 1.4']],
+      layout: { x: 0, y: 0, w: 1440, h: 64,
+        flex: { dir: 'row', gap: 32, pad: '20 / 48', align: [1, 0] },
+        radius: 0,
+        fill: [['bg', '#ffffff'], ['text', '#1c1c1c'], ['text-muted', '#7d7d7d']],
+        border: { w: 0, name: 'border', val: 'none' } } },
+    'f2-heading': { label: 'heading', frame: 'f2', ann: '0', css: [
+      ['font-size', '32px / 1.2'], ['letter-spacing', '-0.01em'],
+      ['padding', '40px 48px 24px'], ['color', '#1c1c1c', '#1c1c1c']],
+      layout: { x: 48, y: 64, w: 1344, h: 76,
+        radius: 0,
+        fill: [['bg', '#ffffff'], ['text', '#1c1c1c']],
+        border: { w: 0, name: 'border', val: 'none' },
+        type: { size: 32, leading: 1.2, family: 'Inter', weight: 650 } } },
+    'f2-free':    { label: 'plan-free', frame: 'f2', ann: '0', css: [
+      ['display', 'flex'], ['flex-direction', 'column'], ['gap', '8px'],
+      ['padding', '24px'], ['border', '1px solid #e6e6e6', '#e6e6e6'],
+      ['width', '50%']],
+      layout: { x: 48, y: 164, w: 648, h: 158,
+        flex: { dir: 'column', gap: 8, pad: '24 / 24', align: [0, 0] },
+        radius: 6,
+        fill: [['bg', '#ffffff'], ['text-muted', '#8b8b8b']],
+        border: { w: 1, name: 'border', val: '#e6e6e6' },
+        type: { size: 20, leading: 1.3, family: 'Inter', weight: 650 } } },
+    'f2-keep':    { label: 'plan-keep', frame: 'f2', ann: '1 annotation', css: [
+      ['display', 'flex'], ['flex-direction', 'column'], ['gap', '8px'],
+      ['padding', '24px'], ['border', '1px solid #e6e6e6', '#e6e6e6'],
+      ['width', '50%'], ['background', 'oklch(1 0 0)', '#ffffff']],
+      layout: { x: 720, y: 164, w: 648, h: 158,
+        flex: { dir: 'column', gap: 8, pad: '24 / 24', align: [0, 0] },
+        radius: 6,
+        fill: [['bg', '#ffffff'], ['accent', '#1c1c1c'], ['text-muted', '#8b8b8b']],
+        border: { w: 1, name: 'border', val: '#e6e6e6' },
+        type: { size: 20, leading: 1.3, family: 'Inter', weight: 650 } } },
+    'f3-nav':     { label: 'nav', frame: 'f3', ann: '0', css: [
+      ['display', 'flex'], ['align-items', 'center'],
+      ['padding', '16px 20px'], ['font-size', '14px / 1.4']],
+      layout: { x: 0, y: 0, w: 390, h: 56,
+        flex: { dir: 'row', gap: 0, pad: '16 / 20', align: [1, 2] },
+        radius: 0,
+        fill: [['bg', '#ffffff'], ['text', '#1c1c1c']],
+        border: { w: 0, name: 'border', val: 'none' } } },
+    'f3-hero':    { label: 'hero', frame: 'f3', ann: '0', css: [
+      ['display', 'block'], ['padding', '32px 20px 24px'],
+      ['font-size', '30px / 1.15'], ['max-width', '20ch']],
+      layout: { x: 0, y: 56, w: 390, h: 220,
+        radius: 0,
+        fill: [['bg', '#ffffff'], ['text-muted', '#7a7a7a']],
+        border: { w: 0, name: 'border', val: 'none' },
+        type: { size: 30, leading: 1.15, family: 'Inter', weight: 650 } } },
+    'f3-stack':   { label: 'card-stack', frame: 'f3', ann: '1 annotation', css: [
+      ['display', 'flex'], ['flex-direction', 'column'], ['gap', '16px'],
+      ['padding', '0 20px'], ['width', '100%']],
+      layout: { x: 20, y: 296, w: 350, h: 420,
+        flex: { dir: 'column', gap: 16, pad: '0 / 0', align: [0, 0] },
+        radius: 0,
+        fill: [['bg', '#ffffff']],
+        border: { w: 0, name: 'border', val: 'none' } } },
+  };
+
+  const MARK_ASPECTS = {
+    m1: { state: 'open', dot: 'running', kind: '○ circle', excerpt: 'Hero measure runs the full row. Cap it and let the cards carry the width.', intent: 'distill', routing: 'returned', r: 'returned', dispatch: true },
+    m2: { state: 'resolved', dot: 'done', kind: '▢ element · stale', excerpt: 'Both plans read the same weight. The paid one should feel like the object.', intent: 'bolder', routing: 'resolved · not routed', r: 'none', dispatch: false },
+    m3: { state: 'draft', dot: 'waiting', kind: 'pin', excerpt: 'No instruction yet', intent: null, routing: 'not routed', r: 'none', dispatch: false },
+  };
+
+  const insect = (label, first) =>
+    `<div class="insp-sect${first ? ' insp-sect--first' : ''}">${label}</div>`;
+
+  const well = (l, v) => `<div class="well"><span class="wl">${l}</span><span class="wv">${v}</span></div>`;
+
+  const swatchRow = (name, val) =>
+    `<div class="swatch-row"><span class="swatch" style="background:${val}"></span>` +
+    `<span class="swatch-name">${name}</span><span class="swatch-val">${val}</span></div>`;
+
+  /* Paper inspector anatomy: Layout · Flex · Radius · Fill · Border
+     · Type, in stable order, fully drawn static fixtures. */
+  function inspector(l) {
+    let html = '';
+
+    html += insect('Layout', true);
+    html += `<div class="well-grid">` +
+      well('x', l.x) + well('y', l.y) + well('w', l.w) + well('h', l.h) +
+      `</div>` +
+      `<div class="well-rot">${well('rotation', '0°')}</div>`;
+
+    if (l.flex) {
+      const f = l.flex;
+      html += insect('Flex');
+      html += `<div class="flex-dir"><span class="glyph">${f.dir === 'row' ? '→' : '↓'}</span> ${f.dir}</div>`;
+      html += `<div class="flex-wells">${well('gap', f.gap + 'px')}${well('padding', f.pad)}</div>`;
+      const dots = [];
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++)
+        dots.push(`<span class="align-dot" data-active="${r === f.align[0] && c === f.align[1]}"></span>`);
+      html += `<div class="align-picker">${dots.join('')}</div>`;
+    }
+
+    html += insect('Radius');
+    html += `<div class="well-rot">${well('radius', l.radius + 'px')}</div>`;
+
+    html += insect('Fill');
+    html += l.fill.map(f => swatchRow(f[0], f[1])).join('');
+
+    html += insect('Border');
+    html += `<div class="well-rot">${well('width', l.border.w + 'px')}</div>`;
+    html += swatchRow(l.border.name, l.border.val === 'none' ? 'transparent' : l.border.val);
+
+    if (l.type) {
+      const t = l.type;
+      html += insect('Type');
+      html += `<div class="type-rows">` +
+        `<div class="type-row"><span class="tlabel">size / leading</span><span class="tval">${t.size} / ${Math.round(t.size * t.leading)}</span></div>` +
+        `<div class="type-row"><span class="tlabel">family</span><span class="tval">${t.family}</span></div>` +
+        `<div class="type-row"><span class="tlabel">weight</span><span class="tval">${t.weight}</span></div>` +
+        `</div>`;
+    }
+    return html;
+  }
+
+  function aspectsFor(id) {
+    if (id === 'board') {
+      return ['Aspects · board',
+        row('Project', 'smalltools — landing review') +
+        row('Screens', '3') +
+        row('Source', 'localhost:5173', 1) +
+        row('Last capture', '4m ago') +
+        row('Theme', 'light')];
+    }
+    if (FRAME_ASPECTS[id]) {
+      return ['Aspects · frame',
+        insect('Capture', true) +
+        FRAME_ASPECTS[id].map(a => row(a[0], a[1], a[2])).join('')];
+    }
+    if (EL_ASPECTS[id]) {
+      const e = EL_ASPECTS[id];
+      return ['Aspects · element',
+        row('Label', e.label) +
+        row('Frame', FRAME_NAMES[e.frame]) +
+        inspector(e.layout) +
+        insect('Annotations') +
+        row('On this element', e.ann)];
+    }
+    if (MARK_ASPECTS[id]) {
+      const m = MARK_ASPECTS[id];
+      const chips = ['distill', 'bolder', 'adapt'].map(c =>
+        `<button class="dm-chip" aria-pressed="${m.intent === c}">${c}</button>`).join('');
+      return ['Aspects · annotation',
+        insect('Annotations', true) +
+        row('State', `<span class="dm-dot" data-state="${m.dot}" style="width:6px;height:6px;"></span> ${m.state}`) +
+        row('Kind', m.kind, 1) +
+        row('Comment', m.excerpt) +
+        `<div class="insp-sect">Intent</div>` +
+        `<div class="a-chips">${chips}</div>` +
+        row('Routing', `<span class="rdot" data-r="${m.r}"></span> ${m.routing}`) +
+        insect('Dispatch') +
+        `<div class="a-actions"><button class="dm-btn dm-btn--primary dm-btn--sm" ${m.dispatch ? '' : 'disabled'}>Dispatch</button></div>`];
+    }
+    return ['Aspects', ''];
+  }
+
+  /* ── Learn content (anatomy · vocabulary · why) ──────────── */
+  const LEARN = {
+    'f1-hero': {
+      anatomy: 'hero = block · padding 64/80\n  > h1 (44px/1.15)\n  > sub (16px/1.5)\n  > button',
+      term: '<b>measure</b>: the length of a text line, counted in characters.',
+      why: 'The headline inherits the container width, so the eye tracks a long line before reaching the cards. Capping the measure near 60ch is what mark #1 asks for.',
+    },
+    'f1-cards': {
+      anatomy: 'card-row = flex · gap 24px\n  > card ×3 (flex 1)\n    > title > support',
+      term: '<b>gutter</b>: the fixed channel of space between columns.',
+      why: 'Three equal flex children with one shared gap: the row reads as one shelf because the gutters repeat exactly.',
+    },
+    'f2-keep': {
+      anatomy: 'card = flex column · gap 8px\n  > name > price > tag\n  > button (solid fill)',
+      term: '<b>signal</b>: the one saturated or solid element that draws the eye first.',
+      why: 'Same type and border as Free, but the filled button adds a block of solid ink. Weight arrives from the signal, not the typography.',
+      ask: {
+        q: '“Why does this card read heavier than the others?”',
+      },
+    },
+    'f2-free': {
+      anatomy: 'card = flex column · gap 8px\n  > name > price > tag',
+      term: '<b>value</b>: the light-to-dark position of a surface or ink.',
+      why: 'All-outline, no fills: every ink here sits at the same value, so the card recedes next to Keep.',
+    },
+    'f3-hero': {
+      anatomy: 'hero = block · padding 32/20\n  > h1 (30px/1.15, 20ch)\n  > sub > button',
+      term: '<b>leading</b>: the vertical space between lines of type.',
+      why: 'At 390 the headline wraps to two lines; the tight 1.15 leading keeps them reading as one thought.',
+    },
+    'f3-stack': {
+      anatomy: 'stack = flex column · gap 16px\n  > card ×3',
+      term: '<b>rhythm</b>: a repeated interval that makes a sequence scannable.',
+      why: 'One repeated 16px gap sets the vertical rhythm; the thumb learns the interval after the first card.',
+    },
+  };
+  const LEARN_FALLBACK = {
+    anatomy: 'nav = flex · gap 32px\n  > wordmark > links',
+    term: '<b>tracking</b>: the overall letter-spacing across a run of text.',
+    why: 'The wordmark tightens tracking slightly (-0.01em) so it reads as a mark, not a word in the sentence.',
+  };
+
+  /* ── Selection model (one shared model: canvas ⇄ tree) ─── */
+  const stage = $('#stage');
+  const panel = $('#island-panel');
+  const pill  = $('#panel-pill');
+  const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
+
+  const frameOf = id => {
+    if (id === 'board') return null;
+    if (id === 'm1') return 'f1';
+    if (id === 'm2') return 'f2';
+    if (id === 'm3') return 'f3';
+    return id.split('-')[0];
+  };
+
+  function setPanelOpen(open) {
+    panel.dataset.open = String(open);
+    pill.hidden = open;
+  }
+
+  /* The dodge: DEFAULT placement only. The panel opens on the side
+     OPPOSITE the selected object, so it never covers the selection.
+     A centered selection picks the roomier side. Once the user has
+     dragged the panel, their placement wins — no dodging, ever. */
+  function dodge(id) {
+    if (isMobile()) return;
+    if (panel.dataset.userPlaced === 'true') return;
+    if (id === 'board') { panel.dataset.side = 'right'; return; }
+    const node = $(`.frame-body[data-sel="${id}"], .el[data-sel="${id}"], .mark[data-sel="${id}"]`);
+    if (!node) { panel.dataset.side = 'right'; return; }
+    const r = node.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const w = window.innerWidth;
+    if (cx > w / 3 && cx < (2 * w) / 3) {
+      /* Centered selection: neither side covers it; take the one
+         with more air between the selection edge and the viewport. */
+      panel.dataset.side = (w - r.right) >= r.left ? 'right' : 'left';
+      return;
+    }
+    panel.dataset.side = cx > w / 2 ? 'left' : 'right';
+  }
+
+  /* ── Movable furniture ─────────────────────────────────────
+     Learn lens, runs island, layers+aspects island: grab the
+     header to drag; arrow keys nudge when the header is focused
+     (Shift = coarse). Placement is remembered for the session. */
+  function makeDraggable(el, handle, name) {
+    if (!handle) return;
+    handle.classList.add('drag-handle');
+    handle.setAttribute('tabindex', '0');
+    handle.setAttribute('aria-label', name + ' — drag to move; arrow keys nudge');
+    let dragging = false, moved = false, sx = 0, sy = 0, sl = 0, st = 0;
+    const place = (l, t) => {
+      const r = el.getBoundingClientRect();
+      l = Math.max(8 - r.width + 56, Math.min(l, window.innerWidth - 56));
+      t = Math.max(8, Math.min(t, window.innerHeight - 40));
+      el.style.left = l + 'px';
+      el.style.top = t + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+      el.style.transform = 'none';
+      el.style.transitionProperty = 'opacity, visibility';   /* placement moves are 1:1, never eased */
+      el.dataset.userPlaced = 'true';
+    };
+    handle.addEventListener('pointerdown', e => {
+      if (isMobile() || e.target.closest('button')) return;
+      const r = el.getBoundingClientRect();
+      dragging = true; moved = false;
+      sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    handle.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      moved = true;
+      place(sl + dx, st + dy);
+    });
+    const end = () => { dragging = false; };
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+    handle.addEventListener('keydown', e => {
+      if (isMobile() || !e.key.startsWith('Arrow')) return;
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const d = e.shiftKey ? 32 : 8;
+      place(
+        r.left + (e.key === 'ArrowRight' ? d : e.key === 'ArrowLeft' ? -d : 0),
+        r.top  + (e.key === 'ArrowDown'  ? d : e.key === 'ArrowUp'   ? -d : 0)
+      );
+    });
+  }
+
+  function select(id, opts) {
+    $$('.trow').forEach(b => b.setAttribute('aria-selected', String(b.dataset.sel === id)));
+    $$('.frame-body').forEach(f => f.setAttribute('aria-selected', String(f.dataset.sel === id)));
+    $$('.el').forEach(e => { e.dataset.selected = String(e.dataset.sel === id); });
+    $$('.mark').forEach(m => m.setAttribute('aria-selected', String(m.dataset.sel === id)));
+    $$('.bloom').forEach(b => { b.dataset.open = String(b.dataset.mark === id); });
+    const lit = frameOf(id);
+    stage.dataset.dim = String(id !== 'board');
+    $$('.frame-unit').forEach(u => { u.dataset.lit = String(u.dataset.frame === lit); });
+    const [title, html] = aspectsFor(id);
+    $('#aspects-title').textContent = title;
+    $('#aspects').innerHTML = html;
+    dodge(id);
+    const summon = !(opts && opts.noSummon);
+    if (summon) setPanelOpen(true);
+  }
+
+  function clearAll() {
+    select('board', { noSummon: true });
+    setPanelOpen(false);
+  }
+
+  /* Canvas hits. Empty canvas → board aspects (panel summoned). */
+  $('#canvas').addEventListener('click', () => select('board'));
+  $$('.frame-body').forEach(f => f.addEventListener('click', e => { e.stopPropagation(); select(f.dataset.sel); }));
+  $$('.el').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); select(el.dataset.sel); teach(el.dataset.sel); }));
+  $$('.mark').forEach(m => m.addEventListener('click', e => { e.stopPropagation(); select(m.dataset.sel); }));
+  $$('.bloom').forEach(b => b.addEventListener('click', e => e.stopPropagation()));
+  $('#teach-note').addEventListener('click', e => e.stopPropagation());
+
+  /* Tree hits. */
+  $$('.trow').forEach(b => b.addEventListener('click', () => { select(b.dataset.sel); teach(b.dataset.sel); }));
+
+  /* Panel pill and dismiss: the panel is summoned, never docked. */
+  pill.addEventListener('click', () => { select('board'); });
+  $('#btn-panel-x').addEventListener('click', () => { setPanelOpen(false); });
+
+  /* Escape clears selection and dissolves the panel. */
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') clearAll(); });
+
+  /* Intent chips: single-select within their row (visual state only). */
+  document.addEventListener('click', e => {
+    const chip = e.target.closest('.dm-chip');
+    if (!chip) return;
+    const rowEl = chip.closest('.chip-row, .a-chips');
+    if (!rowEl) return;
+    $$('.dm-chip', rowEl).forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+  });
+
+  /* Tools: one active at a time (Learn is independent). */
+  $$('.tool').forEach(t => t.addEventListener('click', () => {
+    $$('.tool').forEach(x => x.setAttribute('aria-pressed', String(x === t)));
+  }));
+
+  /* Live toggle mirrors into the status island. */
+  const live = $('#btn-live');
+  live.addEventListener('click', () => {
+    const on = live.getAttribute('aria-pressed') !== 'true';
+    live.setAttribute('aria-pressed', String(on));
+    $('#status-line').textContent = `3 screens · 3 annotations · saved · live ${on ? 'on' : 'off'}`;
+  });
+
+  /* ── Learn: the tool word summons the teach island ───────── */
+  const learnBtn = $('#btn-learn');
+  const learnIsland = $('#island-learn');
+  const learnContent = $('#learn-content');
+  const learnSub = $('#learn-sub');
+  let learnOn = false;
+
+  function setLearn(on) {
+    learnOn = on;
+    learnBtn.setAttribute('aria-pressed', String(on));
+    learnIsland.dataset.open = String(on);
+    if (!on) {
+      $('#teach-note').dataset.open = 'false';
+      $('#teach-stem').dataset.open = 'false';
+      learnSub.textContent = 'click an element';
+      learnContent.innerHTML = '<p class="learn-empty">Click any element on a capture to see its anatomy and the word for what it is doing.</p>';
+    }
+  }
+  learnBtn.addEventListener('click', () => setLearn(!learnOn));
+  $('#btn-learn-x').addEventListener('click', () => setLearn(false));
+
+  /* Movable furniture wiring. */
+  makeDraggable(learnIsland, $('#learn-head'), 'Learn lens');
+  makeDraggable(panel, $('#panel-head'), 'Layers and aspects island');
+  makeDraggable($('#island-agent'), $('#runs-head'), 'Runs island');
+
+  function teach(id) {
+    if (!learnOn || !EL_ASPECTS[id]) return;
+    const l = LEARN[id] || LEARN_FALLBACK;
+    learnSub.textContent = EL_ASPECTS[id].label;
+    let html =
+      `<div class="learn-body">` +
+      `<pre class="learn-anatomy">${l.anatomy}</pre>` +
+      `<p class="learn-term">${l.term}</p>` +
+      `<p class="learn-why">${l.why}</p>`;
+    if (l.ask) {
+      html +=
+        `<div class="learn-ask">` +
+        `<p class="learn-q">Ben: ${l.ask.q}</p>` +
+        `<button class="dm-btn dm-btn--sm" id="btn-ask">Ask</button>` +
+        `</div>`;
+    }
+    html += `</div>`;
+    learnContent.innerHTML = html;
+    const askBtn = $('#btn-ask');
+    if (askBtn) {
+      askBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        $('#teach-note').dataset.open = 'true';
+        $('#teach-stem').dataset.open = 'true';
+        askBtn.outerHTML = '<span class="learn-answered">⌁ answered · anchored to plan-keep</span>';
+      });
+    }
+  }
+
+  /* Teach note anchors beside plan-keep, off the frame's right edge
+     (the aspects panel has dodged to the left in this flow). */
+  const teachNote = $('#teach-note');
+  teachNote.style.left = 'calc(100% + 14px)';
+  teachNote.style.top = '96px';
+
+  /* Agent island: present only while runs exist. */
+  const agentIsland = $('#island-agent');
+  if (!RUNS.length) { agentIsland.hidden = true; }
+  else {
+    $('#run-rows').innerHTML = RUNS.map(r =>
+      `<div class="run-row"><span class="dm-dot" data-state="${r.state}"></span>` +
+      `<span class="dm-mono">${r.id} · ${r.agent}</span>` +
+      `<span class="run-note">${r.note}</span></div>`).join('');
+  }
+
+  /* Initial state: nothing selected, no docked column — the pill
+     stands in for the panel until something summons it. */
+  select('board', { noSummon: true });
+  setPanelOpen(false);
+}());
+</script>
+</body>
+</html>

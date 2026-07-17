@@ -1,0 +1,1509 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design review canvas — quiet field, physical furniture</title>
+<link rel="stylesheet" href="/dls/designmode/styles.css">
+<style>
+/* ============================================================
+   GRILL VARIANT AE1 · Quiet field, physical furniture
+   Lineage: A (islands) × E (attention grammar) + C's dodge.
+   The ground rests as plain air with corner word-chrome and
+   E's value-step attention registers. Everything summoned is
+   A's furniture: bordered, lifted islands in their own muted
+   tone — never air that gained ink. Annotations are a third
+   material (rose paper); the combined layers+aspects island
+   appears on selection and dodges to the side opposite the
+   selected object. Learn/ask arrives as teach furniture in a
+   fourth, spruce-tinted flavor.
+   ============================================================ */
+
+:root {
+  /* ── Color · Ground (Paper's warm cream air) ──
+     Overrides the DLS stone-100 canvas locally for this bench. */
+  --canvas: #f2efe4;
+
+  /* ── Color · Ink ramp (Paper-tuned, warmer than the stone ramp) ── */
+  --ink:           #16150f;   /* primary */
+  --ink-secondary: #5f5c52;   /* secondary */
+  --ink-muted:     #726c5c;   /* muted / meta */
+  --ink-faint:     #726c5c;   /* faintest chrome ink, never body text */
+
+  /* ── Color · Panel material (all summoned islands/dropdowns) ──
+     White floating cards over cream — never tinted, never raw canvas. */
+  --surface:         #ffffff;
+  --surface-sunken:  #faf8f1;  /* value-well fill */
+  --surface-hover:   #f5f1e6;  /* row hover wash */
+  --border:          #e3dfd2;  /* panel / frame edge */
+  --border-control:  #e3dfd2;  /* well / input edge */
+  --panel-hairline:  #eceadf;  /* dividers inside panels */
+
+  /* ── Color · Annotation material (the third material) ──
+     Warm ivory, never pink: rose survives only as mark strokes,
+     #N refs, pins, and small state accents. */
+  --anno-surface: #fbf8ef;   /* ivory paper */
+  --anno-border:  #d9d2bd;   /* neutral ivory hairline */
+  /* ── Color · Teach material (learn/ask flavor) ──
+     Same ivory geometry, spruce edge instead of rose — no green fill. */
+  --teach-surface: #fbf8ef;  /* ivory paper */
+  --teach-border:  #bfdccf;  /* spruce-tinted hairline */
+  /* ── Surface · Island tone: the panel material itself ── */
+  --island-surface: var(--surface);
+
+  /* ── Color · Attention-register ink steps (E's value steps,
+     retuned onto the cream/ink ramp instead of the stone ramp) ── */
+  --reg-ink-1: var(--ink);            /* #16150f — darkest, lit/pre */
+  --reg-ink-2: var(--ink-secondary);  /* #5f5c52 */
+  --reg-ink-3: var(--ink-muted);      /* #8c887b */
+  --reg-ink-4: var(--ink-faint);      /* #aca594 */
+  --reg-ink-5: #c9c2b0;               /* dimmer still — dropped state */
+  --reg-edge-1: #d9d2bd;              /* visible edge — pre/lit */
+  --reg-edge-2: #ece7d9;              /* faint edge — rest/dim */
+}
+
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+/* ── The field: plain air, edge to edge ─────────────────────── */
+.field {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  background: var(--canvas);
+}
+
+/* ── Corner word-chrome (E) ─────────────────────────────────── */
+.chrome-tl {
+  position: fixed;
+  top: var(--space-4);
+  left: var(--space-6);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--canvas);
+  padding: 0 var(--space-2) var(--space-1) 0;
+}
+
+.app-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-secondary);
+}
+
+.tools { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+
+.tool {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease-hand);
+}
+.tool:hover { color: var(--ink); }
+.tool[aria-pressed="true"] { color: var(--accent); font-weight: var(--weight-medium); }
+.tool-sep { color: var(--ink-faint); font-size: var(--text-xs); }
+
+.chrome-bl {
+  position: fixed;
+  left: var(--space-6);
+  bottom: var(--space-4);
+  z-index: 60;
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Islands: the only summoned chrome (A) ──────────────────── */
+.island {
+  position: fixed;
+  z-index: 50;
+  background: var(--island-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-raise), var(--shadow-panel);
+}
+.island[hidden] { display: none !important; }
+.island.settle { animation: dm-settle var(--duration-settle) var(--ease-settle) both; }
+
+.sect {
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Runs island, bottom right — present only while runs exist. */
+#island-runs {
+  bottom: var(--space-4);
+  right: var(--space-4);
+  padding: var(--space-1) 0 var(--space-2);
+  min-width: 15rem;
+}
+.run-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+}
+.run-row .dm-mono { color: var(--ink-muted); }
+
+/* Combined layers + aspects island: summoned on selection,
+   dodges to the side opposite the selection (C's lesson). */
+#island-panel {
+  top: 76px;
+  width: 19rem;
+  max-height: calc(100vh - 170px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#island-panel[data-side="right"] { right: var(--space-4); left: auto; }
+#island-panel[data-side="left"]  { left: var(--space-4); right: auto; }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-1) var(--space-4);
+}
+.panel-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.panel-hint {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-control);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.panel-hint:hover { background: var(--surface-hover); color: var(--ink); }
+
+#tree { overflow-y: auto; max-height: 15rem; padding-bottom: var(--space-2); flex: none; }
+
+.trow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 3px var(--space-3) 3px calc(var(--space-4) + var(--lvl, 0) * 14px);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  text-align: left;
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+.trow:hover { background: var(--surface-hover); color: var(--ink); }
+.trow[aria-selected="true"] {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+}
+.trow--frame { font-weight: var(--weight-medium); }
+.tglyph {
+  width: 14px;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}
+.trow--mark .tglyph { color: var(--mark); }
+.trow--stale .tglyph { color: var(--ink-faint); }
+.tmeta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+#aspects-body { overflow-y: auto; min-height: 0; padding-bottom: var(--space-3); }
+
+/* Aspects speak CSS: mono key–value lattice. */
+.arow {
+  display: grid;
+  grid-template-columns: 7.25rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 3px var(--space-4);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+.alabel { color: var(--ink-muted); }
+.aval { color: var(--ink); overflow-wrap: anywhere; }
+.aval.dm-mono { font-size: var(--text-2xs); }
+.arow--css .alabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+.a-chips { display: flex; gap: var(--space-1); padding: var(--space-1) var(--space-4); flex-wrap: wrap; }
+.a-actions { padding: var(--space-3) var(--space-4) var(--space-1); }
+
+/* ── Panel anatomy: the Paper inspector grade ─────────────────
+   Layout → Flex → Radius → Fill → Border → Type, each a plain
+   section with a hairline above (no boxed sections), then the
+   bench's own Capture/Annotations/Dispatch/Runs below. */
+.insp-sect {
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  border-top: 1px solid var(--panel-hairline);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--ink-muted);
+}
+.insp-sect:first-child { border-top: 0; }
+
+.insp-wells {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-2);
+}
+.insp-wells--1 { grid-template-columns: 1fr; }
+.insp-well {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink);
+}
+.insp-well-label { color: var(--ink-muted); }
+
+.insp-flexdir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+}
+.insp-flexdir .insp-glyph { color: var(--accent); font-size: var(--text-sm); }
+
+.insp-align {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  width: 62px;
+  padding: var(--space-2);
+  margin: 0 var(--space-4) var(--space-2);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+}
+.insp-align-dot {
+  width: 6px; height: 6px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.insp-align-dot[data-active="true"] { background: var(--accent); }
+
+/* Fill / Border swatch + named-token rows, Paper's list grade. */
+.insp-swatchrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px var(--space-4);
+  font-size: var(--text-xs);
+}
+.insp-swatch {
+  width: 14px; height: 14px;
+  flex: none;
+  border-radius: 4px;
+  border: 1px solid var(--border-control);
+}
+.insp-token {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-secondary);
+}
+.insp-rawval {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Captured frames: E's attention register ────────────────
+   Value steps only: rest → pre-lit (hover) → lit → dropped. */
+.fwrap {
+  position: absolute;
+  --fi-strong: var(--reg-ink-2);
+  --fi:        var(--reg-ink-3);
+  --fi-soft:   var(--reg-ink-4);
+  --fi-edge:   var(--reg-edge-2);
+}
+.fwrap[data-att="rest"]:hover,
+.fwrap.is-pre {
+  --fi-strong: var(--reg-ink-1);
+  --fi:        var(--reg-ink-3);
+  --fi-soft:   var(--reg-ink-4);
+  --fi-edge:   var(--reg-edge-1);
+}
+.fwrap[data-att="lit"] {
+  --fi-strong: var(--reg-ink-1);
+  --fi:        var(--reg-ink-2);
+  --fi-soft:   var(--reg-ink-4);
+  --fi-edge:   var(--reg-edge-1);
+}
+.fwrap[data-att="dim"] {
+  --fi-strong: var(--reg-ink-4);
+  --fi:        var(--reg-ink-5);
+  --fi-soft:   var(--reg-ink-5);
+  --fi-edge:   var(--reg-edge-2);
+}
+
+.fwrap--d { width: 520px; --k: 0.36111; }
+.fwrap--m { width: 190px; --k: 0.48718; }
+
+.frame-handle {
+  display: block;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 0 0 6px 2px;
+  height: 22px;
+  box-sizing: border-box;
+  line-height: 16px;
+  color: var(--fi);
+  transition: color var(--duration-hover) var(--ease-hand);
+}
+.frame-handle:hover { color: var(--ink); }
+
+.fwrap .dm-frame { width: 100%; cursor: pointer; padding: 0; text-align: left; font: inherit; }
+
+.frame-body { position: relative; width: 100%; }
+.fwrap--d .frame-body { aspect-ratio: 1440 / 900; }
+.fwrap--m .frame-body { aspect-ratio: 390 / 844; }
+
+.screen {
+  position: absolute;
+  top: 0; left: 0;
+  transform: scale(var(--k));
+  transform-origin: 0 0;
+  background: var(--surface);
+  font-family: var(--font-ui);
+  pointer-events: none;
+}
+.screen--d { width: 1440px; height: 900px; }
+.screen--m { width: 390px; height: 844px; }
+.screen, .screen * {
+  transition: color var(--duration-hover) var(--ease-hand),
+              background-color var(--duration-hover) var(--ease-hand),
+              border-color var(--duration-hover) var(--ease-hand);
+}
+
+/* ── Mock screens (the hosted product's own voice) ──────────── */
+.s-nav { display: flex; align-items: center; gap: 48px; padding: 34px 72px; }
+.s-wordmark { font-size: 22px; font-weight: 600; color: var(--fi-strong); }
+.s-link { font-size: 16px; color: var(--fi); }
+.s-nav-spacer { margin-left: auto; }
+
+.s-hero { text-align: center; padding: 84px 72px 64px; }
+.s-h1 {
+  margin: 0 0 20px;
+  font-size: 56px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--fi-strong);
+}
+.s-sub { margin: 0 auto 36px; font-size: 20px; line-height: 1.5; color: var(--fi); }
+.s-btn {
+  display: inline-block;
+  padding: 14px 28px;
+  border-radius: 8px;
+  background: var(--fi-strong);
+  color: var(--stone-0);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.s-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; padding: 8px 72px; }
+.s-card { border: 1px solid var(--fi-edge); border-radius: 12px; padding: 32px; }
+.s-card-title { margin: 0 0 10px; font-size: 20px; font-weight: 600; color: var(--fi-strong); }
+.s-card-line { margin: 0; font-size: 15px; line-height: 1.5; color: var(--fi); }
+
+.s-ph1 {
+  margin: 0;
+  padding: 56px 72px 12px;
+  text-align: center;
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fi-strong);
+}
+.s-plead { margin: 0 0 44px; text-align: center; font-size: 18px; color: var(--fi); }
+.s-plans { display: grid; grid-template-columns: repeat(2, 340px); gap: 48px; justify-content: center; }
+.s-plan { border: 1px solid var(--fi-edge); border-radius: 12px; padding: 40px; }
+.s-plan-name { margin: 0 0 8px; font-size: 22px; font-weight: 600; color: var(--fi-strong); }
+.s-plan-price { margin: 0 0 24px; font-size: 17px; color: var(--fi); }
+.s-plan-line { margin: 0 0 10px; font-size: 15px; line-height: 1.5; color: var(--fi); }
+.s-plan .s-btn { margin-top: 20px; font-size: 15px; padding: 12px 24px; }
+
+.sm-nav { display: flex; align-items: center; padding: 20px 24px; }
+.sm-wordmark { font-size: 19px; font-weight: 600; color: var(--fi-strong); }
+.sm-menu { margin-left: auto; font-size: 20px; color: var(--fi); }
+.sm-hero { padding: 40px 24px 28px; }
+.sm-h1 { margin: 0 0 14px; font-size: 34px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; color: var(--fi-strong); }
+.sm-sub { margin: 0 0 24px; font-size: 17px; line-height: 1.55; color: var(--fi); }
+.sm-btn { display: inline-block; padding: 12px 22px; border-radius: 8px; background: var(--fi-strong); color: var(--stone-0); font-size: 15px; font-weight: 500; }
+.sm-cards { display: grid; gap: 20px; padding: 20px 24px; }
+.sm-card { border: 1px solid var(--fi-edge); border-radius: 12px; padding: 24px; }
+.sm-card-title { margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--fi-strong); }
+.sm-card-line { margin: 0; font-size: 14px; line-height: 1.5; color: var(--fi); }
+
+/* ── Element hotspots ───────────────────────────────────────── */
+.hotspot {
+  position: absolute;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  transition: box-shadow var(--duration-hover) var(--ease-hand);
+}
+.hotspot:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.hotspot[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--accent-ring); }
+
+/* ── Marks (the reviewer's rose ink) ────────────────────────── */
+.mark {
+  position: absolute;
+  z-index: 5;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  transition: box-shadow var(--duration-hover) var(--ease-hand);
+}
+.mark--circle { border: 2px solid var(--mark); border-radius: 50%; background: var(--mark-fill); }
+.mark--rect {
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  /* the element underneath stays clickable; the kind chip is the handle */
+  pointer-events: none;
+}
+.mark--pin {
+  width: 20px; height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mark);
+  color: var(--stone-0);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 20px;
+  text-align: center;
+}
+.mark[aria-selected="true"] { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-ring); }
+
+.mark-kind {
+  position: absolute;
+  left: -2px; top: -2px;
+  transform: translateY(-100%);
+  padding: 2px 8px 3px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 3px;
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* ── Annotations: the third material ────────────────────────
+   Rest: E's mono summary line, but on rose paper — never
+   confusable with the capture. Selected: the line flips into
+   a full thread ISLAND anchored at the mark (A's bloom made
+   physical). */
+.anno { position: absolute; z-index: 20; }
+
+.anno-line {
+  display: inline-block;
+  max-width: 320px;
+  padding: 2px 7px 3px;
+  border: 1px solid var(--anno-border);
+  border-radius: 3px;
+  background: var(--anno-surface);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease-hand),
+              border-color var(--duration-hover) var(--ease-hand);
+}
+.anno-line:hover { color: var(--ink); border-color: var(--mark); }
+.anno-line .dm-mark-ref { color: var(--mark); }
+.anno[data-open="true"] .anno-line { display: none; }
+
+.anno-island {
+  display: none;
+  position: absolute;
+  z-index: 30;
+  width: min(300px, calc(100vw - 48px));
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--anno-surface);
+  border: 1px solid var(--anno-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-raise), var(--shadow-panel);
+}
+.anno[data-open="true"] .anno-island {
+  display: block;
+  animation: dm-settle var(--duration-settle) var(--ease-settle) both;
+}
+
+.anno-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.anno-head .dm-mark-ref { color: var(--mark); }
+.anno-state { margin-left: auto; }
+.anno-state[data-tone="accent"] { color: var(--accent); }
+
+.anno-island .dm-comment { margin-bottom: var(--space-3); }
+.anno-island .dm-comment-body { font-size: var(--text-sm); }
+.anno-chips { display: flex; gap: var(--space-1); margin-bottom: var(--space-3); }
+.anno-chips .dm-chip { font-size: var(--text-2xs); padding: 2px var(--space-2); }
+.anno-draft { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--ink-faint); }
+.anno-island .dm-textarea { min-height: 3rem; font-size: var(--text-sm); margin-bottom: var(--space-3); background: var(--stone-0); }
+
+.agent-reply {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+}
+.agent-avatar {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 18px;
+  text-align: center;
+}
+.agent-reply-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.candidate-chip {
+  padding: 1px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.provenance {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+}
+.agent-reply-body {
+  grid-column: 2;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--ink-secondary);
+}
+.anno-routing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.anno-routing[data-tone="accent"] { color: var(--accent); }
+.rdot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); }
+.anno-routing[data-tone="accent"] .rdot { background: var(--accent); }
+
+/* ── Learn island (chrome flavor, JS-anchored to the element) ─ */
+#island-learn {
+  z-index: 55;
+  width: 21rem;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.learn-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.learn-el { color: var(--ink-secondary); text-transform: none; letter-spacing: var(--tracking-mono); }
+.learn-tree {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  line-height: var(--leading-normal);
+  color: var(--ink-secondary);
+  white-space: pre-wrap;
+}
+.learn-term { font-size: var(--text-sm); margin: 0 0 var(--space-1); }
+.learn-term b { color: var(--accent); font-weight: var(--weight-semibold); }
+.learn-why { margin: 0; font-size: var(--text-sm); line-height: var(--leading-body); color: var(--ink-secondary); }
+.learn-ask {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  background: var(--stone-0);
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-hover) var(--ease-hand);
+}
+.learn-ask:hover { border-color: var(--accent-ring); color: var(--ink); }
+.learn-ask[hidden] { display: none; }
+
+/* ── Teach island (the anchored ask answer — fourth flavor) ── */
+.teach-island {
+  display: none;
+  position: absolute;
+  z-index: 32;
+  width: min(304px, calc(100vw - 48px));
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--teach-surface);
+  border: 1px solid var(--teach-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-raise), var(--shadow-panel);
+}
+.teach-island[data-open="true"] {
+  display: block;
+  animation: dm-settle var(--duration-settle) var(--ease-settle) both;
+}
+.teach-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.teach-q {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--ink-muted);
+}
+.teach-q b { color: var(--ink-secondary); font-weight: var(--weight-medium); }
+
+/* ── Focus (keyboard reaches everything) ────────────────────── */
+.tool:focus-visible, .trow:focus-visible, .mark:focus-visible,
+.hotspot:focus-visible, .anno-line:focus-visible, .frame-handle:focus-visible,
+.dm-frame:focus-visible, .panel-hint:focus-visible, .learn-ask:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── 390: the field stacks, islands become sheets ───────────── */
+@media (max-width: 700px) {
+  body { overflow: auto; }
+  .field {
+    position: static;
+    overflow: visible;
+    padding: 108px var(--space-4) 220px;
+    min-height: 100dvh;
+  }
+  .fwrap {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 0 var(--space-10);
+  }
+  .fwrap--d { width: min(342px, 100%); --k: 0.2375; }
+  .fwrap--m { width: 195px; --k: 0.5; }
+
+  .anno-rest { display: none; }
+  .anno[data-open="true"] {
+    left: 0 !important;
+    right: auto !important;
+    top: calc(100% + var(--space-2)) !important;
+  }
+  .anno[data-open="true"] .anno-island {
+    position: static;
+    width: min(304px, calc(100vw - 48px));
+  }
+  .fwrap:has(.anno[data-open="true"]) { margin-bottom: 300px; }
+
+  .teach-island[data-open="true"] {
+    position: fixed;
+    left: var(--space-2);
+    right: var(--space-2);
+    bottom: var(--space-2);
+    width: auto;
+    z-index: 70;
+  }
+
+  #island-panel, #island-panel[data-side="left"], #island-panel[data-side="right"] {
+    top: auto;
+    left: 0; right: 0; bottom: 0;
+    width: auto !important;
+    max-height: 40vh;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    border-bottom: 0;
+    z-index: 58;
+  }
+  #tree { max-height: 6.5rem; }
+
+  #island-learn {
+    position: fixed;
+    left: var(--space-2) !important;
+    right: var(--space-2) !important;
+    top: auto !important;
+    bottom: var(--space-2);
+    width: auto;
+    z-index: 66;
+  }
+
+  #island-runs { bottom: 3rem; right: var(--space-2); min-width: 0; max-width: 62vw; }
+  #island-runs .run-note { display: none; }
+
+  .chrome-tl { left: var(--space-4); right: var(--space-4); }
+  .chrome-bl { left: var(--space-4); z-index: 45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .island.settle,
+  .anno[data-open="true"] .anno-island,
+  .teach-island[data-open="true"] { animation: none; }
+}
+</style>
+</head>
+<body class="dm">
+
+<!-- ════════ CORNER WORD-CHROME ════════ -->
+<header class="chrome-tl">
+  <h1 class="app-title">Design review canvas</h1>
+  <nav class="tools" aria-label="Tools">
+    <button class="tool tool-mode" aria-pressed="true">select</button>
+    <button class="tool tool-mode" aria-pressed="false">circle</button>
+    <button class="tool tool-mode" aria-pressed="false">comment</button>
+    <span class="tool-sep" aria-hidden="true">·</span>
+    <button class="tool">import</button>
+    <button class="tool" id="live-toggle" aria-pressed="false">live · off</button>
+    <span class="tool-sep" aria-hidden="true">·</span>
+    <button class="tool" id="learn-toggle" aria-pressed="false">learn</button>
+  </nav>
+</header>
+
+<div class="chrome-bl" id="statusline" role="status">
+  3 screens · 3 annotations · saved · <span id="live-word">live off</span>
+</div>
+
+<!-- ════════ THE FIELD ════════ -->
+<main class="field" id="field" aria-label="Review canvas — smalltools landing review">
+
+  <!-- Frame 1 · Home 1440 -->
+  <div class="fwrap fwrap--d" data-fwrap="f1" data-att="rest" style="left:72px; top:84px;">
+    <button class="dm-frame-label frame-handle" data-node="f1">Home · / · 1440</button>
+    <div class="dm-frame" data-node="f1" role="button" tabindex="0" aria-label="Frame Home, 1440 by 900">
+      <div class="frame-body">
+        <div class="screen screen--d">
+          <nav class="s-nav">
+            <span class="s-wordmark">smalltools</span>
+            <span class="s-nav-spacer"></span>
+            <span class="s-link">Shelf</span>
+            <span class="s-link">Notes</span>
+            <span class="s-link">About</span>
+          </nav>
+          <div class="s-hero">
+            <h1 class="s-h1">Small tools for slow thinking</h1>
+            <p class="s-sub">A shelf of tiny instruments that keep your reading, your margins, and your minutes where you can find them again.</p>
+            <span class="s-btn">Browse the shelf</span>
+          </div>
+          <div class="s-cards">
+            <div class="s-card"><h2 class="s-card-title">Ledger</h2><p class="s-card-line">Every book you touched, one quiet page.</p></div>
+            <div class="s-card"><h2 class="s-card-title">Stopwatch</h2><p class="s-card-line">Time a thought without watching the clock.</p></div>
+            <div class="s-card"><h2 class="s-card-title">Margins</h2><p class="s-card-line">Your notes, kept beside what provoked them.</p></div>
+          </div>
+        </div>
+        <button class="hotspot" data-node="f1-nav" aria-label="Element nav" style="left:0; top:0; width:100%; height:10%;"></button>
+        <button class="hotspot" data-node="f1-hero" aria-label="Element hero" style="left:0; top:10%; width:100%; height:44%;"></button>
+        <button class="hotspot" data-node="f1-cards" aria-label="Element card-row" style="left:4%; top:56%; width:92%; height:36%;"></button>
+        <button class="mark mark--circle" data-node="m1" aria-label="Annotation 1, circle mark on hero"
+                style="left:23%; top:17%; width:54%; height:14%;"></button>
+
+      </div>
+    </div>
+
+    <!-- annotation #1: rose summary line ⇄ thread island at the mark -->
+    <div class="anno" id="anno-m1" data-open="false" style="left:58%; top:37%;">
+      <button class="anno-line" data-node="m1"><span class="dm-mark-ref">#1</span><span class="anno-rest"> distill · returned — hero measure runs the full row…</span></button>
+      <div class="anno-island" style="left:0; top:0;">
+        <div class="anno-head"><span class="dm-mark-ref">#1</span><span>○ circle</span><span class="anno-state" data-tone="accent">open</span></div>
+        <div class="dm-comment">
+          <div class="dm-comment-head"><span class="dm-comment-author">Ben</span><span class="dm-comment-time">2m</span></div>
+          <p class="dm-comment-body">Hero measure runs the full row. Cap it and let the cards carry the width.</p>
+        </div>
+        <div class="anno-chips"><button class="dm-chip" aria-pressed="true">distill</button></div>
+        <div class="agent-reply">
+          <span class="agent-avatar">FB</span>
+          <div class="agent-reply-head">
+            <span class="candidate-chip">Candidate</span>
+            <span class="provenance">⌁ run r-142 · s-9 · 1m</span>
+          </div>
+          <p class="agent-reply-body">Proposed: measure capped at 60ch, cards move up 32px. Patch staged.</p>
+        </div>
+        <div class="anno-routing" data-tone="accent"><span class="rdot"></span> returned</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frame 2 · Pricing 1440 -->
+  <div class="fwrap fwrap--d" data-fwrap="f2" data-att="rest" style="left:72px; top:452px;">
+    <button class="dm-frame-label frame-handle" data-node="f2">Pricing · /pricing · 1440</button>
+    <div class="dm-frame" data-node="f2" role="button" tabindex="0" aria-label="Frame Pricing, 1440 by 900">
+      <div class="frame-body">
+        <div class="screen screen--d">
+          <nav class="s-nav">
+            <span class="s-wordmark">smalltools</span>
+            <span class="s-nav-spacer"></span>
+            <span class="s-link">Shelf</span>
+            <span class="s-link">Notes</span>
+            <span class="s-link">About</span>
+          </nav>
+          <h1 class="s-ph1">Pricing</h1>
+          <p class="s-plead">Take the shelf. Keep the margins.</p>
+          <div class="s-plans">
+            <div class="s-plan">
+              <h2 class="s-plan-name">Free</h2>
+              <p class="s-plan-price">$0 · the shelf</p>
+              <p class="s-plan-line">Every tool, in the browser.</p>
+              <p class="s-plan-line">Margins kept for seven days.</p>
+            </div>
+            <div class="s-plan">
+              <h2 class="s-plan-name">Keep</h2>
+              <p class="s-plan-price">$4/mo · your margins everywhere</p>
+              <p class="s-plan-line">Margins synced and permanent.</p>
+              <p class="s-plan-line">Ledger export, quiet backups.</p>
+              <span class="s-btn">Start keeping</span>
+            </div>
+          </div>
+        </div>
+        <button class="hotspot" data-node="f2-nav" aria-label="Element nav" style="left:0; top:0; width:100%; height:10%;"></button>
+        <button class="hotspot" data-node="f2-heading" aria-label="Element heading" style="left:26%; top:12%; width:48%; height:16%;"></button>
+        <button class="hotspot" data-node="f2-free" aria-label="Element plan-free" style="left:24.5%; top:31%; width:24%; height:46%;"></button>
+        <button class="hotspot" data-node="f2-keep" aria-label="Element plan-keep" style="left:51.5%; top:31%; width:24%; height:46%;"></button>
+        <button class="mark mark--rect" data-node="m2" aria-label="Annotation 2, element mark on plan-keep, stale"
+                style="left:51%; top:30%; width:25%; height:48%;"><span class="mark-kind">▢ element · stale</span></button>
+
+
+      </div>
+    </div>
+
+    <!-- annotation #2: stale, resolved -->
+    <div class="anno anno--stale" id="anno-m2" data-open="false" style="left:78%; top:83%;">
+      <button class="anno-line" data-node="m2"><span class="dm-mark-ref">#2</span><span class="anno-rest"> bolder · resolved · stale…</span></button>
+      <div class="anno-island" style="left:auto; right:0; bottom:calc(100% + 8px); top:auto;">
+        <div class="anno-head"><span class="dm-mark-ref">#2</span><span>▢ element · stale</span><span class="anno-state">✓ resolved</span></div>
+        <div class="dm-comment">
+          <div class="dm-comment-head"><span class="dm-comment-author">Ben</span><span class="dm-comment-time">1h</span></div>
+          <p class="dm-comment-body">Both plans read the same weight. The paid one should feel like the object.</p>
+        </div>
+        <div class="anno-chips"><button class="dm-chip" aria-pressed="true">bolder</button></div>
+        <div class="anno-routing"><span class="rdot"></span> made against rev 1 · anchor approximate</div>
+      </div>
+    </div>
+
+    <!-- teach island: the anchored ask answer on plan-keep -->
+    <div class="teach-island" id="teach-f2keep" data-open="false" style="right:calc(48.5% + 10px); top:26%; left:auto;">
+      <div class="teach-head"><span>⌁ teach</span><span class="provenance" style="text-transform:none;">fable · r-144 · anchored to plan-keep</span></div>
+      <p class="teach-q"><b>Ben:</b> Why does this card read heavier than the others?</p>
+      <div class="agent-reply">
+        <span class="agent-avatar">FB</span>
+        <div class="agent-reply-head"><span class="provenance">⌁ run r-144 · s-2 · now</span></div>
+        <p class="agent-reply-body">Weight here is value contrast, not size. Keep holds the only filled button — the darkest shape in the grid — plus one extra text line, so its ink density runs about a third higher than Free. Darker and denser reads heavier.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frame 3 · Home 390, revision 2 (the right-side frame) -->
+  <div class="fwrap fwrap--m" data-fwrap="f3" data-att="rest" style="left:812px; top:84px;">
+    <button class="dm-frame-label frame-handle" data-node="f3">Home · / · 390 · rev 2</button>
+    <div class="dm-frame" data-node="f3" role="button" tabindex="0" aria-label="Frame Home mobile, 390 by 844, revision 2">
+      <div class="frame-body">
+        <div class="screen screen--m">
+          <nav class="sm-nav">
+            <span class="sm-wordmark">smalltools</span>
+            <span class="sm-menu">☰</span>
+          </nav>
+          <div class="sm-hero">
+            <h1 class="sm-h1">Small tools for slow thinking</h1>
+            <p class="sm-sub">Tiny instruments that keep your reading and your margins where you can find them.</p>
+            <span class="sm-btn">Browse the shelf</span>
+          </div>
+          <div class="sm-cards">
+            <div class="sm-card"><h2 class="sm-card-title">Ledger</h2><p class="sm-card-line">Every book you touched, one quiet page.</p></div>
+            <div class="sm-card"><h2 class="sm-card-title">Stopwatch</h2><p class="sm-card-line">Time a thought without watching the clock.</p></div>
+            <div class="sm-card"><h2 class="sm-card-title">Margins</h2><p class="sm-card-line">Your notes, kept beside what provoked them.</p></div>
+          </div>
+        </div>
+        <button class="hotspot" data-node="f3-nav" aria-label="Element nav" style="left:0; top:0; width:100%; height:8%;"></button>
+        <button class="hotspot" data-node="f3-hero" aria-label="Element hero" style="left:0; top:8%; width:100%; height:27%;"></button>
+        <button class="hotspot" data-node="f3-stack" aria-label="Element card-stack" style="left:4%; top:36%; width:92%; height:58%;"></button>
+        <button class="mark mark--pin" data-node="m3" aria-label="Annotation 3, comment pin on card-stack, draft"
+                style="left:76%; top:56%;">3</button>
+
+      </div>
+    </div>
+
+    <!-- annotation #3: draft -->
+    <div class="anno" id="anno-m3" data-open="false" style="left:auto; right:2%; top:101%;">
+      <button class="anno-line" data-node="m3"><span class="dm-mark-ref">#3</span><span class="anno-rest"> comment · draft</span></button>
+      <div class="anno-island" style="left:auto; right:calc(100% - 40px); top:-46%;">
+        <div class="anno-head"><span class="dm-mark-ref">#3</span><span>pin · comment</span><span class="anno-state">draft</span></div>
+        <textarea class="dm-textarea" placeholder="No instruction yet" aria-label="Annotation instruction"></textarea>
+        <div class="anno-chips">
+          <button class="dm-chip" aria-pressed="false">distill</button>
+          <button class="dm-chip" aria-pressed="false">bolder</button>
+          <button class="dm-chip" aria-pressed="false">polish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ════════ ISLANDS (summoned furniture) ════════ -->
+
+<!-- runs island: a small island only while runs exist -->
+<aside id="island-runs" class="island" aria-label="Agent runs">
+  <div class="sect">Runs</div>
+  <div id="run-rows"></div>
+</aside>
+
+<!-- ONE combined layers + aspects island: appears on selection,
+     dodges the selection, dissolves on Escape / empty click -->
+<aside id="island-panel" class="island settle" data-side="right" hidden aria-label="Layers and aspects">
+  <div class="panel-head">
+    <span class="panel-title">smalltools — landing review</span>
+    <button class="panel-hint" id="panel-close" aria-label="Dismiss panel">esc</button>
+  </div>
+  <div class="sect">Layers</div>
+  <nav id="tree" aria-label="Layers tree">
+    <button class="trow" data-tree="board" style="--lvl:0"><span class="tglyph">▤</span>smalltools — landing review</button>
+    <button class="trow trow--frame" data-tree="f1" style="--lvl:1"><span class="tglyph">▣</span>Home · /<span class="tmeta">1440</span></button>
+    <button class="trow" data-tree="f1-nav" style="--lvl:2"><span class="tglyph">▢</span>nav</button>
+    <button class="trow" data-tree="f1-hero" style="--lvl:2"><span class="tglyph">▢</span>hero</button>
+    <button class="trow trow--mark" data-tree="m1" style="--lvl:3"><span class="tglyph">○</span>#1 distill<span class="tmeta">returned</span></button>
+    <button class="trow" data-tree="f1-cards" style="--lvl:2"><span class="tglyph">▢</span>card-row</button>
+    <button class="trow trow--frame" data-tree="f2" style="--lvl:1"><span class="tglyph">▣</span>Pricing · /pricing<span class="tmeta">1440</span></button>
+    <button class="trow" data-tree="f2-nav" style="--lvl:2"><span class="tglyph">▢</span>nav</button>
+    <button class="trow" data-tree="f2-heading" style="--lvl:2"><span class="tglyph">“</span>heading</button>
+    <button class="trow" data-tree="f2-free" style="--lvl:2"><span class="tglyph">▢</span>plan-free</button>
+    <button class="trow" data-tree="f2-keep" style="--lvl:2"><span class="tglyph">▢</span>plan-keep</button>
+    <button class="trow trow--mark trow--stale" data-tree="m2" style="--lvl:3"><span class="tglyph">▢</span>#2 bolder<span class="tmeta">stale</span></button>
+    <button class="trow trow--frame" data-tree="f3" style="--lvl:1"><span class="tglyph">▣</span>Home · /<span class="tmeta">390 · rev 2</span></button>
+    <button class="trow" data-tree="f3-nav" style="--lvl:2"><span class="tglyph">▢</span>nav</button>
+    <button class="trow" data-tree="f3-hero" style="--lvl:2"><span class="tglyph">▢</span>hero</button>
+    <button class="trow" data-tree="f3-stack" style="--lvl:2"><span class="tglyph">▢</span>card-stack</button>
+    <button class="trow trow--mark" data-tree="m3" style="--lvl:3"><span class="tglyph">3</span>#3 comment<span class="tmeta">draft</span></button>
+  </nav>
+  <div class="sect" id="aspects-title">Aspects · board</div>
+  <div id="aspects-body"></div>
+</aside>
+
+<!-- learn island: anatomy + vocabulary + why-it-reads (JS-anchored) -->
+<aside id="island-learn" class="island settle" hidden aria-label="Learn">
+  <div class="learn-head"><span>Learn</span><span class="learn-el" id="learn-el"></span></div>
+  <pre class="learn-tree" id="learn-tree"></pre>
+  <p class="learn-term" id="learn-term"></p>
+  <p class="learn-why" id="learn-why"></p>
+  <button class="learn-ask" id="learn-ask" hidden>Ask — “Why does this card read heavier than the others?”</button>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+  var $  = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  /* ── fixed content ─────────────────────────────────────── */
+  var RUNS = [
+    { id: 'r-142', agent: 'fable', state: 'done',    note: 'measure patch staged' },
+    { id: 'r-143', agent: 'codex', state: 'running', note: 'recapturing /pricing' }
+  ];
+
+  var FRAME_OF = {
+    board: null,
+    f1: 'f1', 'f1-nav': 'f1', 'f1-hero': 'f1', 'f1-cards': 'f1', m1: 'f1',
+    f2: 'f2', 'f2-nav': 'f2', 'f2-heading': 'f2', 'f2-free': 'f2', 'f2-keep': 'f2', m2: 'f2',
+    f3: 'f3', 'f3-nav': 'f3', 'f3-hero': 'f3', 'f3-stack': 'f3', m3: 'f3'
+  };
+
+  function kv(k, v, css) {
+    return '<div class="arow' + (css ? ' arow--css' : '') + '"><span class="alabel">' + k +
+      '</span><span class="aval dm-mono">' + v + '</span></div>';
+  }
+  function kvp(k, v) {
+    return '<div class="arow"><span class="alabel">' + k + '</span><span class="aval">' + v + '</span></div>';
+  }
+
+  /* ── Panel anatomy: the Paper inspector grade ────────────
+     Layout · Flex · Radius · Fill · Border · Type, in stable
+     order, static fixtures but fully drawn. */
+  function insSect(title) { return '<div class="insp-sect">' + title + '</div>'; }
+  function well(label, v) {
+    return '<div class="insp-well"><span class="insp-well-label">' + label + '</span><span>' + v + '</span></div>';
+  }
+  function wells(items, one) {
+    return '<div class="insp-wells' + (one ? ' insp-wells--1' : '') + '">' +
+      items.map(function (it) { return well(it[0], it[1]); }).join('') + '</div>';
+  }
+  function swatchRow(token, val) {
+    return '<div class="insp-swatchrow"><span class="insp-swatch" style="background:' + val + '"></span>' +
+      '<span class="insp-token">' + token + '</span><span class="insp-rawval">' + val + '</span></div>';
+  }
+  function alignPicker(activeIdx) {
+    var dots = '';
+    for (var i = 0; i < 9; i++) dots += '<span class="insp-align-dot" data-active="' + (i === activeIdx ? 'true' : 'false') + '"></span>';
+    return '<div class="insp-align">' + dots + '</div>';
+  }
+  function layoutSection(x, y, w, h) {
+    return insSect('Layout') + wells([['X', x], ['Y', y], ['W', w], ['H', h]]) +
+      wells([['rotation', '0°']], true);
+  }
+  function flexSection(dir, gap, padding, align) {
+    return insSect('Flex') +
+      '<div class="insp-flexdir"><span class="insp-glyph">' + dir + '</span><span>row</span></div>' +
+      wells([['gap', gap], ['padding', padding]]) + alignPicker(align);
+  }
+  function radiusSection(v) { return insSect('Radius') + wells([['radius', v]], true); }
+  function fillSection(rows) { return insSect('Fill') + rows.map(function (r) { return swatchRow(r[0], r[1]); }).join(''); }
+  function borderSection(width, color) {
+    return insSect('Border') + wells([['width', width]], true) + swatchRow('border', color);
+  }
+  function typeSection(sizeLeading, family, weight) {
+    return insSect('Type') + wells([['size / leading', sizeLeading]], true) + wells([['family', family], ['weight', weight]]);
+  }
+
+  /* elements speak CSS: the product's own material, drawn through
+     the Paper anatomy above. */
+  function elInspector(o) {
+    var out = kvp('label', o.label);
+    if (o.extraTop) o.extraTop.forEach(function (r) { out += kv(r[0], r[1], true); });
+    out += layoutSection(o.x, o.y, o.w, o.h);
+    if (o.flex) out += flexSection(o.flex.dir, o.flex.gap, o.flex.padding, o.flex.align);
+    if (o.radius) out += radiusSection(o.radius);
+    out += fillSection(o.fill);
+    if (o.border) out += borderSection(o.border.width, o.border.color);
+    if (o.type) out += typeSection(o.type.sizeLeading, o.type.family, o.type.weight);
+    if (o.extra) o.extra.forEach(function (r) { out += kv(r[0], r[1], true); });
+    out += kvp('annotations', o.annos);
+    return out;
+  }
+
+  var ASPECTS = {
+    board: { title: 'Aspects · board',
+      body: kvp('project', 'smalltools — landing review') + kvp('screens', '3') +
+            kv('capture source', 'localhost:5173') + kvp('last capture', '4m ago') + kvp('theme', 'light') },
+    f1: { title: 'Aspects · frame',
+      body: kv('route', '/') + kv('viewport', '1440 × 900') + kvp('revision', '1') +
+            kv('capture', 'c41f…9a') + kvp('staleness', 'current · captured 4m ago') + kvp('elements', '3') },
+    f2: { title: 'Aspects · frame',
+      body: kv('route', '/pricing') + kv('viewport', '1440 × 900') + kvp('revision', '1') +
+            kv('capture', '8b2e…41') + kvp('staleness', 'recapture running · r-143') + kvp('elements', '4') },
+    f3: { title: 'Aspects · frame',
+      body: kv('route', '/') + kv('viewport', '390 × 844') + kvp('revision', '2 · recaptured') +
+            kv('capture', '77ad…c3') + kvp('staleness', 'current · captured 4m ago') + kvp('elements', '3') },
+
+    'f1-nav': { title: 'Aspects · element', body: elInspector({ label: 'nav',
+      extraTop: [['display', 'flex · center']], x: '0', y: '0', w: '1440', h: '90',
+      flex: { dir: '→', gap: '48', padding: '34 72', align: 3 },
+      fill: [['bg-raised', '#ffffff'], ['text-muted', '#635c50']],
+      type: { sizeLeading: '16 / 22', family: 'system-ui', weight: '400' }, annos: '0' }) },
+    'f1-hero': { title: 'Aspects · element', body: elInspector({ label: 'hero',
+      extraTop: [['display', 'block']], x: '0', y: '90', w: '1440', h: '396',
+      fill: [['text', 'oklch(0.24 0.01 85)'], ['bg-raised', '#ffffff']],
+      type: { sizeLeading: '56 / 64', family: 'system-ui', weight: '600' },
+      extra: [['letter-spacing', '-0.01em'], ['measure', 'unset — runs full row']], annos: '1' }) },
+    'f1-cards': { title: 'Aspects · element', body: elInspector({ label: 'card-row',
+      extraTop: [['display', 'grid · 3 cols']], x: '58', y: '504', w: '1325', h: '324',
+      radius: '12', fill: [['bg-raised', '#ffffff'], ['text', '#211d17'], ['text-muted', '#635c50']],
+      border: { width: '1', color: '#ddd9d1' }, extra: [['gap', '32px']], annos: '0' }) },
+    'f2-nav': { title: 'Aspects · element', body: elInspector({ label: 'nav',
+      extraTop: [['display', 'flex · center']], x: '0', y: '0', w: '1440', h: '90',
+      flex: { dir: '→', gap: '48', padding: '34 72', align: 3 },
+      fill: [['bg-raised', '#ffffff'], ['text-muted', '#635c50']],
+      type: { sizeLeading: '16 / 22', family: 'system-ui', weight: '400' }, annos: '0' }) },
+    'f2-heading': { title: 'Aspects · element', body: elInspector({ label: 'heading',
+      extraTop: [['display', 'block']], x: '374', y: '108', w: '691', h: '144',
+      fill: [['text', '#211d17'], ['bg-raised', '#ffffff']],
+      type: { sizeLeading: '48 / 58', family: 'system-ui', weight: '600' },
+      extra: [['letter-spacing', '-0.01em'], ['text-align', 'center']], annos: '0' }) },
+    'f2-free': { title: 'Aspects · element', body: elInspector({ label: 'plan-free',
+      extraTop: [['display', 'block']], x: '353', y: '279', w: '346', h: '414',
+      radius: '12', fill: [['bg-raised', '#ffffff'], ['text', '#211d17'], ['text-muted', '#635c50']],
+      border: { width: '1', color: '#ddd9d1' },
+      type: { sizeLeading: '15 / 23', family: 'system-ui', weight: '400' }, annos: '0' }) },
+    'f2-keep': { title: 'Aspects · element', body: elInspector({ label: 'plan-keep',
+      extraTop: [['display', 'block']], x: '742', y: '279', w: '346', h: '414',
+      radius: '12', fill: [['bg-raised', '#ffffff'], ['text', '#211d17'], ['text-muted', '#635c50'], ['accent', '#16150f']],
+      border: { width: '1', color: '#ddd9d1' },
+      type: { sizeLeading: '15 / 23', family: 'system-ui', weight: '400' }, annos: '1' }) },
+    'f3-nav': { title: 'Aspects · element', body: elInspector({ label: 'nav',
+      extraTop: [['display', 'flex · space-between']], x: '0', y: '0', w: '390', h: '68',
+      flex: { dir: '→', gap: 'auto', padding: '20 24', align: 4 },
+      fill: [['bg-raised', '#ffffff'], ['text', '#211d17']],
+      type: { sizeLeading: '19 / 25', family: 'system-ui', weight: '500' }, annos: '0' }) },
+    'f3-hero': { title: 'Aspects · element', body: elInspector({ label: 'hero',
+      extraTop: [['display', 'block']], x: '0', y: '68', w: '390', h: '228',
+      fill: [['text', '#211d17'], ['bg-raised', '#ffffff']],
+      type: { sizeLeading: '34 / 41', family: 'system-ui', weight: '600' },
+      extra: [['letter-spacing', '-0.01em'], ['measure', '~24ch']], annos: '0' }) },
+    'f3-stack': { title: 'Aspects · element', body: elInspector({ label: 'card-stack',
+      extraTop: [['display', 'grid · 1 col']], x: '16', y: '304', w: '359', h: '489',
+      radius: '12', fill: [['bg-raised', '#ffffff'], ['text', '#211d17'], ['text-muted', '#635c50']],
+      border: { width: '1', color: '#ddd9d1' }, extra: [['gap', '20px']], annos: '1' }) },
+
+    m1: { title: 'Aspects · annotation',
+      body: kvp('state', 'open') + kv('kind', '○ circle') +
+        kvp('comment', 'Hero measure runs the full row. Cap it and let the cards carry the width.') +
+        '<div class="sect">Intent</div>' +
+        '<div class="a-chips"><button class="dm-chip" aria-pressed="true">distill</button>' +
+        '<button class="dm-chip" aria-pressed="false">bolder</button>' +
+        '<button class="dm-chip" aria-pressed="false">polish</button></div>' +
+        kvp('routing', '<span class="anno-routing" data-tone="accent" style="margin:0;display:inline-flex;"><span class="rdot"></span> returned</span>') +
+        '<div class="a-actions"><button class="dm-btn dm-btn--primary">Dispatch</button></div>' },
+    m2: { title: 'Aspects · annotation',
+      body: kvp('state', 'resolved') + kv('kind', '▢ element · stale') +
+        kvp('comment', 'Both plans read the same weight. The paid one should feel like the object.') +
+        '<div class="sect">Intent</div>' +
+        '<div class="a-chips"><button class="dm-chip" aria-pressed="false">distill</button>' +
+        '<button class="dm-chip" aria-pressed="true">bolder</button>' +
+        '<button class="dm-chip" aria-pressed="false">polish</button></div>' +
+        kvp('routing', 'resolved · not routed') +
+        '<div class="a-actions"><button class="dm-btn" disabled>Resolved</button></div>' },
+    m3: { title: 'Aspects · annotation',
+      body: kvp('state', 'draft') + kv('kind', 'pin · comment') +
+        kvp('comment', 'No instruction yet') +
+        '<div class="sect">Intent</div>' +
+        '<div class="a-chips"><button class="dm-chip" aria-pressed="false">distill</button>' +
+        '<button class="dm-chip" aria-pressed="false">bolder</button>' +
+        '<button class="dm-chip" aria-pressed="false">polish</button></div>' +
+        kvp('routing', 'not routed') +
+        '<div class="a-actions"><button class="dm-btn" disabled>Needs an instruction</button></div>' }
+  };
+
+  /* learn fixtures: anatomy tree · vocabulary term · why-it-reads */
+  var NAV_D = { name: 'nav', tree: 'nav = flex row · gap 48\n  > wordmark\n  > spacer\n  > link ×3', term: 'alignment',
+    why: 'One shared baseline carries the wordmark and links; the spacer throws the link group to the far edge, so the row reads as two anchored ends.' };
+  var LEARN = {
+    'f1-nav': NAV_D,
+    'f2-nav': NAV_D,
+    'f1-hero': { name: 'hero', tree: 'hero = block · pad 84/72/64\n  > h1 56px\n  > support line\n  > button', term: 'measure',
+      why: 'The headline has no measure cap, so the eye tracks the full row and loses the left edge on the return sweep.' },
+    'f1-cards': { name: 'card-row', tree: 'card-row = grid · 3 cols · gap 32\n  > card ×3 (title > support)', term: 'lattice',
+      why: 'Three equal columns on one shared gap read as a single object; the hairline borders make each card a countable unit.' },
+    'f2-heading': { name: 'heading', tree: 'heading = block · centered\n  > h1 48px · tracking −0.01em', term: 'optical size',
+      why: 'At 48px glyphs read looser than at body sizes; the negative tracking pulls the large letters back together.' },
+    'f2-free': { name: 'plan-free', tree: 'plan = card · pad 40\n  > name > price > line ×2', term: 'value',
+      why: 'Same border and padding as Keep, but no filled shape inside — nothing raises its value, so it reads as the quiet option.' },
+    'f2-keep': { name: 'plan-keep', tree: 'plan = card · pad 40\n  > name > price > line ×2\n  > filled button', term: 'visual weight',
+      why: 'The filled button is the darkest object in the grid; value contrast, not size, is what makes this card read heavier.', ask: true },
+    'f3-nav': { name: 'nav', tree: 'nav = flex row · space-between\n  > wordmark\n  > menu glyph', term: 'touch target',
+      why: 'The menu glyph is small ink, but the row height keeps its tap area at 44px or more; the glyph borrows room from the bar.' },
+    'f3-hero': { name: 'hero', tree: 'hero = block · pad 40/24\n  > h1 34px / 1.2\n  > support > button', term: 'leading',
+      why: 'At 34px over a 340px column, the tight 1.2 leading keeps the two-line headline reading as one shape, not two bars.' },
+    'f3-stack': { name: 'card-stack', tree: 'card-stack = grid column · gap 20\n  > card ×3', term: 'rhythm',
+      why: 'Equal 20px gaps set a steady vertical beat, so three cards scan as one list instead of three separate stops.' }
+  };
+
+  /* ── state ─────────────────────────────────────────────── */
+  var sel = null;          /* selected node id, or null (rest) */
+  var learnOn = false;     /* learn mode armed */
+  var learnFor = null;     /* element the learn island explains */
+  var teachOn = false;     /* the anchored ask answer */
+
+  var panel = $('#island-panel');
+  var aspectsTitle = $('#aspects-title');
+  var aspectsBody = $('#aspects-body');
+  var learnIsland = $('#island-learn');
+  var teachIsland = $('#teach-f2keep');
+  var field = $('#field');
+  var isMobile = function () { return window.matchMedia('(max-width: 700px)').matches; };
+
+  function canvasNodeFor(id) {
+    if (!id || id === 'board') return null;
+    var nodes = $$('[data-node="' + id + '"]');
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i].classList.contains('anno-line')) return nodes[i];
+    }
+    return nodes[0] || null;
+  }
+
+  /* the dodge: the panel island opens opposite the selection,
+     and resizes rather than covers (C's lesson) */
+  function dodgePanel() {
+    if (isMobile()) { panel.style.width = ''; return; }
+    var node = canvasNodeFor(sel);
+    var side = 'right';
+    var width = 304;
+    if (node) {
+      var r = node.getBoundingClientRect();
+      var cx = (r.left + r.right) / 2;
+      side = cx > window.innerWidth / 2 ? 'left' : 'right';
+      var room = side === 'right' ? window.innerWidth - r.right - 40 : r.left - 40;
+      width = Math.max(236, Math.min(304, room));
+    }
+    panel.dataset.side = side;
+    panel.style.width = width + 'px';
+  }
+
+  function placeLearn() {
+    if (learnIsland.hidden) return;
+    if (isMobile()) { learnIsland.style.left = ''; learnIsland.style.top = ''; return; }
+    var node = canvasNodeFor(learnFor);
+    if (!node) return;
+    var r = node.getBoundingClientRect();
+    var w = 336, gap = 14;
+    var left = r.right + gap;
+    if (left + w > window.innerWidth - 16) left = Math.max(16, r.left - w - gap);
+    var top = Math.max(76, Math.min(r.top, window.innerHeight - 300));
+    learnIsland.style.left = left + 'px';
+    learnIsland.style.top = top + 'px';
+  }
+
+  function resettle(el) {
+    el.classList.remove('settle');
+    void el.offsetWidth;
+    el.classList.add('settle');
+  }
+
+  function render() {
+    var lit = sel ? FRAME_OF[sel] : null;
+    var holding = sel !== null && sel !== 'board';
+
+    /* E's attention registers: value steps only */
+    $$('.fwrap').forEach(function (w) {
+      var f = w.getAttribute('data-fwrap');
+      w.setAttribute('data-att', !holding ? 'rest' : (f === lit ? 'lit' : 'dim'));
+    });
+
+    /* selection rings, canvas + tree */
+    $$('#tree .trow').forEach(function (b) {
+      b.setAttribute('aria-selected', b.getAttribute('data-tree') === sel ? 'true' : 'false');
+    });
+    $$('.dm-frame[data-node], .hotspot, .mark').forEach(function (el) {
+      el.setAttribute('aria-selected', el.getAttribute('data-node') === sel ? 'true' : 'false');
+    });
+
+    /* annotation flip: rose line ⇄ thread island at the mark */
+    ['m1', 'm2', 'm3'].forEach(function (m) {
+      $('#anno-' + m).setAttribute('data-open', sel === m ? 'true' : 'false');
+    });
+
+    /* the combined island: summoned by selection, dodges, dissolves */
+    if (sel) {
+      aspectsTitle.textContent = ASPECTS[sel].title;
+      aspectsBody.innerHTML = ASPECTS[sel].body;
+      dodgePanel();
+      if (panel.hidden) { panel.hidden = false; }
+      resettle(panel);
+    } else {
+      panel.hidden = true;
+    }
+
+    /* learn island */
+    if (learnFor && LEARN[learnFor]) {
+      var L = LEARN[learnFor];
+      $('#learn-el').textContent = L.name;
+      $('#learn-tree').textContent = L.tree;
+      $('#learn-term').innerHTML = 'The word doing the work: <b>' + L.term + '</b>';
+      $('#learn-why').textContent = L.why;
+      $('#learn-ask').hidden = !L.ask || teachOn;
+      learnIsland.hidden = false;
+      placeLearn();
+      resettle(learnIsland);
+    } else {
+      learnIsland.hidden = true;
+    }
+
+    /* teach island */
+    teachIsland.setAttribute('data-open', teachOn ? 'true' : 'false');
+  }
+
+  function select(id) {
+    sel = id;
+    render();
+    /* on the small field, lift the opened thread clear of the sheet */
+    if (isMobile() && /^m\d$/.test(id || '')) {
+      var a = document.getElementById('anno-' + id);
+      if (a) a.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+
+  /* ── pointer ───────────────────────────────────────────── */
+  document.addEventListener('click', function (e) {
+    var chip = e.target.closest('.dm-chip');
+    if (chip) {
+      var row = chip.parentElement;
+      $$('.dm-chip', row).forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
+      chip.setAttribute('aria-pressed', 'true');
+      e.stopPropagation();
+      return;
+    }
+
+    if (e.target.closest('#learn-ask')) {
+      teachOn = true;
+      learnFor = null;               /* the answer replaces the question surface */
+      select('f2-keep');
+      return;
+    }
+
+    if (e.target.closest('#panel-close')) { select(null); return; }
+
+    var treeRow = e.target.closest('.trow');
+    if (treeRow) { select(treeRow.getAttribute('data-tree')); return; }
+
+    var node = e.target.closest('[data-node]');
+    if (node) {
+      var id = node.getAttribute('data-node');
+      if (learnOn && LEARN[id] && !node.classList.contains('anno-line')) {
+        learnFor = id;
+      } else if (!LEARN[id] || !learnOn) {
+        learnFor = null;
+      }
+      select(id);
+      e.stopPropagation();
+      return;
+    }
+
+    if (e.target.closest('.island') || e.target.closest('.anno-island') ||
+        e.target.closest('.teach-island') || e.target.closest('.chrome-tl') ||
+        e.target.closest('.chrome-bl')) return;
+
+    /* empty air: first click returns to board aspects, second dissolves */
+    if (e.target.closest('.field')) {
+      learnFor = null;
+      teachOn = false;
+      select(sel === 'board' ? null : 'board');
+    }
+  });
+
+  /* ── keyboard ──────────────────────────────────────────── */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (teachOn) { teachOn = false; render(); return; }
+      if (learnFor) { learnFor = null; render(); return; }
+      if (sel !== null) { select(null); return; }
+      if (learnOn) { learnOn = false; $('#learn-toggle').setAttribute('aria-pressed', 'false'); }
+      return;
+    }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList &&
+        e.target.classList.contains('dm-frame')) {
+      e.preventDefault();
+      select(e.target.getAttribute('data-node'));
+    }
+  });
+
+  /* ── tools ─────────────────────────────────────────────── */
+  $$('.tool-mode').forEach(function (t) {
+    t.addEventListener('click', function () {
+      $$('.tool-mode').forEach(function (o) { o.setAttribute('aria-pressed', 'false'); });
+      t.setAttribute('aria-pressed', 'true');
+    });
+  });
+
+  var liveToggle = $('#live-toggle');
+  liveToggle.addEventListener('click', function () {
+    var on = liveToggle.getAttribute('aria-pressed') !== 'true';
+    liveToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    liveToggle.textContent = on ? 'live · on' : 'live · off';
+    $('#live-word').textContent = on ? 'live on' : 'live off';
+  });
+
+  var learnToggle = $('#learn-toggle');
+  learnToggle.addEventListener('click', function () {
+    learnOn = !learnOn;
+    learnToggle.setAttribute('aria-pressed', learnOn ? 'true' : 'false');
+    if (!learnOn) { learnFor = null; render(); }
+  });
+
+  /* ── runs island: present only while runs exist ────────── */
+  var runsIsland = $('#island-runs');
+  if (!RUNS.length) { runsIsland.hidden = true; }
+  else {
+    $('#run-rows').innerHTML = RUNS.map(function (r) {
+      return '<div class="run-row"><span class="dm-dot" data-state="' + r.state + '"></span>' +
+        '<span class="dm-mono">⌁ ' + r.id + ' · ' + r.agent + '</span>' +
+        '<span class="run-note">' + r.note + '</span></div>';
+    }).join('');
+  }
+
+  window.addEventListener('resize', function () { dodgePanel(); placeLearn(); });
+  field.addEventListener('scroll', function () { dodgePanel(); placeLearn(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

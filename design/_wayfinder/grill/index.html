@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>designmode DLS — direction picker</title>
+<style>
+  /* Deliberately neutral chrome: system font, gray, no DLS voice, so the picker never competes with the variants. */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.45 -apple-system, "Segoe UI", sans-serif; color: #333; background: #e9e9e9; display: flex; flex-direction: column; height: 100vh; }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #f6f6f6; border-bottom: 1px solid #ccc; flex-wrap: wrap; }
+  h1 { font-size: 13px; font-weight: 600; margin: 0; }
+  nav { display: flex; gap: 4px; }
+  nav button { font: inherit; padding: 5px 12px; border: 1px solid #bbb; background: #fff; cursor: pointer; border-radius: 3px; }
+  nav button[aria-pressed="true"] { background: #333; color: #fff; border-color: #333; }
+  nav button[data-state="archived"] { color: #999; border-color: #d5d5d5; background: #f0f0f0; }
+  nav button[data-state="rejected"] { color: #aaa; border-color: #ddd; background: #f0f0f0; text-decoration: line-through; }
+  nav button[data-state][aria-pressed="true"] { background: #888; color: #fff; border-color: #888; }
+  nav .sep { align-self: center; color: #999; padding: 0 4px; }
+  nav button:focus-visible, .vp button:focus-visible, #promising:focus-visible, #export:focus-visible, textarea:focus-visible { outline: 2px solid #0a56c2; outline-offset: 1px; }
+  .thesis { flex: 1 1 320px; min-width: 240px; color: #555; }
+  .thesis strong { color: #222; }
+  .vp { display: flex; gap: 4px; }
+  .vp button { font: inherit; padding: 5px 10px; border: 1px solid #bbb; background: #fff; cursor: pointer; border-radius: 3px; }
+  .vp button[aria-pressed="true"] { background: #666; color: #fff; border-color: #666; }
+  .task { padding: 5px 14px; background: #f0f0f0; border-bottom: 1px solid #d5d5d5; color: #666; }
+  .stage { flex: 1; display: flex; justify-content: center; align-items: stretch; overflow: auto; background: #dcdcdc; position: relative; }
+  iframe { border: 0; background: #fff; width: 100%; height: 100%; }
+  #pending { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: #dcdcdc; color: #555; }
+  .stage.pending #pending { display: flex; }
+  .stage.pending iframe { visibility: hidden; }
+  .stage.narrow { padding: 12px 0; }
+  .stage.narrow iframe { width: 390px; height: 844px; max-height: calc(100% - 0px); box-shadow: 0 2px 14px rgba(0,0,0,.25); flex: none; align-self: center; }
+  footer { display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: #f6f6f6; border-top: 1px solid #ccc; }
+  footer label { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  textarea { flex: 1; font: inherit; height: 34px; padding: 5px 8px; border: 1px solid #bbb; border-radius: 3px; resize: vertical; }
+  #export { font: inherit; padding: 5px 12px; border: 1px solid #bbb; background: #fff; cursor: pointer; border-radius: 3px; }
+  kbd { font: 11px ui-monospace, monospace; color: #444; background: #e2e2e2; border-radius: 2px; padding: 1px 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>designmode — direction picker</h1>
+  <nav aria-label="Variants" id="tabs"></nav>
+  <p class="thesis" id="thesis"></p>
+  <div class="vp" role="group" aria-label="Viewport">
+    <button id="vp-wide" aria-pressed="true">1440</button>
+    <button id="vp-narrow" aria-pressed="false">390</button>
+  </div>
+</header>
+<p class="task">Same task in every variant: click mark <strong>#1</strong> on the hero → read the agent reply → click a frame → check the aspects → find annotation #2 (stale, resolved) → press <kbd>Esc</kbd>. Keys <kbd>1</kbd>–<kbd>5</kbd> switch variants.</p>
+<div class="stage" id="stage"><iframe id="frame" title="Variant prototype"></iframe><p id="pending">This variant is still being built — it will appear here automatically.</p></div>
+<footer>
+  <label><input type="checkbox" id="promising"> promising</label>
+  <textarea id="note" placeholder="Notes on this variant — keep / change / confusing / combine…" aria-label="Notes on this variant"></textarea>
+  <button id="export">Export notes</button>
+</footer>
+<script>
+const VARIANTS = [
+  { id: 'a2', name: 'A2 · Violet ink ✓ chosen', thesis: 'The DLS voice: blue-gray ground, one violet signal, coral annotations, teal teach; draggable learn lens and islands.' },
+  { id: 'a3', name: 'A3 · Electric', state: 'archived', thesis: 'Round 3, not picked. Its dark ground informs the dark theme.' },
+  { id: 'a1',  name: 'A1 · Islands⁺ (r2 parent)', state: 'archived', thesis: 'Round 2, the chosen direction — cream palette rejected, interactions carried into A2/A3.' },
+  { id: 'd1',  name: 'D1 (rejected)',  state: 'rejected', thesis: 'Round 2, rejected: panel height too constricting unless it owns the full right edge; top bar too busy.' },
+  { id: 'e1',  name: 'E1 (rejected)',  state: 'rejected', thesis: 'Round 2, rejected: one-color field reads as a mess. Kept lesson: the movable learn lens.' },
+  { id: 'ae1', name: 'AE1 (r2 archive)', state: 'archived', thesis: 'Round 2 combination, not picked.' },
+  { id: 'a', name: 'A (r1 archive)', state: 'archived', thesis: 'Round 1 parent of A1. The canvas is the whole room; chrome floats as islands; threads bloom in place.' },
+  { id: 'b', name: 'B (rejected)',   state: 'rejected', thesis: 'Round 1, rejected: "this does not work." A permanent docked right column.' },
+  { id: 'c', name: 'C (rejected)',   state: 'rejected', thesis: 'Round 1, rejected as a direction. Kept lesson: panels appear only on selection and must not cover it.' },
+  { id: 'd', name: 'D (r1 archive)', state: 'archived', thesis: 'Round 1 parent of D1. The precise pro instrument with a permanent panel.' },
+  { id: 'e', name: 'E (r1 archive)', state: 'archived', thesis: 'Round 1 parent of E1. The quiet field before the contrast fix.' },
+];
+const KEY = 'designmode-grill-01';
+const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+state.notes = state.notes || {}; state.promising = state.promising || {};
+let current = state.current && VARIANTS.some(v => v.id === state.current) ? state.current : 'a';
+let narrow = !!state.narrow;
+
+const tabs = document.getElementById('tabs');
+VARIANTS.forEach((v, i) => {
+  if (v.state && !VARIANTS[i - 1]?.state) {
+    const s = document.createElement('span');
+    s.className = 'sep';
+    s.textContent = '· archive:';
+    tabs.appendChild(s);
+  }
+  const b = document.createElement('button');
+  b.textContent = v.name;
+  b.dataset.id = v.id;
+  if (v.state) b.dataset.state = v.state;
+  b.addEventListener('click', () => select(v.id));
+  tabs.appendChild(b);
+});
+
+function save() { state.current = current; state.narrow = narrow; localStorage.setItem(KEY, JSON.stringify(state)); }
+let pollTimer = null;
+async function loadVariant(id) {
+  const stage = document.getElementById('stage');
+  clearTimeout(pollTimer);
+  let ok = false;
+  try { ok = (await fetch(id + '/index.html', { method: 'HEAD', cache: 'no-store' })).ok; } catch {}
+  stage.classList.toggle('pending', !ok);
+  if (ok) {
+    const f = document.getElementById('frame');
+    const want = id + '/index.html';
+    if (!f.src.endsWith(want)) f.src = want;
+  } else {
+    pollTimer = setTimeout(() => { if (current === id) loadVariant(id); }, 5000);
+  }
+}
+function select(id) {
+  current = id;
+  const v = VARIANTS.find(x => x.id === id);
+  loadVariant(id);
+  document.getElementById('thesis').innerHTML = '<strong>' + v.name + '.</strong> ' + v.thesis;
+  document.getElementById('note').value = state.notes[id] || '';
+  document.getElementById('promising').checked = !!state.promising[id];
+  tabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+  save();
+}
+function setViewport(n) {
+  narrow = n;
+  document.getElementById('stage').classList.toggle('narrow', n);
+  document.getElementById('vp-wide').setAttribute('aria-pressed', String(!n));
+  document.getElementById('vp-narrow').setAttribute('aria-pressed', String(n));
+  save();
+}
+document.getElementById('vp-wide').addEventListener('click', () => setViewport(false));
+document.getElementById('vp-narrow').addEventListener('click', () => setViewport(true));
+document.getElementById('note').addEventListener('input', e => { state.notes[current] = e.target.value; save(); });
+document.getElementById('promising').addEventListener('change', e => { state.promising[current] = e.target.checked; save(); });
+document.getElementById('export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ picker: KEY, exportedAt: new Date().toISOString(), promising: state.promising, notes: state.notes }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'designmode-grill-01-notes.json'; a.click();
+  URL.revokeObjectURL(a.href);
+});
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  const i = parseInt(e.key, 10) - 1;
+  if (i >= 0 && i < VARIANTS.length) select(VARIANTS[i].id);
+});
+select(current); setViewport(narrow);
+</script>
+</body>
+</html>

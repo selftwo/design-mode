@@ -1,0 +1,14 @@
+{
+  "picker": "designmode-grill-01",
+  "exportedAt": "2026-07-16T15:59:22.243Z",
+  "promising": { "d": true, "a": true, "e": true, "a1": true },
+  "notes": {
+    "c": "I like benhc only appear when selecting an element and it open - but it us taking way to much cspace if slected item is on right where teh expansion panel cover - it shoudl resize move.",
+    "a": "i like the sidecar separation here in the one - of runs, elements, etc. comments should be ocntrasting in different color - evrything in screen loosks like teh same",
+    "b": "this does not work",
+    "e": "i like the commnte here but agin blenindg with background is not helpful visually. the side panel in native is not helpful - can have muted diffenetnt tone",
+    "a1": "Learn how the box should be a bit more like this: because it is fixed, I should be able to float it, move it somewhere, scroll around, and see what things are there, etc. Interestingly, you just move the small tools or the review panel left and right based on which elements I click. Maybe I should test it by clicking something much more centered. The obvious feedback is that I think only one is promising. The other aspects in the canvas are also important, and the learn needs to be flexible. I should be able to move it around and see the runs. I should also be able to close my lens or remove it from the view canvas navigation.\n\nThose aspects become interesting. I think the islands are the best way. Let's go with this.\n\nAgain, colors: you still haven't taken the other aspects from Paper Club, designs, and references. There should be diversity or a difference in colors. This farm thing is not helping with my design sensors for putting it in. Please work on this and make it a bit more fun, cool color-wise, something violet-ish, blue-grayish, or violet-ish, something like that, and a bit more flashy. I hate these color palettes",
+    "d1": "What is the specific card draw on the right panel? I see you have put the Learn there, but it needs to be at a height, and I cannot read most of it. The height is very limited in terms of things I can see in each other section. I should be able to collapse and see something specifically, but I think this is very constricting.\n\nUnless it takes up the entire right-hand side pane and the vertical height of the desktop to put all of this information there, this doesn't work I think the Ask Suggestions and Adjust Clicks work okay. Learn is fine. It does not need to be actionable. I see a lot of lines and things on the main top bar, which I do not like.",
+    "e1": "All of this being in the same color is just confusing. It's a mess, and I'm going to put an image of this in the chat. Visually, it looks like one reader will have every design language. This is so off-putting. Archive this, please . Only thing relating to the learn part can move here and there. That should be done among the others, please."
+  }
+}

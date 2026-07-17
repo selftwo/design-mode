@@ -1,0 +1,1145 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design review canvas — quiet field</title>
+<link rel="stylesheet" href="/dls/designmode/styles.css">
+<style>
+/* ============================================================
+   GRILL VARIANT E · Quiet field
+   Attention is the interface. The field rests dim and near-empty;
+   whatever the hand touches resolves to full ink and everything
+   else recedes one value step. Chrome exists only when summoned:
+   corner words, a mono status line, and an aspects column that is
+   air which gained ink. Separation is done by value and alignment,
+   never by rule or shadow.
+   ============================================================ */
+
+html, body { margin: 0; }
+body {
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ── The field ─────────────────────────────────────────────────
+   Edge-to-edge ground, one value below paper. No grid. */
+.field {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ── Corner chrome · top-left ─────────────────────────────── */
+.chrome-tl {
+  position: fixed;
+  top: var(--space-4);
+  left: var(--space-6);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.app-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-secondary);
+  letter-spacing: var(--tracking-normal);
+}
+
+.tools {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.tool {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease-hand);
+}
+
+.tool:hover { color: var(--ink); }
+
+.tool[aria-pressed="true"] {
+  color: var(--accent);
+  font-weight: var(--weight-medium);
+}
+
+.tool-sep { color: var(--ink-faint); font-size: var(--text-xs); }
+
+/* ── Corner chrome · bottom-left status line ──────────────── */
+.chrome-bl {
+  position: fixed;
+  left: var(--space-6);
+  bottom: var(--space-4);
+  z-index: 61;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  background: var(--canvas);
+  padding: var(--space-1) 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  transition: color var(--duration-hover) var(--ease-hand);
+}
+
+.status-btn:hover { color: var(--ink); }
+.status-btn[aria-expanded="true"] { color: var(--accent); text-decoration-color: var(--accent-ring); }
+
+/* ── Corner chrome · bottom-right agent presence ──────────── */
+.chrome-br {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-4);
+  z-index: 40;
+  pointer-events: none; /* presence, not a control */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.agent-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-1);
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
+.agent-line .dm-dot { width: 6px; height: 6px; }
+
+/* ── The everything list (layers) ──────────────────────────────
+   Unfolds upward from the status line's screen count. Ground air
+   that gained ink: opaque canvas, no edge, no lift. */
+.tree {
+  position: fixed;
+  left: var(--space-6);
+  bottom: calc(var(--statusbar-height) + var(--space-3));
+  z-index: 62;
+  width: 264px;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  background: var(--canvas);
+  padding: var(--space-2) 0;
+  animation: dm-settle var(--duration-settle) var(--ease-settle) both;
+}
+
+.tree[hidden] { display: none; }
+
+.tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 3px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-hover) var(--ease-hand),
+              color var(--duration-hover) var(--ease-hand);
+}
+
+.tree-row:hover { background: var(--surface-hover); color: var(--ink); }
+
+.tree-row[aria-selected="true"] {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+}
+
+.tree-row[data-lvl="1"] { padding-left: var(--space-4); }
+.tree-row[data-lvl="2"] { padding-left: var(--space-6); }
+.tree-row[data-lvl="3"] { padding-left: var(--space-8); }
+
+.tree-glyph {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}
+
+.tree-row[data-mark] .tree-glyph { color: var(--mark); }
+.tree-row[data-mark="stale"] .tree-glyph { color: var(--ink-faint); }
+
+.tree-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+}
+
+/* ── Aspects column ────────────────────────────────────────────
+   Materializes on the right edge when something is selected.
+   No border, no shadow, no surface: alignment separates it. */
+.aspects {
+  position: fixed;
+  top: 88px;
+  right: var(--space-10);
+  z-index: 50;
+  width: 288px;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.aspects[hidden] { display: none; }
+
+.aspects.pop { animation: dm-settle var(--duration-settle) var(--ease-settle) both; }
+
+.aspects-path {
+  margin-bottom: var(--space-2);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+.aspects-title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink);
+}
+
+.arow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-1) 0;
+}
+
+.arow-k {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  flex: none;
+}
+
+.arow-v {
+  font-size: var(--text-sm);
+  color: var(--ink);
+  text-align: right;
+}
+
+.arow-v.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+
+.arow-v .dm-badge { font-size: var(--text-xs); }
+
+.aspects-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+
+.aspects-actions { margin-top: var(--space-4); }
+
+/* ── Captured frames on the field ──────────────────────────────
+   Each wrapper carries the attention register as four ink custom
+   properties. Value steps only: rest → pre-lit (hover) → lit
+   (selected) → dropped (everything else while a selection holds). */
+.fwrap {
+  position: absolute;
+  /* rest register */
+  --fi-strong: var(--stone-600);
+  --fi:        var(--stone-500);
+  --fi-soft:   var(--stone-400);
+  --fi-edge:   var(--stone-200);
+}
+
+.fwrap[data-att="rest"]:hover,
+.fwrap.is-pre {
+  --fi-strong: var(--stone-800);
+  --fi:        var(--stone-600);
+  --fi-soft:   var(--stone-500);
+  --fi-edge:   var(--stone-250);
+}
+
+.fwrap[data-att="lit"] {
+  --fi-strong: var(--stone-900);
+  --fi:        var(--stone-700);
+  --fi-soft:   var(--stone-500);
+  --fi-edge:   var(--stone-250);
+}
+
+.fwrap[data-att="dim"] {
+  --fi-strong: var(--stone-400);
+  --fi:        var(--stone-300);
+  --fi-soft:   var(--stone-300);
+  --fi-edge:   var(--stone-150);
+}
+
+.fwrap--d { width: 520px; --k: 0.36111; }
+.fwrap--m { width: 190px; --k: 0.48718; }
+
+.fwrap .dm-frame-label {
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 0 6px;
+  line-height: 16px;
+  color: var(--fi);
+  transition: color var(--duration-hover) var(--ease-hand);
+}
+
+/* the label is the frame's handle: a word, not a control */
+.frame-handle {
+  display: block;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.frame-handle:hover { color: var(--ink); }
+
+.fwrap .dm-frame {
+  width: 100%;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+}
+
+.frame-body {
+  position: relative;
+  width: 100%;
+}
+
+.fwrap--d .frame-body { aspect-ratio: 1440 / 900; }
+.fwrap--m .frame-body { aspect-ratio: 390 / 844; }
+
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(var(--k));
+  transform-origin: 0 0;
+  background: var(--surface);
+  font-family: var(--font-ui);
+  pointer-events: none;
+}
+
+.screen--d { width: 1440px; height: 900px; }
+.screen--m { width: 390px; height: 844px; }
+
+/* mock ink transitions with the attention register */
+.screen, .screen * {
+  transition: color var(--duration-hover) var(--ease-hand),
+              background-color var(--duration-hover) var(--ease-hand),
+              border-color var(--duration-hover) var(--ease-hand);
+}
+
+/* ── Mock screens (hosted product drawings) ─────────────────── */
+.s-nav {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  padding: 34px 72px;
+}
+.s-wordmark { font-size: 22px; font-weight: 600; color: var(--fi-strong); }
+.s-link { font-size: 16px; color: var(--fi); }
+.s-nav-spacer { margin-left: auto; }
+
+.s-hero { text-align: center; padding: 84px 72px 64px; }
+.s-h1 {
+  margin: 0 0 20px;
+  font-size: 56px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--fi-strong);
+}
+.s-sub { margin: 0 auto 36px; font-size: 20px; line-height: 1.5; color: var(--fi); }
+.s-btn {
+  display: inline-block;
+  padding: 14px 28px;
+  border-radius: 8px;
+  background: var(--fi-strong);
+  color: var(--stone-0);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.s-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  padding: 8px 72px;
+}
+.s-card {
+  border: 1px solid var(--fi-edge);
+  border-radius: 12px;
+  padding: 32px;
+}
+.s-card-title { margin: 0 0 10px; font-size: 20px; font-weight: 600; color: var(--fi-strong); }
+.s-card-line { margin: 0; font-size: 15px; line-height: 1.5; color: var(--fi); }
+
+/* pricing */
+.s-ph1 {
+  margin: 0;
+  padding: 56px 72px 12px;
+  text-align: center;
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fi-strong);
+}
+.s-plead { margin: 0 0 44px; text-align: center; font-size: 18px; color: var(--fi); }
+.s-plans {
+  display: grid;
+  grid-template-columns: repeat(2, 340px);
+  gap: 48px;
+  justify-content: center;
+}
+.s-plan {
+  border: 1px solid var(--fi-edge);
+  border-radius: 12px;
+  padding: 40px;
+}
+.s-plan-name { margin: 0 0 8px; font-size: 22px; font-weight: 600; color: var(--fi-strong); }
+.s-plan-price { margin: 0 0 24px; font-size: 17px; color: var(--fi); }
+.s-plan-line { margin: 0 0 10px; font-size: 15px; line-height: 1.5; color: var(--fi); }
+.s-plan .s-btn { margin-top: 20px; font-size: 15px; padding: 12px 24px; }
+
+/* mobile */
+.sm-nav { display: flex; align-items: center; padding: 20px 24px; }
+.sm-wordmark { font-size: 19px; font-weight: 600; color: var(--fi-strong); }
+.sm-menu { margin-left: auto; font-size: 20px; color: var(--fi); }
+.sm-hero { padding: 40px 24px 28px; }
+.sm-h1 { margin: 0 0 14px; font-size: 34px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; color: var(--fi-strong); }
+.sm-sub { margin: 0 0 24px; font-size: 17px; line-height: 1.55; color: var(--fi); }
+.sm-btn { display: inline-block; padding: 12px 22px; border-radius: 8px; background: var(--fi-strong); color: var(--stone-0); font-size: 15px; font-weight: 500; }
+.sm-cards { display: grid; gap: 20px; padding: 20px 24px; }
+.sm-card { border: 1px solid var(--fi-edge); border-radius: 12px; padding: 24px; }
+.sm-card-title { margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--fi-strong); }
+.sm-card-line { margin: 0; font-size: 14px; line-height: 1.5; color: var(--fi); }
+
+/* ── Element hotspots ──────────────────────────────────────── */
+.hotspot {
+  position: absolute;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  transition: box-shadow var(--duration-hover) var(--ease-hand);
+}
+
+.hotspot:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+
+.hotspot[aria-selected="true"] {
+  box-shadow: inset 0 0 0 2px var(--accent-ring);
+}
+
+/* ── Marks (the reviewer's pen) ─────────────────────────────── */
+.mark {
+  position: absolute;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  transition: box-shadow var(--duration-hover) var(--ease-hand);
+}
+
+.mark--circle {
+  border: 2px solid var(--mark);
+  border-radius: 50%;
+}
+
+.mark--rect {
+  border: 1.5px solid var(--border-strong); /* stale anchor renders neutral */
+  border-radius: 4px;
+  /* the element underneath stays clickable; the kind chip is the handle */
+  pointer-events: none;
+}
+
+.mark--pin {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mark);
+  color: var(--stone-0);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 20px;
+  text-align: center;
+}
+
+.mark[aria-selected="true"] {
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-ring);
+}
+
+/* stale kind chip, floating at the anchor's corner */
+.mark-kind {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  transform: translateY(-100%);
+  padding: 2px 8px 3px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 3px;
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* ── Annotations: one mono line ⇄ the full thread, in place ── */
+.anno {
+  position: absolute;
+  z-index: 20;
+}
+
+.anno-line {
+  display: inline-block;
+  max-width: 320px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--fi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease-hand);
+}
+
+.anno-line:hover { color: var(--ink); }
+
+.anno[data-open="true"] .anno-line { display: none; }
+
+.anno-thread {
+  display: none;
+  width: min(300px, calc(100vw - 64px));
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  border-radius: var(--radius-panel);
+  background: var(--canvas); /* the field itself, gained ink */
+}
+
+.anno[data-open="true"] .anno-thread {
+  display: block;
+  animation: dm-settle var(--duration-settle) var(--ease-settle) both;
+}
+
+.anno-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
+.anno-state { margin-left: auto; }
+.anno-state[data-tone="accent"] { color: var(--accent); }
+
+.anno-thread .dm-comment { margin-bottom: var(--space-3); }
+.anno-thread .dm-comment-body { font-size: var(--text-sm); }
+
+.anno-chips { display: flex; gap: var(--space-1); margin-bottom: var(--space-3); }
+.anno-chips .dm-chip { font-size: var(--text-2xs); padding: 2px var(--space-2); }
+
+.anno-draft {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+/* agent reply */
+.agent-reply {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+}
+
+.agent-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 18px;
+  text-align: center;
+  letter-spacing: 0;
+}
+
+.agent-reply-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.candidate-chip {
+  padding: 1px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.provenance {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+}
+
+.agent-reply-body {
+  grid-column: 2;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--ink-secondary);
+}
+
+.anno-routing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* ── 390 · the field stacks, the column becomes a sheet ─────── */
+@media (max-width: 700px) {
+  .field {
+    padding: 96px var(--space-6) 140px;
+    min-height: auto;
+  }
+
+  .fwrap {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 0 var(--space-10);
+  }
+
+  .fwrap--d { width: min(342px, 100%); --k: 0.2375; }
+  .fwrap--m { width: 195px; --k: 0.5; }
+
+  /* summary lines clamp to the mark */
+  .anno-rest { display: none; }
+
+  /* the open thread settles just under its frame, inside the viewport;
+     the frame yields the room instead of letting the thread cover its
+     neighbour */
+  .anno[data-open="true"] {
+    left: 0 !important;
+    right: auto !important;
+    top: calc(100% + var(--space-2)) !important;
+  }
+
+  .fwrap:has(.anno[data-open="true"]) { margin-bottom: 300px; }
+
+  /* aspects column becomes a bottom sheet */
+  .aspects {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: 46vh;
+    background: var(--canvas);
+    padding: var(--space-4) var(--space-6) calc(var(--space-8) + env(safe-area-inset-bottom));
+    z-index: 55;
+  }
+
+  .chrome-br {
+    right: var(--space-6);
+    bottom: calc(var(--space-4) + 26px);
+    z-index: 56;
+  }
+
+  .agent-desc { display: none; }
+
+  .tree { width: min(264px, calc(100vw - 48px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree,
+  .aspects.pop,
+  .anno[data-open="true"] .anno-thread { animation: none; }
+}
+</style>
+</head>
+<body class="dm">
+
+<!-- ════════ THE FIELD ════════ -->
+<main class="field" id="field" aria-label="Review canvas — smalltools landing review">
+
+  <!-- Frame 1 · Home 1440 -->
+  <div class="fwrap fwrap--d" id="wrap-f1" data-fwrap="f1" data-att="rest" style="left:72px; top:88px;">
+    <button class="dm-frame-label frame-handle" data-node="f1">Home · / · 1440</button>
+    <div class="dm-frame" data-node="f1" aria-label="Frame Home, 1440 by 900">
+      <div class="frame-body">
+        <div class="screen screen--d">
+          <nav class="s-nav">
+            <span class="s-wordmark">smalltools</span>
+            <span class="s-nav-spacer"></span>
+            <span class="s-link">Shelf</span>
+            <span class="s-link">Notes</span>
+            <span class="s-link">About</span>
+          </nav>
+          <div class="s-hero">
+            <h1 class="s-h1">Small tools for slow thinking</h1>
+            <p class="s-sub">A shelf of tiny instruments that keep your reading, your margins, and your minutes where you can find them again.</p>
+            <span class="s-btn">Browse the shelf</span>
+          </div>
+          <div class="s-cards">
+            <div class="s-card"><h2 class="s-card-title">Ledger</h2><p class="s-card-line">Every book you touched, one quiet page.</p></div>
+            <div class="s-card"><h2 class="s-card-title">Stopwatch</h2><p class="s-card-line">Time a thought without watching the clock.</p></div>
+            <div class="s-card"><h2 class="s-card-title">Margins</h2><p class="s-card-line">Your notes, kept beside what provoked them.</p></div>
+          </div>
+        </div>
+        <button class="hotspot" data-node="f1-nav" aria-label="Element nav" style="left:0; top:0; width:100%; height:10%;"></button>
+        <button class="hotspot" data-node="f1-hero" aria-label="Element hero" style="left:0; top:10%; width:100%; height:44%;"></button>
+        <button class="hotspot" data-node="f1-cards" aria-label="Element card-row" style="left:4%; top:56%; width:92%; height:36%;"></button>
+        <button class="mark mark--circle" data-node="m1" aria-label="Annotation 1, circle mark on hero"
+                style="left:23%; top:17%; width:54%; height:14%;"></button>
+      </div>
+    </div>
+    <!-- annotation #1: one mono line ⇄ the thread, in place -->
+    <div class="anno" id="anno-m1" data-open="false" style="left:57%; top:38%;">
+      <button class="anno-line" data-node="m1"><span class="dm-mark-ref">#1</span><span class="anno-rest"> distill · returned — hero measure runs the full row…</span></button>
+      <div class="anno-thread" id="thread-m1">
+        <div class="anno-head"><span class="dm-mark-ref">#1</span><span>○ circle</span><span class="anno-state" data-tone="accent">● returned</span></div>
+        <div class="dm-comment">
+          <div class="dm-comment-head"><span class="dm-comment-author">Ben</span><span class="dm-comment-time">2m</span></div>
+          <p class="dm-comment-body">Hero measure runs the full row. Cap it and let the cards carry the width.</p>
+        </div>
+        <div class="anno-chips"><button class="dm-chip" aria-pressed="true">distill</button></div>
+        <div class="agent-reply">
+          <span class="agent-avatar">FB</span>
+          <div class="agent-reply-head">
+            <span class="candidate-chip">Candidate</span>
+            <span class="provenance">⌁ run r-142 · s-9 · 1m</span>
+          </div>
+          <p class="agent-reply-body">Proposed: measure capped at 60ch, cards move up 32px. Patch staged.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frame 2 · Pricing 1440 -->
+  <div class="fwrap fwrap--d" id="wrap-f2" data-fwrap="f2" data-att="rest" style="left:72px; top:470px;">
+    <button class="dm-frame-label frame-handle" data-node="f2">Pricing · /pricing · 1440</button>
+    <div class="dm-frame" data-node="f2" aria-label="Frame Pricing, 1440 by 900">
+      <div class="frame-body">
+        <div class="screen screen--d">
+          <nav class="s-nav">
+            <span class="s-wordmark">smalltools</span>
+            <span class="s-nav-spacer"></span>
+            <span class="s-link">Shelf</span>
+            <span class="s-link">Notes</span>
+            <span class="s-link">About</span>
+          </nav>
+          <h1 class="s-ph1">Pricing</h1>
+          <p class="s-plead">Take the shelf. Keep the margins.</p>
+          <div class="s-plans">
+            <div class="s-plan">
+              <h2 class="s-plan-name">Free</h2>
+              <p class="s-plan-price">$0 · the shelf</p>
+              <p class="s-plan-line">Every tool, in the browser.</p>
+              <p class="s-plan-line">Margins kept for seven days.</p>
+            </div>
+            <div class="s-plan">
+              <h2 class="s-plan-name">Keep</h2>
+              <p class="s-plan-price">$4/mo · your margins everywhere</p>
+              <p class="s-plan-line">Margins synced and permanent.</p>
+              <p class="s-plan-line">Ledger export, quiet backups.</p>
+              <span class="s-btn">Start keeping</span>
+            </div>
+          </div>
+        </div>
+        <button class="hotspot" data-node="f2-nav" aria-label="Element nav" style="left:0; top:0; width:100%; height:10%;"></button>
+        <button class="hotspot" data-node="f2-heading" aria-label="Element heading" style="left:26%; top:12%; width:48%; height:16%;"></button>
+        <button class="hotspot" data-node="f2-free" aria-label="Element plan-free" style="left:24.5%; top:31%; width:24%; height:46%;"></button>
+        <button class="hotspot" data-node="f2-keep" aria-label="Element plan-keep" style="left:51.5%; top:31%; width:24%; height:46%;"></button>
+        <button class="mark mark--rect" data-node="m2" aria-label="Annotation 2, element mark on plan-keep, stale"
+                style="left:51%; top:30%; width:25%; height:48%;"><span class="mark-kind">▢ element · stale</span></button>
+      </div>
+    </div>
+    <div class="anno" id="anno-m2" data-open="false" style="left:78%; top:32%;">
+      <button class="anno-line" data-node="m2"><span class="dm-mark-ref">#2</span><span class="anno-rest"> bolder · resolved · stale — both plans read the same weight…</span></button>
+      <div class="anno-thread" id="thread-m2">
+        <div class="anno-head"><span class="dm-mark-ref">#2</span><span>▢ element · stale</span><span class="anno-state">✓ resolved</span></div>
+        <div class="dm-comment">
+          <div class="dm-comment-head"><span class="dm-comment-author">Ben</span><span class="dm-comment-time">1h</span></div>
+          <p class="dm-comment-body">Both plans read the same weight. The paid one should feel like the object.</p>
+        </div>
+        <div class="anno-chips"><button class="dm-chip" aria-pressed="true">bolder</button></div>
+        <div class="anno-routing"><span class="dm-mono">marked against revision 1 · this frame is current at rev 1</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frame 3 · Home 390, revision 2 -->
+  <div class="fwrap fwrap--m" id="wrap-f3" data-fwrap="f3" data-att="rest" style="left:680px; top:88px;">
+    <button class="dm-frame-label frame-handle" data-node="f3">Home · / · 390 · rev 2</button>
+    <div class="dm-frame" data-node="f3" aria-label="Frame Home mobile, 390 by 844, revision 2">
+      <div class="frame-body">
+        <div class="screen screen--m">
+          <nav class="sm-nav">
+            <span class="sm-wordmark">smalltools</span>
+            <span class="sm-menu">☰</span>
+          </nav>
+          <div class="sm-hero">
+            <h1 class="sm-h1">Small tools for slow thinking</h1>
+            <p class="sm-sub">Tiny instruments that keep your reading and your margins where you can find them.</p>
+            <span class="sm-btn">Browse the shelf</span>
+          </div>
+          <div class="sm-cards">
+            <div class="sm-card"><h2 class="sm-card-title">Ledger</h2><p class="sm-card-line">Every book you touched, one quiet page.</p></div>
+            <div class="sm-card"><h2 class="sm-card-title">Stopwatch</h2><p class="sm-card-line">Time a thought without watching the clock.</p></div>
+            <div class="sm-card"><h2 class="sm-card-title">Margins</h2><p class="sm-card-line">Your notes, kept beside what provoked them.</p></div>
+          </div>
+        </div>
+        <button class="hotspot" data-node="f3-nav" aria-label="Element nav" style="left:0; top:0; width:100%; height:8%;"></button>
+        <button class="hotspot" data-node="f3-hero" aria-label="Element hero" style="left:0; top:8%; width:100%; height:27%;"></button>
+        <button class="hotspot" data-node="f3-stack" aria-label="Element card-stack" style="left:4%; top:36%; width:92%; height:58%;"></button>
+        <button class="mark mark--pin" data-node="m3" aria-label="Annotation 3, comment pin on card-stack"
+                style="left:76%; top:56%;">3</button>
+      </div>
+    </div>
+    <div class="anno" id="anno-m3" data-open="false" style="left:8%; top:104%;">
+      <button class="anno-line" data-node="m3"><span class="dm-mark-ref">#3</span><span class="anno-rest"> comment · draft — no instruction yet</span></button>
+      <div class="anno-thread" id="thread-m3">
+        <div class="anno-head"><span class="dm-mark-ref">#3</span><span>pin · comment</span><span class="anno-state">draft</span></div>
+        <p class="anno-draft">No instruction yet</p>
+        <div class="anno-chips">
+          <button class="dm-chip" aria-pressed="false">distill</button>
+          <button class="dm-chip" aria-pressed="false">bolder</button>
+          <button class="dm-chip" aria-pressed="false">polish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ════════ CORNER CHROME ════════ -->
+<header class="chrome-tl">
+  <h1 class="app-title">Design review canvas</h1>
+  <nav class="tools" aria-label="Tools">
+    <button class="tool tool-mode" aria-pressed="true">select</button>
+    <button class="tool tool-mode" aria-pressed="false">circle</button>
+    <button class="tool tool-mode" aria-pressed="false">comment</button>
+    <span class="tool-sep" aria-hidden="true">·</span>
+    <button class="tool">import</button>
+    <button class="tool" id="live-toggle" aria-pressed="false">live · off</button>
+  </nav>
+</header>
+
+<div class="chrome-bl" id="statusline">
+  <button class="status-btn" id="screens-btn" aria-expanded="false" aria-controls="tree">3 screens</button>
+  <span> · 3 annotations · saved · </span><span id="live-word">live off</span>
+</div>
+
+<div class="chrome-br" aria-label="Agent runs">
+  <span class="agent-line"><span class="dm-dot" data-state="done"></span>⌁ r-142 · fable · done<span class="agent-desc"> — measure patch staged</span></span>
+  <span class="agent-line"><span class="dm-dot" data-state="running"></span>⌁ r-143 · codex · running<span class="agent-desc"> — recapturing /pricing</span></span>
+</div>
+
+<!-- ════════ THE EVERYTHING LIST ════════ -->
+<nav class="tree" id="tree" hidden aria-label="Everything on this board">
+  <button class="tree-row" data-node="board" data-lvl="0"><span class="tree-glyph">▤</span>smalltools — landing review</button>
+  <button class="tree-row" data-node="f1" data-lvl="1"><span class="tree-glyph">▣</span>Home · / · 1440</button>
+  <button class="tree-row" data-node="f1-nav" data-lvl="2"><span class="tree-glyph">▢</span>nav</button>
+  <button class="tree-row" data-node="f1-hero" data-lvl="2"><span class="tree-glyph">▢</span>hero</button>
+  <button class="tree-row" data-node="m1" data-lvl="3" data-mark="live"><span class="tree-glyph">○</span>#1 distill<span class="tree-meta">returned</span></button>
+  <button class="tree-row" data-node="f1-cards" data-lvl="2"><span class="tree-glyph">▢</span>card-row</button>
+  <button class="tree-row" data-node="f2" data-lvl="1"><span class="tree-glyph">▣</span>Pricing · /pricing · 1440</button>
+  <button class="tree-row" data-node="f2-nav" data-lvl="2"><span class="tree-glyph">▢</span>nav</button>
+  <button class="tree-row" data-node="f2-heading" data-lvl="2"><span class="tree-glyph">“</span>heading</button>
+  <button class="tree-row" data-node="f2-free" data-lvl="2"><span class="tree-glyph">▢</span>plan-free</button>
+  <button class="tree-row" data-node="f2-keep" data-lvl="2"><span class="tree-glyph">▢</span>plan-keep</button>
+  <button class="tree-row" data-node="m2" data-lvl="3" data-mark="stale"><span class="tree-glyph">▢</span>#2 bolder<span class="tree-meta">stale</span></button>
+  <button class="tree-row" data-node="f3" data-lvl="1"><span class="tree-glyph">▣</span>Home · / · 390 · rev 2</button>
+  <button class="tree-row" data-node="f3-nav" data-lvl="2"><span class="tree-glyph">▢</span>nav</button>
+  <button class="tree-row" data-node="f3-hero" data-lvl="2"><span class="tree-glyph">▢</span>hero</button>
+  <button class="tree-row" data-node="f3-stack" data-lvl="2"><span class="tree-glyph">▢</span>card-stack</button>
+  <button class="tree-row" data-node="m3" data-lvl="3" data-mark="live"><span class="tree-glyph">3</span>#3 comment<span class="tree-meta">draft</span></button>
+</nav>
+
+<!-- ════════ ASPECTS ════════ -->
+<aside class="aspects" id="aspects" hidden aria-label="Aspects">
+  <div class="aspects-path dm-mono" id="aspects-path"></div>
+  <h2 class="aspects-title" id="aspects-title"></h2>
+  <div class="aspects-body" id="aspects-body"></div>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── the shared selection model: one id, everything follows ── */
+
+  var FRAME_OF = {
+    board: null,
+    f1: 'f1', 'f1-nav': 'f1', 'f1-hero': 'f1', 'f1-cards': 'f1', m1: 'f1',
+    f2: 'f2', 'f2-nav': 'f2', 'f2-heading': 'f2', 'f2-free': 'f2', 'f2-keep': 'f2', m2: 'f2',
+    f3: 'f3', 'f3-nav': 'f3', 'f3-hero': 'f3', 'f3-stack': 'f3', m3: 'f3'
+  };
+
+  var MARK_OF_ANNO = { m1: 'anno-m1', m2: 'anno-m2', m3: 'anno-m3' };
+
+  function kv(k, v, mono) {
+    return '<div class="arow"><span class="arow-k">' + k + '</span><span class="arow-v' +
+      (mono ? ' mono' : '') + '">' + v + '</span></div>';
+  }
+
+  var elRows = function (label, role, bounds, parent, annos) {
+    return kv('label', label) + kv('role', role) + kv('bounds', bounds, true) +
+           kv('frame', parent) + kv('annotations', annos);
+  };
+
+  var ASPECTS = {
+    board: {
+      path: 'board',
+      title: 'smalltools — landing review',
+      body: kv('screens', '3') + kv('capture source', 'localhost:5173', true) +
+            kv('last capture', '4m ago') + kv('theme', 'light')
+    },
+    f1: {
+      path: 'board / home · 1440',
+      title: 'Home',
+      body: kv('route', '/', true) + kv('viewport', '1440 × 900', true) + kv('revision', '1') +
+            kv('capture', 'c41f…9a', true) + kv('staleness', 'current · captured 4m ago') +
+            kv('elements', '3') + kv('annotations', '1')
+    },
+    f2: {
+      path: 'board / pricing · 1440',
+      title: 'Pricing',
+      body: kv('route', '/pricing', true) + kv('viewport', '1440 × 900', true) + kv('revision', '1') +
+            kv('capture', '8b2e…41', true) + kv('staleness', 'recapture running · r-143') +
+            kv('elements', '4') + kv('annotations', '1')
+    },
+    f3: {
+      path: 'board / home · 390',
+      title: 'Home (mobile)',
+      body: kv('route', '/', true) + kv('viewport', '390 × 844', true) + kv('revision', '2') +
+            kv('capture', '77ad…c3', true) + kv('staleness', 'recaptured · rev 2') +
+            kv('elements', '3') + kv('annotations', '1')
+    },
+    'f1-nav':   { path: 'board / home · 1440 / nav',      title: 'nav',      body: elRows('nav', 'navigation', 'x 0 · y 0 · w 100 · h 10', 'home · 1440', '0') },
+    'f1-hero':  { path: 'board / home · 1440 / hero',     title: 'hero',     body: elRows('hero', 'section', 'x 0 · y 10 · w 100 · h 44', 'home · 1440', '1') },
+    'f1-cards': { path: 'board / home · 1440 / card-row', title: 'card-row', body: elRows('card-row', 'list', 'x 4 · y 56 · w 92 · h 36', 'home · 1440', '0') },
+    'f2-nav':     { path: 'board / pricing · 1440 / nav',       title: 'nav',       body: elRows('nav', 'navigation', 'x 0 · y 0 · w 100 · h 10', 'pricing · 1440', '0') },
+    'f2-heading': { path: 'board / pricing · 1440 / heading',   title: 'heading',   body: elRows('heading', 'heading', 'x 26 · y 12 · w 48 · h 16', 'pricing · 1440', '0') },
+    'f2-free':    { path: 'board / pricing · 1440 / plan-free', title: 'plan-free', body: elRows('plan-free', 'card', 'x 24 · y 31 · w 24 · h 46', 'pricing · 1440', '0') },
+    'f2-keep':    { path: 'board / pricing · 1440 / plan-keep', title: 'plan-keep', body: elRows('plan-keep', 'card', 'x 52 · y 31 · w 24 · h 46', 'pricing · 1440', '1') },
+    'f3-nav':   { path: 'board / home · 390 / nav',        title: 'nav',        body: elRows('nav', 'navigation', 'x 0 · y 0 · w 100 · h 8', 'home · 390', '0') },
+    'f3-hero':  { path: 'board / home · 390 / hero',       title: 'hero',       body: elRows('hero', 'section', 'x 0 · y 8 · w 100 · h 27', 'home · 390', '0') },
+    'f3-stack': { path: 'board / home · 390 / card-stack', title: 'card-stack', body: elRows('card-stack', 'list', 'x 4 · y 36 · w 92 · h 58', 'home · 390', '1') },
+    m1: {
+      path: 'board / home · 1440 / hero / #1',
+      title: 'Annotation #1',
+      body: kv('kind', '○ circle') + kv('state', 'open') +
+            kv('routing', '<span class="dm-badge" style="color:var(--accent)">● returned</span>') +
+            '<div class="aspects-chips"><button class="dm-chip" aria-pressed="true">distill</button>' +
+            '<button class="dm-chip" aria-pressed="false">bolder</button>' +
+            '<button class="dm-chip" aria-pressed="false">polish</button></div>' +
+            '<div class="aspects-actions"><button class="dm-btn dm-btn--primary">Dispatch →</button></div>'
+    },
+    m2: {
+      path: 'board / pricing · 1440 / plan-keep / #2',
+      title: 'Annotation #2',
+      body: kv('kind', '▢ element') + kv('state', 'resolved') +
+            kv('anchor', '<span class="dm-badge" data-tone="muted">stale · rev 1</span>') +
+            '<div class="aspects-chips"><button class="dm-chip" aria-pressed="false">distill</button>' +
+            '<button class="dm-chip" aria-pressed="true">bolder</button>' +
+            '<button class="dm-chip" aria-pressed="false">polish</button></div>' +
+            '<div class="aspects-actions"><button class="dm-btn" disabled>Resolved</button></div>'
+    },
+    m3: {
+      path: 'board / home · 390 / card-stack / #3',
+      title: 'Annotation #3',
+      body: kv('kind', 'pin · comment') + kv('state', 'draft') +
+            kv('routing', '<span class="dm-badge" data-tone="muted">not routed</span>') +
+            '<div class="aspects-chips"><button class="dm-chip" aria-pressed="false">distill</button>' +
+            '<button class="dm-chip" aria-pressed="false">bolder</button>' +
+            '<button class="dm-chip" aria-pressed="false">polish</button></div>' +
+            '<div class="aspects-actions"><button class="dm-btn" disabled>Needs an instruction</button></div>'
+    }
+  };
+
+  var sel = null;
+  var field = document.getElementById('field');
+  var aspects = document.getElementById('aspects');
+  var aspectsPath = document.getElementById('aspects-path');
+  var aspectsTitle = document.getElementById('aspects-title');
+  var aspectsBody = document.getElementById('aspects-body');
+  var tree = document.getElementById('tree');
+  var screensBtn = document.getElementById('screens-btn');
+
+  function render() {
+    var litFrame = sel ? FRAME_OF[sel] : null;
+    var holding = sel !== null && sel !== 'board';
+
+    /* attention: value steps across the field */
+    document.querySelectorAll('.fwrap').forEach(function (w) {
+      var f = w.getAttribute('data-fwrap');
+      if (!holding) { w.setAttribute('data-att', 'rest'); }
+      else { w.setAttribute('data-att', f === litFrame ? 'lit' : 'dim'); }
+    });
+
+    /* selection rings, canvas + tree */
+    document.querySelectorAll('[data-node]').forEach(function (el) {
+      var mine = el.getAttribute('data-node') === sel;
+      if (el.classList.contains('tree-row')) {
+        el.setAttribute('aria-selected', mine ? 'true' : 'false');
+      } else if (el.classList.contains('anno-line')) {
+        /* the line flips, it does not ring */
+      } else {
+        el.setAttribute('aria-selected', mine ? 'true' : 'false');
+      }
+    });
+
+    /* the register flip: line ⇄ thread */
+    Object.keys(MARK_OF_ANNO).forEach(function (m) {
+      var a = document.getElementById(MARK_OF_ANNO[m]);
+      a.setAttribute('data-open', sel === m ? 'true' : 'false');
+    });
+
+    /* aspects: air that gains ink, or dissolves */
+    if (sel && ASPECTS[sel]) {
+      aspectsPath.textContent = ASPECTS[sel].path;
+      aspectsTitle.textContent = ASPECTS[sel].title;
+      aspectsBody.innerHTML = ASPECTS[sel].body;
+      aspects.hidden = false;
+      aspects.classList.remove('pop');
+      void aspects.offsetWidth;
+      aspects.classList.add('pop');
+    } else {
+      aspects.hidden = true;
+    }
+  }
+
+  function select(id) {
+    if (sel === id) return;
+    sel = id;
+    render();
+  }
+
+  /* ── pointer ── */
+  document.addEventListener('click', function (e) {
+    var chip = e.target.closest('.dm-chip');
+    if (chip) { /* intent chips toggle within their row */
+      var row = chip.parentElement;
+      row.querySelectorAll('.dm-chip').forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
+      chip.setAttribute('aria-pressed', 'true');
+      e.stopPropagation();
+      return;
+    }
+
+    var node = e.target.closest('[data-node]');
+    if (node) { select(node.getAttribute('data-node')); e.stopPropagation(); return; }
+
+    if (e.target.closest('.anno-thread') || e.target.closest('.aspects') ||
+        e.target.closest('.tree') || e.target.closest('.chrome-tl') ||
+        e.target.closest('.chrome-bl') || e.target.closest('.chrome-br')) return;
+
+    if (e.target.closest('.field')) select('board'); /* empty canvas → board aspects */
+  });
+
+  /* ── keyboard ── */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (sel !== null) { select(null); }
+      else if (!tree.hidden) { tree.hidden = true; screensBtn.setAttribute('aria-expanded', 'false'); }
+    }
+  });
+
+  /* ── tools ── */
+  document.querySelectorAll('.tool-mode').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tool-mode').forEach(function (o) { o.setAttribute('aria-pressed', 'false'); });
+      t.setAttribute('aria-pressed', 'true');
+    });
+  });
+
+  var liveToggle = document.getElementById('live-toggle');
+  var liveWord = document.getElementById('live-word');
+  liveToggle.addEventListener('click', function () {
+    var on = liveToggle.getAttribute('aria-pressed') !== 'true';
+    liveToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    liveToggle.textContent = on ? 'live · on' : 'live · off';
+    liveWord.textContent = on ? 'live on' : 'live off';
+  });
+
+  /* ── the everything list unfolds from the screen count ── */
+  screensBtn.addEventListener('click', function () {
+    var open = tree.hidden;
+    tree.hidden = !open;
+    screensBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  /* hovering a tree row pre-lights its frame on the canvas */
+  tree.addEventListener('mouseover', function (e) {
+    var row = e.target.closest('.tree-row');
+    if (!row) return;
+    var f = FRAME_OF[row.getAttribute('data-node')];
+    document.querySelectorAll('.fwrap').forEach(function (w) {
+      w.classList.toggle('is-pre', f !== null && w.getAttribute('data-fwrap') === f &&
+        w.getAttribute('data-att') === 'rest');
+    });
+  });
+  tree.addEventListener('mouseleave', function () {
+    document.querySelectorAll('.fwrap').forEach(function (w) { w.classList.remove('is-pre'); });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

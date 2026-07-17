@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designmode · Live view</title>
+<link rel="stylesheet" href="../styles.css">
+<script>
+  /* Theme resolves before first paint: ?theme= param, then the
+     stored choice, then light. */
+  (function () {
+    var q = new URLSearchParams(location.search).get('theme');
+    var t = (q === 'dark' || q === 'light') ? q : null;
+    try { t = t || localStorage.getItem('dm-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* ── Screen spec: live view ──────────────────────────────────
+     The focused frame hosts the proxied dev page. Live chrome sits
+     on the frame: a thin strip naming the source, the state word,
+     and the exit affordance. Ready is the primary state; the
+     connecting and unavailable states render as a spec row.
+     Exiting live view triggers a capture refresh. */
+  html, body { height: 100%; overflow: hidden; }
+
+  #canvas {
+    position: fixed;
+    inset: 0;
+    overflow: auto;
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--border) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+
+  #stage { position: relative; min-width: 1240px; min-height: 880px; width: 100%; height: 100%; }
+
+  .island { position: fixed; z-index: 50; }
+
+  #island-toolbar {
+    top: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 16px);
+  }
+
+  #island-status { bottom: var(--space-4); left: var(--space-4); }
+
+  /* Spec island: the two non-primary live states. */
+  #island-spec {
+    bottom: var(--space-4);
+    right: var(--space-4);
+    width: 24rem;
+    max-width: calc(100vw - 16px);
+    padding-bottom: var(--space-3);
+  }
+  .spec-row {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: var(--space-3);
+    padding: 2px var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+  .spec-row .dm-badge { text-transform: uppercase; }
+
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+  .dm-btn[aria-pressed="true"] .live-dot { background: var(--accent-ink); }
+
+  /* ── The focused live frame ───────────────────────────────── */
+  .frame-unit { position: absolute; }
+  .frame-hit { position: relative; }
+  .frame-body { cursor: default; }
+  .frame-body--d { width: 560px; height: 384px; }
+  .dm-frame-label { padding: 0 2px var(--space-1); white-space: nowrap; font-family: var(--font-mono); }
+
+  /* Live chrome: a strip on the frame itself. State is a word. */
+  .live-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.25rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+  .live-bar .dm-badge { text-transform: uppercase; }
+  .live-bar .dm-btn { margin-left: auto; }
+
+  /* ── The proxied dev page: the fixture's OWN palette. The live
+     page carries r-142's staged patch: hero measure capped, the
+     card row moved up. ─────────────────────────────────────── */
+  .mk { background: #ffffff; color: #1c1c1c; font-family: "Helvetica Neue", Arial, sans-serif; min-height: 354px; }
+  .mk-nav { display: flex; align-items: center; gap: 14px; padding: 13px 24px; }
+  .mk-wordmark { font-size: 13px; font-weight: 650; letter-spacing: -0.01em; }
+  .mk-links { display: flex; gap: 14px; margin-left: auto; font-size: 11px; color: #6f6f6f; }
+  .mk-hero { padding: 22px 28px 18px; }
+  .mk-h { margin: 0; font-size: 26px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.15; max-width: 250px; }
+  .mk-sub { margin: 8px 0 14px; font-size: 11.5px; color: #6f6f6f; line-height: 1.4; max-width: 250px; }
+  .mk-btn { display: inline-block; padding: 6px 14px; border-radius: 4px; background: #1c1c1c; color: #fff; font-size: 11px; font-weight: 550; }
+  .mk-cards { display: flex; gap: 14px; padding: 6px 28px 0; }
+  .mk-card { flex: 1; border: 1px solid #e6e6e6; border-radius: 6px; padding: 14px 14px 16px; }
+  .mk-card-t { font-size: 12px; font-weight: 650; }
+  .mk-card-s { margin-top: 4px; font-size: 10.5px; color: #6f6f6f; line-height: 1.45; }
+
+  /* ── 390: islands hug the edges; the canvas pans ──────────── */
+  @media (max-width: 640px) {
+    #island-toolbar { left: var(--space-2); right: var(--space-2); transform: none; max-width: none; }
+    #island-status { left: var(--space-2); bottom: var(--space-2); }
+    #island-spec { left: var(--space-2); right: var(--space-2); width: auto; bottom: 3.25rem; }
+  }
+</style>
+</head>
+<body class="dm">
+
+<main id="canvas" aria-label="Review canvas">
+  <div id="stage">
+
+    <!-- The focused frame, hosting the proxied dev page. -->
+    <div class="frame-unit" style="left:420px; top:150px;">
+      <span class="dm-frame-label">Home · / · 1440 · live</span>
+      <div class="frame-hit">
+        <div class="dm-frame frame-body frame-body--d" aria-selected="true" aria-label="Live frame: Home">
+          <div class="live-bar">
+            <span>live · localhost:5173/ · provenance guarded</span>
+            <span class="dm-badge" data-tone="ok">ready</span>
+            <button class="dm-btn dm-btn--sm">Exit live</button>
+          </div>
+          <div class="mk mock">
+            <div class="mk-nav">
+              <span class="mk-wordmark">smalltools</span>
+              <span class="mk-links"><span>Shelf</span><span>Notes</span><span>About</span></span>
+            </div>
+            <div class="mk-hero">
+              <h2 class="mk-h">Small tools for slow thinking</h2>
+              <p class="mk-sub">Quiet, single-purpose instruments for reading and writing.</p>
+              <span class="mk-btn">Browse the shelf</span>
+            </div>
+            <div class="mk-cards">
+              <div class="mk-card"><div class="mk-card-t">Ledger</div><div class="mk-card-s">Double-entry for your attention.</div></div>
+              <div class="mk-card"><div class="mk-card-t">Stopwatch</div><div class="mk-card-s">Time a single thought.</div></div>
+              <div class="mk-card"><div class="mk-card-t">Margins</div><div class="mk-card-s">Notes that live beside the text.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══ Islands ═══ -->
+<header id="island-toolbar" class="island dm-island dm-toolbar" aria-label="Tools">
+  <span class="dm-toolbar-title">Design review canvas</span>
+  <div class="dm-toolbar-group" role="group" aria-label="Canvas tools">
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="true">Select</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Circle</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Comment</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="false">Learn</button>
+  </div>
+  <div class="dm-toolbar-group">
+    <button class="dm-btn dm-btn--sm">Import</button>
+    <button class="dm-btn dm-btn--quiet dm-btn--sm" aria-pressed="true">
+      <span class="live-dot"></span> Live
+    </button>
+  </div>
+</header>
+
+<div id="island-status" class="island dm-island dm-status-island" role="status">
+  3 screens · 3 annotations · saved · live ready
+</div>
+
+<!-- Spec: the live chip states and the exit contract. -->
+<aside id="island-spec" class="island dm-island" aria-label="Spec: live states">
+  <div class="dm-sect">Spec · live states</div>
+  <div class="spec-row"><span class="dm-badge" data-tone="muted">connecting</span><span>proxy handshake with the dev server; page area blank, chip pulses once</span></div>
+  <div class="spec-row"><span class="dm-badge" data-tone="ok">ready</span><span>proxied page renders in the frame (the state shown here)</span></div>
+  <div class="spec-row"><span class="dm-badge" data-tone="danger">unavailable</span><span>dev server not reachable — Retry action in the live bar</span></div>
+  <div class="spec-row"><span class="dm-mono">exit</span><span>Exit live triggers a capture refresh; the frame returns to its capture</span></div>
+</aside>
+
+</body>
+</html>

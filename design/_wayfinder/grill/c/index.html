@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design review canvas — sidecar bench</title>
+<link rel="stylesheet" href="/dls/designmode/styles.css">
+<style>
+/* ── Variant C · Sidecar bench ─────────────────────────────────
+   The board is the map, the bench is the room. The canvas stays a
+   spacious map; reviewing happens in a reading sidecar that slides
+   in from the right. Permanent chrome on the right is only a thin
+   jump rail. */
+
+:root {
+  --rail-width: 3.5rem;        /* the thin jump rail */
+  --bench-width: 30rem;        /* the sidecar reading room */
+  --reader-serif: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --reader-size: 1.0625rem;
+  --reader-leading: 1.7;
+}
+
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr var(--statusbar-height);
+  height: 100vh;
+  height: 100dvh;
+}
+
+.main { position: relative; overflow: hidden; }
+
+/* ── The map ───────────────────────────────────────────────────
+   Airy ground, a low-value dot grid, three frames, nothing else. */
+.map {
+  position: absolute;
+  inset: 0 var(--rail-width) 0 0;
+  overflow: auto;
+  background-image: radial-gradient(var(--stone-200) 1px, transparent 1.5px);
+  background-size: 28px 28px;
+  background-position: 14px 14px;
+}
+[data-theme="dark"] .map {
+  background-image: radial-gradient(var(--border) 1px, transparent 1.5px);
+}
+
+.stage {
+  position: relative;
+  width: 1320px;
+  height: 620px;
+}
+
+/* ── Frames on the map ─────────────────────────────────────── */
+.frame-wrap {
+  position: absolute;
+  transition: opacity var(--duration-hover) var(--ease-hand);
+}
+
+.frame-cap {
+  display: block;
+  margin: 0 0 var(--space-1) 2px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
+.frame-wrap .dm-frame, .frame-cap { cursor: pointer; }
+
+/* The bench dims the map one step; the selected object stays lit. */
+.app[data-bench="open"] .frame-wrap { opacity: 0.5; }
+.app[data-bench="open"] .frame-wrap.lit { opacity: 1; }
+
+/* Captured screen: drawn at native px, scaled down. */
+.shot { overflow: hidden; background: var(--stone-0); }
+.shot--desktop { width: 446px; height: 279px; }
+.shot--mobile  { width: 125px; height: 270px; }
+.screen {
+  transform: scale(0.31);
+  transform-origin: 0 0;
+  background: #ffffff;
+  color: #211d17;
+  font-family: var(--font-ui);
+  cursor: default;
+}
+.screen--desktop { width: 1440px; height: 900px; }
+.screen--mobile  { width: 390px;  height: 844px; }
+.shot--mobile .screen { transform: scale(0.32); }
+
+/* Elements inside a screen: real regions, selectable. */
+.el { cursor: pointer; }
+.el[aria-selected="true"] { box-shadow: inset 0 0 0 6px var(--accent-ring); }
+.shot--mobile .el[aria-selected="true"] { box-shadow: inset 0 0 0 5px var(--accent-ring); }
+
+/* Mock screen content (the hosted product's own neutral voice). */
+.mk-nav {
+  display: flex; align-items: center; gap: 48px;
+  height: 84px; padding: 0 72px;
+}
+.mk-wordmark { font-weight: 600; font-size: 22px; letter-spacing: -0.01em; }
+.mk-link { font-size: 17px; color: #635c50; }
+.mk-nav .mk-link:first-of-type { margin-left: auto; }
+.mk-hero { padding: 108px 72px 0; }
+.mk-h1 { margin: 0; font-size: 58px; line-height: 1.12; letter-spacing: -0.015em; font-weight: 600; max-width: 100%; }
+.mk-sub { margin: 26px 0 0; font-size: 21px; line-height: 1.5; color: #635c50; max-width: 620px; }
+.mk-btn {
+  display: inline-block; margin-top: 38px; padding: 16px 30px;
+  border-radius: 8px; background: #211d17; color: #fff; font-size: 17px; font-weight: 500;
+}
+.mk-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; padding: 96px 72px 0; }
+.mk-card { padding: 30px 28px 38px; border-radius: 12px; background: #f4f2ee; }
+.mk-card h3 { margin: 0 0 10px; font-size: 21px; font-weight: 600; }
+.mk-card p { margin: 0; font-size: 16px; line-height: 1.5; color: #635c50; }
+.mk-h2 { margin: 0; padding: 96px 72px 0; font-size: 46px; font-weight: 600; letter-spacing: -0.015em; }
+.mk-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 64px 72px 0; }
+.mk-plan { padding: 44px 40px 52px; border-radius: 12px; background: #f4f2ee; }
+.mk-plan h3 { margin: 0 0 8px; font-size: 24px; font-weight: 600; }
+.mk-price { font-size: 19px; color: #635c50; }
+.mk-plan .mk-btn { margin-top: 34px; }
+/* mobile screen */
+.mkm-nav { display: flex; align-items: center; justify-content: space-between; height: 76px; padding: 0 28px; }
+.mkm-wordmark { font-weight: 600; font-size: 20px; }
+.mkm-menu { font-size: 22px; color: #4b453b; }
+.mkm-hero { padding: 56px 28px 0; }
+.mkm-h1 { margin: 0; font-size: 38px; line-height: 1.15; letter-spacing: -0.01em; font-weight: 600; }
+.mkm-sub { margin: 18px 0 0; font-size: 17px; line-height: 1.5; color: #635c50; }
+.mkm-btn { display: inline-block; margin-top: 26px; padding: 14px 24px; border-radius: 8px; background: #211d17; color: #fff; font-size: 16px; font-weight: 500; }
+.mkm-cards { display: grid; gap: 20px; padding: 52px 28px 0; }
+.mkm-card { padding: 24px 22px 28px; border-radius: 12px; background: #f4f2ee; }
+.mkm-card h3 { margin: 0 0 6px; font-size: 19px; font-weight: 600; }
+.mkm-card p { margin: 0; font-size: 15px; line-height: 1.45; color: #635c50; }
+
+/* ── Marks (the reviewer's pen) ──────────────────────────────── */
+.mark {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+.mark-tag {
+  position: absolute;
+  display: grid; place-items: center;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--mark);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+}
+.mark--circle {
+  border: 2px solid var(--mark);
+  border-radius: 50%;
+  background: var(--mark-fill);
+}
+.mark--circle .mark-tag { top: -8px; right: -8px; }
+.mark--rect {
+  border: 2px solid var(--border-strong);   /* stale anchor renders neutral */
+  border-radius: 4px;
+}
+.mark--rect .mark-tag { top: -9px; right: -9px; background: var(--stone-500); }
+.mark--pin {
+  width: 22px; height: 22px;
+}
+.mark--pin .mark-tag { inset: 0; width: 22px; height: 22px; font-size: 12px; }
+.mark[aria-selected="true"] { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-ring); }
+.mark--circle[aria-selected="true"] { border-radius: 50%; }
+
+/* ── Board aspects · quiet corner block (empty selection) ────── */
+.board-note {
+  position: absolute;
+  left: var(--space-6);
+  bottom: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+  pointer-events: none;
+  transition: opacity var(--duration-hover) var(--ease-hand);
+}
+.app[data-bench="open"] .board-note { opacity: 0; }
+.board-note-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-secondary);
+}
+.board-note .dm-mono { display: block; }
+.board-runs { margin-top: var(--space-2); display: grid; gap: 2px; }
+.board-run {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.board-run .dm-dot { width: 6px; height: 6px; }
+
+/* ── The jump rail ─────────────────────────────────────────────
+   One dot+glyph per frame and per annotation. The only permanent
+   right-edge chrome. */
+.rail {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: var(--rail-width);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-4) 0;
+  background: var(--surface);
+  z-index: 30;
+}
+.rail-gap { height: var(--space-5); }
+.rail-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.25rem; height: 2.25rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-mono);
+  cursor: pointer;
+  transition: background var(--duration-hover) var(--ease-hand),
+              color var(--duration-hover) var(--ease-hand);
+}
+.rail-item:hover { background: var(--surface-hover); color: var(--ink); }
+.rail-item[aria-current="true"] { background: var(--accent-wash); color: var(--accent); }
+.rail-item--mark { color: var(--mark); }
+.rail-item--mark:hover { color: var(--mark); }
+.rail-item--mark[data-muted] { color: var(--ink-faint); }
+.rail-dot {
+  position: absolute;
+  top: 5px; right: 5px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+.rail-dot[data-state="returned"] { background: var(--accent); }
+.rail-runs {
+  margin-top: auto;
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  padding-bottom: var(--space-2);
+}
+
+/* ── The sidecar bench ─────────────────────────────────────────
+   A reading room, ~480px, slid in from the right beside the rail.
+   One 220ms settle. Serif where prose reads. */
+.bench {
+  position: absolute;
+  top: 0; bottom: 0;
+  right: var(--rail-width);
+  width: min(var(--bench-width), calc(100% - var(--rail-width)));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+  transform: translateX(calc(100% + var(--rail-width)));
+  visibility: hidden;
+  transition: transform var(--duration-exit) var(--ease-exit),
+              visibility 0s linear var(--duration-exit);
+  z-index: 20;
+}
+.app[data-bench="open"] .bench {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform var(--duration-settle) var(--ease-settle);
+}
+
+.bench-head {
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+.bench-crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+}
+.crumb {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.crumb:hover { color: var(--ink); background: var(--surface-hover); }
+.crumb[aria-current="true"] { color: var(--ink); font-weight: var(--weight-medium); cursor: default; }
+.bench-close {
+  margin-left: auto;
+  width: 1.75rem; height: 1.75rem;
+  border: 0; border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
+}
+.bench-close:hover { background: var(--surface-hover); color: var(--ink); }
+
+/* Compact tree inside the bench head. */
+.bench-tree {
+  margin-top: var(--space-2);
+  display: grid;
+}
+.tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-secondary);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-hover) var(--ease-hand);
+}
+.tree-row:hover { background: var(--surface-hover); }
+.tree-row[aria-selected="true"] {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+}
+.tree-row[data-depth="1"] { padding-left: calc(var(--space-2) + 14px); }
+.tree-row[data-depth="2"] { padding-left: calc(var(--space-2) + 28px); }
+.tree-glyph {
+  width: 1em;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}
+.tree-row--mark .tree-glyph { color: var(--mark); }
+.tree-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+}
+
+.bench-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5) var(--space-8);
+}
+.bench-col { max-width: 65ch; display: grid; gap: var(--space-5); }
+
+/* Aspects: a quiet mono block above the thread. */
+.aspects {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 3px var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+.aspects dt { margin: 0; color: var(--ink-faint); }
+.aspects dd { margin: 0; color: var(--ink-secondary); }
+
+/* Thread: state head, anchored quote, comments in the read voice. */
+.thread {
+  display: grid;
+  gap: var(--space-4);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--accent);
+}
+.thread[data-state="resolved"], .thread[data-state="draft"] { border-left-color: var(--border-strong); }
+.thread-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tdot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.thread[data-state="resolved"] .tdot,
+.thread[data-state="draft"] .tdot { background: var(--ink-faint); }
+.tword {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.thread[data-state="resolved"] .tword,
+.thread[data-state="draft"] .tword { color: var(--ink-muted); }
+.kchip {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.kchip[data-stale] { border-bottom: 1px dashed var(--border-strong); }
+
+.anchor-quote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--mark);
+  background: var(--mark-fill);
+  font-family: var(--reader-serif);
+  font-size: var(--reader-size);
+  line-height: 1.45;
+  color: var(--ink);
+}
+.anchor-quote[data-stale] { border-left-color: var(--border-strong); background: var(--surface-sunken); }
+.q-src {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+}
+
+.cmt { display: grid; gap: var(--space-2); }
+.cmt-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.avatar {
+  display: grid; place-items: center;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--weight-medium);
+}
+.avatar--human { background: var(--ink); color: var(--surface); }
+.avatar--agent { background: var(--accent); color: var(--accent-ink); }
+.cmt-author { font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.cmt-time { font-size: var(--text-2xs); color: var(--ink-faint); }
+.chip-candidate {
+  padding: 1px var(--space-1);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.prov {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.cmt-body {
+  margin: 0;
+  font-family: var(--reader-serif);
+  font-size: var(--reader-size);
+  line-height: var(--reader-leading);
+  color: var(--ink-secondary);
+}
+.cmt-draft {
+  font-family: var(--reader-serif);
+  font-size: var(--reader-size);
+  line-height: var(--reader-leading);
+  min-height: 3.5rem;
+}
+
+.intent-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.intent-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+  margin-right: var(--space-1);
+}
+
+.routing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+}
+.rword {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+.routing[data-route="returned"] .rword { color: var(--accent); }
+.routing[data-route="returned"] .dm-dot { background: var(--accent); }
+.routing .dm-btn { margin-left: auto; }
+
+.el-note { font-size: var(--text-sm); color: var(--ink-muted); }
+
+/* ── 390 · the bench becomes a sheet, the rail lies down ─────── */
+@media (max-width: 720px) {
+  .map { inset: 0 0 3rem 0; }
+  .rail {
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: auto; height: 3rem;
+    flex-direction: row;
+    justify-content: center;
+    padding: 0 var(--space-3);
+    gap: var(--space-1);
+  }
+  .rail-gap { width: var(--space-4); height: auto; }
+  .rail-runs {
+    margin-top: 0;
+    margin-left: auto;
+    grid-auto-flow: column;
+    padding-bottom: 0;
+    align-items: center;
+  }
+  .board-note { bottom: calc(3rem + var(--space-3)); left: var(--space-4); }
+  .bench {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    transform: translateY(100%);
+    z-index: 60;
+  }
+  .app[data-bench="open"] .bench { transform: translateY(0); }
+  .stage { width: 1320px; }
+}
+</style>
+</head>
+<body class="dm">
+<div class="app" id="app" data-bench="closed">
+
+  <!-- ── Toolbar ── -->
+  <header class="dm-toolbar">
+    <span class="dm-toolbar-title">Design review canvas</span>
+    <div class="dm-toolbar-group" role="group" aria-label="Tools">
+      <button class="dm-btn dm-btn--quiet" aria-pressed="true">⌖ Select</button>
+      <button class="dm-btn dm-btn--quiet" aria-pressed="false">○ Circle</button>
+      <button class="dm-btn dm-btn--quiet" aria-pressed="false">◉ Comment</button>
+    </div>
+    <span class="dm-toolbar-spacer"></span>
+    <div class="dm-toolbar-group">
+      <button class="dm-btn">Import</button>
+      <button class="dm-btn dm-btn--quiet" aria-pressed="false" title="Live capture is off">
+        <span class="dm-dot" data-state="waiting"></span> Live
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Main: map + rail + bench ── -->
+  <div class="main">
+    <div class="map" id="map">
+      <div class="stage" id="stage">
+
+        <!-- Frame 1 · Home 1440 -->
+        <div class="frame-wrap" id="fw-f1" style="left:56px; top:72px;">
+          <span class="frame-cap">Home · / · 1440</span>
+          <div class="dm-frame" data-frame="f1" tabindex="0" role="button" aria-label="Frame Home / 1440" aria-selected="false">
+            <div class="shot shot--desktop">
+              <div class="screen screen--desktop">
+                <div class="el mk-nav" data-el="f1-nav">
+                  <span class="mk-wordmark">smalltools</span>
+                  <span class="mk-link">Shelf</span>
+                  <span class="mk-link">Notes</span>
+                  <span class="mk-link">About</span>
+                </div>
+                <div class="el mk-hero" data-el="f1-hero">
+                  <h1 class="mk-h1">Small tools for slow thinking</h1>
+                  <p class="mk-sub">Quiet instruments for reading, keeping, and returning to what matters.</p>
+                  <span class="mk-btn">Browse the shelf</span>
+                </div>
+                <div class="el mk-cards" data-el="f1-cards">
+                  <div class="mk-card"><h3>Ledger</h3><p>Keep small counts by hand.</p></div>
+                  <div class="mk-card"><h3>Stopwatch</h3><p>Time slow work without urgency.</p></div>
+                  <div class="mk-card"><h3>Margins</h3><p>Notes that live beside the text.</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="mark mark--circle" data-mark="m1" aria-selected="false"
+                  style="left:14px; top:80px; width:248px; height:36px;"
+                  aria-label="Mark 1, circle on hero, open">
+            <span class="mark-tag">1</span>
+          </button>
+        </div>
+
+        <!-- Frame 2 · Pricing 1440 -->
+        <div class="frame-wrap" id="fw-f2" style="left:590px; top:72px;">
+          <span class="frame-cap">Pricing · /pricing · 1440</span>
+          <div class="dm-frame" data-frame="f2" tabindex="0" role="button" aria-label="Frame Pricing /pricing 1440" aria-selected="false">
+            <div class="shot shot--desktop">
+              <div class="screen screen--desktop">
+                <div class="el mk-nav" data-el="f2-nav">
+                  <span class="mk-wordmark">smalltools</span>
+                  <span class="mk-link">Shelf</span>
+                  <span class="mk-link">Notes</span>
+                  <span class="mk-link">About</span>
+                </div>
+                <h2 class="el mk-h2" data-el="f2-heading">Pricing</h2>
+                <div class="mk-plans">
+                  <div class="el mk-plan" data-el="f2-plan-free">
+                    <h3>Free</h3>
+                    <span class="mk-price">$0 · the shelf</span>
+                  </div>
+                  <div class="el mk-plan" data-el="f2-plan-keep">
+                    <h3>Keep</h3>
+                    <span class="mk-price">$4/mo · your margins everywhere</span>
+                    <div><span class="mk-btn">Start keeping</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="mark mark--rect" data-mark="m2" aria-selected="false"
+                  style="left:226px; top:112px; width:200px; height:78px;"
+                  aria-label="Mark 2, element on Keep plan, resolved, stale">
+            <span class="mark-tag">2</span>
+          </button>
+        </div>
+
+        <!-- Frame 3 · Home 390 · rev 2 -->
+        <div class="frame-wrap" id="fw-f3" style="left:1120px; top:72px;">
+          <span class="frame-cap">Home · / · 390 · rev 2</span>
+          <div class="dm-frame" data-frame="f3" tabindex="0" role="button" aria-label="Frame Home / 390, revision 2" aria-selected="false">
+            <div class="shot shot--mobile">
+              <div class="screen screen--mobile">
+                <div class="el mkm-nav" data-el="f3-nav">
+                  <span class="mkm-wordmark">smalltools</span>
+                  <span class="mkm-menu">☰</span>
+                </div>
+                <div class="el mkm-hero" data-el="f3-hero">
+                  <h1 class="mkm-h1">Small tools for slow thinking</h1>
+                  <p class="mkm-sub">Quiet instruments for reading, keeping, and returning.</p>
+                  <span class="mkm-btn">Browse the shelf</span>
+                </div>
+                <div class="el mkm-cards" data-el="f3-cards">
+                  <div class="mkm-card"><h3>Ledger</h3><p>Keep small counts by hand.</p></div>
+                  <div class="mkm-card"><h3>Stopwatch</h3><p>Time slow work.</p></div>
+                  <div class="mkm-card"><h3>Margins</h3><p>Notes beside the text.</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="mark mark--pin" data-mark="m3" aria-selected="false"
+                  style="left:100px; top:190px;"
+                  aria-label="Mark 3, comment pin on card stack, draft">
+            <span class="mark-tag">3</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Board aspects · the quiet corner (empty selection) -->
+      <div class="board-note" id="board-note">
+        <span class="board-note-title">smalltools — landing review</span>
+        <span class="dm-mono">3 screens · capture localhost:5173 · last capture 4m ago · theme light</span>
+        <div class="board-runs">
+          <span class="board-run"><span class="dm-dot" data-state="done"></span>⌁ r-142 · fable · done · “measure patch staged”</span>
+          <span class="board-run"><span class="dm-dot" data-state="running"></span>⌁ r-143 · codex · running · “recapturing /pricing”</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── The jump rail ── -->
+    <nav class="rail" aria-label="Jump to frame or annotation">
+      <button class="rail-item" data-jump="frame:f1" title="Home · / · 1440" aria-current="false">▭<span class="rail-dot" hidden></span></button>
+      <button class="rail-item" data-jump="frame:f2" title="Pricing · /pricing · 1440" aria-current="false">▭<span class="rail-dot" hidden></span></button>
+      <button class="rail-item" data-jump="frame:f3" title="Home · / · 390 · rev 2" aria-current="false">▯<span class="rail-dot" hidden></span></button>
+      <div class="rail-gap" aria-hidden="true"></div>
+      <button class="rail-item rail-item--mark" data-jump="mark:m1" title="#1 · hero · open · returned" aria-current="false">1<span class="rail-dot" data-state="returned"></span></button>
+      <button class="rail-item rail-item--mark" data-jump="mark:m2" data-muted title="#2 · plan-keep · resolved · stale" aria-current="false">2<span class="rail-dot"></span></button>
+      <button class="rail-item rail-item--mark" data-jump="mark:m3" data-muted title="#3 · card-stack · draft" aria-current="false">3<span class="rail-dot"></span></button>
+      <div class="rail-runs" aria-label="Agent runs">
+        <span class="dm-dot" data-state="done" title="r-142 · fable · done · measure patch staged"></span>
+        <span class="dm-dot" data-state="running" title="r-143 · codex · running · recapturing /pricing"></span>
+      </div>
+    </nav>
+
+    <!-- ── The sidecar bench ── -->
+    <aside class="bench" id="bench" aria-label="Review bench" aria-hidden="true">
+      <header class="bench-head">
+        <div class="bench-crumbs" id="crumbs"></div>
+        <div class="bench-tree" id="tree" role="tree" aria-label="Layers"></div>
+      </header>
+      <div class="bench-body">
+        <div class="bench-col" id="bench-col"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ── Status bar ── -->
+  <footer class="dm-statusbar">
+    <span class="dm-mono">3 screens · 3 annotations · saved · live off</span>
+    <span class="dm-statusbar-end dm-mono">100%</span>
+  </footer>
+</div>
+
+<script>
+/* ── Data ─────────────────────────────────────────────────── */
+const FRAMES = {
+  f1: { name: "Home", route: "/", viewport: "1440 × 900", revision: "1", hash: "c41f…9a",
+        stale: "current capture", elements: ["f1-nav","f1-hero","f1-cards"] },
+  f2: { name: "Pricing", route: "/pricing", viewport: "1440 × 900", revision: "1", hash: "a02d…4e",
+        stale: "current capture", elements: ["f2-nav","f2-heading","f2-plan-free","f2-plan-keep"] },
+  f3: { name: "Home", route: "/", viewport: "390 × 844", revision: "2", hash: "9b7c…e1",
+        stale: "recaptured · revision 2", elements: ["f3-nav","f3-hero","f3-cards"] },
+};
+const ELS = {
+  "f1-nav":       { frame:"f1", label:"nav",        role:"navigation", bounds:"x 0 · y 0 · w 100 · h 9.3",   marks:[] },
+  "f1-hero":      { frame:"f1", label:"hero",       role:"header",     bounds:"x 0 · y 9.3 · w 100 · h 43",  marks:["m1"] },
+  "f1-cards":     { frame:"f1", label:"card-row",   role:"list",       bounds:"x 5 · y 63 · w 90 · h 27",    marks:[] },
+  "f2-nav":       { frame:"f2", label:"nav",        role:"navigation", bounds:"x 0 · y 0 · w 100 · h 9.3",   marks:[] },
+  "f2-heading":   { frame:"f2", label:"heading",    role:"heading",    bounds:"x 5 · y 10.7 · w 90 · h 7.4", marks:[] },
+  "f2-plan-free": { frame:"f2", label:"plan-free",  role:"group",      bounds:"x 5 · y 25.3 · w 43.9 · h 32",marks:[] },
+  "f2-plan-keep": { frame:"f2", label:"plan-keep",  role:"group",      bounds:"x 51.1 · y 25.3 · w 43.9 · h 40", marks:["m2"] },
+  "f3-nav":       { frame:"f3", label:"nav",        role:"navigation", bounds:"x 0 · y 0 · w 100 · h 9",     marks:[] },
+  "f3-hero":      { frame:"f3", label:"hero",       role:"header",     bounds:"x 0 · y 9 · w 100 · h 38",    marks:[] },
+  "f3-cards":     { frame:"f3", label:"card-stack", role:"list",       bounds:"x 7.2 · y 53 · w 85.6 · h 42",marks:["m3"] },
+};
+const MARKS = {
+  m1: { frame:"f1", el:"f1-hero",      n:1, kind:"○ circle",  state:"open" },
+  m2: { frame:"f2", el:"f2-plan-keep", n:2, kind:"▢ element", state:"resolved", stale:true },
+  m3: { frame:"f3", el:"f3-cards",     n:3, kind:"◉ comment", state:"draft" },
+};
+
+/* ── Bench templates ──────────────────────────────────────── */
+function aspects(rows) {
+  return `<dl class="aspects">` +
+    rows.map(([k,v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("") + `</dl>`;
+}
+
+function benchFrame(id) {
+  const f = FRAMES[id];
+  return aspects([
+    ["route", f.route], ["viewport", f.viewport], ["revision", f.revision],
+    ["capture", f.hash], ["staleness", f.stale], ["elements", String(f.elements.length)],
+  ]) + `<p class="el-note">Captured screen. Select an element or a mark to read its thread.</p>`;
+}
+
+function benchEl(id) {
+  const e = ELS[id];
+  const f = FRAMES[e.frame];
+  const n = e.marks.length;
+  return aspects([
+    ["label", e.label], ["role", e.role], ["bounds", e.bounds + " %"],
+    ["frame", `${f.name} · ${f.route} · ${f.viewport.replace(/ /g,"")}`],
+    ["annotations", n ? `${n} annotation` : "none"],
+  ]) + (n
+    ? `<p class="el-note">This element carries mark <button class="dm-mark-ref" data-go="mark:${e.marks[0]}" style="border:0;cursor:pointer;font:inherit;">#${MARKS[e.marks[0]].n}</button> — open it to read the thread.</p>`
+    : `<p class="el-note">No annotations on this element.</p>`);
+}
+
+const THREADS = {
+  m1: `
+    ${aspects([["route","/"],["viewport","1440 × 900"],["revision","1"],["bounds","x 0 · y 9.3 · w 100 · h 43 %"]])}
+    <section class="thread" data-state="open">
+      <header class="thread-head">
+        <span class="tdot"></span><span class="tword">open</span>
+        <span class="kchip">○ circle</span>
+      </header>
+      <blockquote class="anchor-quote">“Small tools for slow thinking”
+        <span class="q-src">Home · / · hero</span>
+      </blockquote>
+      <article class="cmt">
+        <div class="cmt-head">
+          <span class="avatar avatar--human">B</span>
+          <span class="cmt-author">Ben</span><span class="cmt-time">2m</span>
+        </div>
+        <p class="cmt-body">Hero measure runs the full row. Cap it and let the cards carry the width.</p>
+      </article>
+      <div class="intent-row">
+        <span class="intent-label">intent</span>
+        <button class="dm-chip" aria-pressed="true">distill</button>
+        <button class="dm-chip" aria-pressed="false">bolder</button>
+        <button class="dm-chip" aria-pressed="false">polish</button>
+      </div>
+      <article class="cmt">
+        <div class="cmt-head">
+          <span class="avatar avatar--agent">FB</span>
+          <span class="cmt-author">fable</span>
+          <span class="chip-candidate">Candidate</span>
+          <span class="prov">⌁ run r-142 · s-9 · 1m</span>
+        </div>
+        <p class="cmt-body">Proposed: measure capped at 60ch, cards move up 32px. Patch staged.</p>
+      </article>
+      <footer class="routing" data-route="returned">
+        <span class="dm-dot"></span><span class="rword">returned</span>
+        <button class="dm-btn dm-btn--primary">Dispatch</button>
+      </footer>
+    </section>`,
+  m2: `
+    ${aspects([["route","/pricing"],["viewport","1440 × 900"],["revision","anchored on 1"],["bounds","x 51.1 · y 25.3 · w 43.9 · h 40 %"]])}
+    <section class="thread" data-state="resolved">
+      <header class="thread-head">
+        <span class="tdot"></span><span class="tword">resolved</span>
+        <span class="kchip" data-stale>▢ element · stale</span>
+      </header>
+      <blockquote class="anchor-quote" data-stale>Keep — $4/mo · your margins everywhere
+        <span class="q-src">Pricing · /pricing · plan-keep · anchored on revision 1</span>
+      </blockquote>
+      <article class="cmt">
+        <div class="cmt-head">
+          <span class="avatar avatar--human">B</span>
+          <span class="cmt-author">Ben</span><span class="cmt-time">1h</span>
+        </div>
+        <p class="cmt-body">Both plans read the same weight. The paid one should feel like the object.</p>
+      </article>
+      <div class="intent-row">
+        <span class="intent-label">intent</span>
+        <button class="dm-chip" aria-pressed="false">distill</button>
+        <button class="dm-chip" aria-pressed="true">bolder</button>
+        <button class="dm-chip" aria-pressed="false">polish</button>
+      </div>
+      <footer class="routing" data-route="none">
+        <span class="dm-dot" data-state="waiting"></span><span class="rword">not routed</span>
+        <button class="dm-btn">Dispatch</button>
+      </footer>
+    </section>`,
+  m3: `
+    ${aspects([["route","/"],["viewport","390 × 844"],["revision","2"],["bounds","x 7.2 · y 53 · w 85.6 · h 42 %"]])}
+    <section class="thread" data-state="draft">
+      <header class="thread-head">
+        <span class="tdot"></span><span class="tword">draft</span>
+        <span class="kchip">◉ comment · pin 3</span>
+      </header>
+      <blockquote class="anchor-quote">Ledger · Stopwatch · Margins
+        <span class="q-src">Home · / · 390 · card-stack</span>
+      </blockquote>
+      <article class="cmt">
+        <div class="cmt-head">
+          <span class="avatar avatar--human">B</span>
+          <span class="cmt-author">Ben</span><span class="cmt-time">now</span>
+        </div>
+        <textarea class="dm-textarea cmt-draft" placeholder="No instruction yet" aria-label="Instruction"></textarea>
+      </article>
+      <div class="intent-row">
+        <span class="intent-label">intent</span>
+        <button class="dm-chip" aria-pressed="false">distill</button>
+        <button class="dm-chip" aria-pressed="false">bolder</button>
+        <button class="dm-chip" aria-pressed="false">polish</button>
+      </div>
+      <footer class="routing" data-route="none">
+        <span class="dm-dot" data-state="waiting"></span><span class="rword">not routed</span>
+        <button class="dm-btn" disabled>Dispatch</button>
+      </footer>
+    </section>`,
+};
+
+/* ── Bench head: breadcrumb + compact tree ────────────────── */
+const GLYPH = { navigation:"▤", header:"“", heading:"“", list:"▦", group:"▢" };
+
+function crumbsFor(sel) {
+  const parts = [{ label:"board", jump:null }];
+  let frameId = null, elId = null, markId = null;
+  if (sel.kind === "frame") frameId = sel.id;
+  if (sel.kind === "el") { elId = sel.id; frameId = ELS[sel.id].frame; }
+  if (sel.kind === "mark") { markId = sel.id; elId = MARKS[sel.id].el; frameId = MARKS[sel.id].frame; }
+  if (frameId) parts.push({ label: FRAMES[frameId].name.toLowerCase() + " · " + FRAMES[frameId].route, jump:"frame:"+frameId });
+  if (elId) parts.push({ label: ELS[elId].label, jump:"el:"+elId });
+  if (markId) parts.push({ label: "#"+MARKS[markId].n, jump:"mark:"+markId });
+  const last = parts.length - 1;
+  return parts.map((p,i) => {
+    const cur = i === last ? ' aria-current="true"' : "";
+    const sep = i < last ? '<span aria-hidden="true">→</span>' : "";
+    const act = p.jump ? ` data-go="${p.jump}"` : ' data-go="board"';
+    return `<button class="crumb"${act}${cur}>${p.label}</button>${sep}`;
+  }).join("") + `<button class="bench-close" data-go="board" aria-label="Close bench">✕</button>`;
+}
+
+function treeFor(sel) {
+  let frameId = sel.kind === "frame" ? sel.id
+    : sel.kind === "el" ? ELS[sel.id].frame : MARKS[sel.id].frame;
+  const f = FRAMES[frameId];
+  let html = row(0, "▭", `${f.name.toLowerCase()} · ${f.route} · ${f.viewport.replace(/ /g,"")}`,
+                 `rev ${f.revision}`, "frame:"+frameId,
+                 sel.kind==="frame" && sel.id===frameId, false);
+  for (const eid of f.elements) {
+    const e = ELS[eid];
+    html += row(1, GLYPH[e.role] || "▢", e.label, e.marks.length ? e.marks.length+" mark" : "",
+                "el:"+eid, sel.kind==="el" && sel.id===eid, false);
+    for (const mid of e.marks) {
+      const m = MARKS[mid];
+      html += row(2, m.kind.slice(0,1), `#${m.n} · ${m.state}${m.stale ? " · stale" : ""}`, "",
+                  "mark:"+mid, sel.kind==="mark" && sel.id===mid, true);
+    }
+  }
+  return html;
+}
+function row(depth, glyph, label, meta, jump, selected, isMark) {
+  return `<button class="tree-row${isMark ? " tree-row--mark" : ""}" role="treeitem" data-depth="${depth}"
+    data-go="${jump}" aria-selected="${selected}">
+    <span class="tree-glyph">${glyph}</span><span>${label}</span>
+    ${meta ? `<span class="tree-meta">${meta}</span>` : ""}</button>`;
+}
+
+/* ── Selection model ──────────────────────────────────────── */
+const app = document.getElementById("app");
+const bench = document.getElementById("bench");
+const benchCol = document.getElementById("bench-col");
+const crumbsEl = document.getElementById("crumbs");
+const treeEl = document.getElementById("tree");
+let SEL = null; // {kind, id} | null
+
+function litFrameOf(sel) {
+  if (!sel) return null;
+  if (sel.kind === "frame") return sel.id;
+  if (sel.kind === "el") return ELS[sel.id].frame;
+  return MARKS[sel.id].frame;
+}
+
+function render() {
+  const lit = litFrameOf(SEL);
+  // frames
+  document.querySelectorAll("[data-frame]").forEach(el => {
+    el.setAttribute("aria-selected", String(!!SEL && SEL.kind === "frame" && SEL.id === el.dataset.frame));
+  });
+  document.querySelectorAll(".frame-wrap").forEach(w => {
+    w.classList.toggle("lit", w.id === "fw-" + lit);
+  });
+  // elements
+  document.querySelectorAll("[data-el]").forEach(el => {
+    el.setAttribute("aria-selected", String(!!SEL && SEL.kind === "el" && SEL.id === el.dataset.el));
+  });
+  // marks
+  document.querySelectorAll("[data-mark]").forEach(el => {
+    el.setAttribute("aria-selected", String(!!SEL && SEL.kind === "mark" && SEL.id === el.dataset.mark));
+  });
+  // rail
+  document.querySelectorAll("[data-jump]").forEach(el => {
+    el.setAttribute("aria-current", String(!!SEL && el.dataset.jump === SEL.kind + ":" + SEL.id));
+  });
+  // bench
+  if (SEL) {
+    crumbsEl.innerHTML = crumbsFor(SEL);
+    treeEl.innerHTML = treeFor(SEL);
+    benchCol.innerHTML = SEL.kind === "frame" ? benchFrame(SEL.id)
+      : SEL.kind === "el" ? benchEl(SEL.id) : THREADS[SEL.id];
+    app.dataset.bench = "open";
+    bench.setAttribute("aria-hidden", "false");
+  } else {
+    app.dataset.bench = "closed";
+    bench.setAttribute("aria-hidden", "true");
+  }
+}
+
+function select(kind, id) { SEL = { kind, id }; render(); }
+function clearSel() { SEL = null; render(); }
+
+/* ── Wiring ───────────────────────────────────────────────── */
+document.getElementById("map").addEventListener("click", (ev) => {
+  const mark = ev.target.closest("[data-mark]");
+  if (mark) { select("mark", mark.dataset.mark); return; }
+  const el = ev.target.closest("[data-el]");
+  if (el) { select("el", el.dataset.el); return; }
+  const frame = ev.target.closest(".frame-wrap");
+  if (frame) { select("frame", frame.id.slice(3)); return; }
+  clearSel(); // empty canvas → board aspects, bench closes
+});
+
+document.querySelectorAll("[data-frame]").forEach(el => {
+  el.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select("frame", el.dataset.frame); }
+  });
+});
+
+// Rail + bench tree + crumbs share one jump grammar.
+document.addEventListener("click", (ev) => {
+  const go = ev.target.closest("[data-go],[data-jump]");
+  if (!go) return;
+  const target = go.dataset.go || go.dataset.jump;
+  if (target === "board") { clearSel(); return; }
+  const [kind, id] = target.split(":");
+  select(kind, id);
+});
+
+// Intent chips toggle within their row (visual only in the mock).
+document.addEventListener("click", (ev) => {
+  const chip = ev.target.closest(".intent-row .dm-chip");
+  if (!chip) return;
+  chip.closest(".intent-row").querySelectorAll(".dm-chip")
+    .forEach(c => c.setAttribute("aria-pressed", String(c === chip)));
+});
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") clearSel();
+});
+
+render();
+</script>
+</body>
+</html>
