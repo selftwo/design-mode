@@ -9,6 +9,7 @@ function importBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'import-intent-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: -60, zoom: 1 },
     frames: [
       {
@@ -27,9 +28,15 @@ function importBoard(): BoardDocument {
         captureHash: 'seed-capture',
         revision: 1,
         elements: [],
+        kind: 'captured-route',
+        lifeState: 'active',
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 

@@ -1,5 +1,6 @@
 import type { BoardDocument } from './board-document.schema'
-import { restoreBoard, STORAGE_KEY } from './board-local-storage'
+import { LEGACY_STORAGE_KEY, restoreBoard, STORAGE_KEY } from './board-local-storage'
+import { ensureZonesForAllUnits } from './ensure-zones-for-unit'
 
 export function loadBoardFromHostStorage(
   hostBoard: BoardDocument,
@@ -8,15 +9,19 @@ export function loadBoardFromHostStorage(
   try {
     const restored = restoreBoard(hostBoard, storage)
     if (restored.boardId === hostBoard.boardId) {
-      return { document: restored, lastSaved: restored }
+      const document = ensureZonesForAllUnits(restored)
+      return { document, lastSaved: document }
     }
-    return { document: hostBoard, lastSaved: hostBoard }
+    const document = ensureZonesForAllUnits(hostBoard)
+    return { document, lastSaved: document }
   } catch {
     try {
       storage.removeItem(STORAGE_KEY)
+      storage.removeItem(LEGACY_STORAGE_KEY)
     } catch {
       // A blocked cleanup must not prevent the validated host board from loading.
     }
-    return { document: hostBoard, lastSaved: hostBoard }
+    const document = ensureZonesForAllUnits(hostBoard)
+    return { document, lastSaved: document }
   }
 }

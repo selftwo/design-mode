@@ -39,6 +39,8 @@ function fixtureFrame(index: number): ScreenFrame {
     captureHash: `fixture-frame-${index}-revision-1`,
     revision: 1,
     elements: [],
+    kind: 'captured-route',
+    lifeState: 'active',
   }
 }
 
@@ -48,6 +50,7 @@ function fixtureAnnotations(frames: ScreenFrame[]): ReviewAnnotation[] {
     annotations.push({
       id: `annotation-${index}`,
       frameId: frames[index]?.id ?? 'frame-00',
+      role: 'review',
       status: 'draft',
       instruction: `Review fixture note ${index}`,
       anchor: [0.24 + index * 0.035, 0.32],
@@ -65,6 +68,7 @@ function fixtureAnnotations(frames: ScreenFrame[]): ReviewAnnotation[] {
     annotations.push({
       id: `stress-${index}`,
       frameId: 'frame-00',
+      role: 'review',
       status: 'draft',
       instruction: `Stress mark ${index}`,
       anchor: [x + 0.04, y + 0.04],
@@ -82,8 +86,12 @@ export function createPressureTestBoard(): BoardDocument {
   return BoardDocumentSchema.parse({
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'canvas-pressure-test',
+    documentRevision: 1,
     camera: { worldX: -200, worldY: -120, zoom: 0.7 },
     frames,
     annotations: fixtureAnnotations(frames),
+    units: [],
+    zones: [],
+    verdicts: [],
   })
 }

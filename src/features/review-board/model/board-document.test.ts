@@ -29,7 +29,7 @@ describe('canonical board model', () => {
   it('round trips the semantic board and rejects unknown schema versions', () => {
     const board = createPressureTestBoard()
     expect(deserializeBoard(serializeBoard(board))).toEqual(board)
-    expect(() => deserializeBoard('{"schemaVersion":2,"frames":[],"annotations":[]}')).toThrow()
+    expect(() => deserializeBoard('{"schemaVersion":3,"frames":[],"annotations":[]}')).toThrow()
   })
 
   it('accepts valid boards without imposing the pressure test frame count', () => {

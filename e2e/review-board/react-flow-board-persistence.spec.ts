@@ -31,6 +31,7 @@ function hostBaselineBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'host-reset-baseline',
+    documentRevision: 1,
     camera: { worldX: 99, worldY: -44, zoom: 0.55 },
     frames: [
       {
@@ -49,6 +50,8 @@ function hostBaselineBoard(): BoardDocument {
         captureHash: 'host-capture-a',
         revision: 1,
         elements: [],
+        kind: 'captured-route',
+        lifeState: 'active',
       },
       {
         id: 'host-frame-b',
@@ -66,9 +69,15 @@ function hostBaselineBoard(): BoardDocument {
         captureHash: 'host-capture-b',
         revision: 1,
         elements: [],
+        kind: 'captured-route',
+        lifeState: 'active',
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 
@@ -127,7 +136,7 @@ test('reactflow: failed save shows error and leaves diagnostics unchanged', asyn
   await page.addInitScript(() => {
     const original = Storage.prototype.setItem
     Storage.prototype.setItem = function setItem(key: string, value: string) {
-      if (key === 'design-review-canvas-v1') {
+      if (key === 'design-review-canvas-v2') {
         throw new Error('quota exceeded')
       }
       return original.call(this, key, value)

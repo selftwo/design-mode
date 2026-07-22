@@ -1,6 +1,11 @@
 import type { BoardDocument } from './board-document.schema'
-import { serializeBoard } from './board-local-storage'
+import { BoardDocumentSchema } from './board-document.schema'
+
+function serializeBoardSemantic(document: BoardDocument): string {
+  const { documentRevision: _revision, ...semantic } = BoardDocumentSchema.parse(document)
+  return JSON.stringify(semantic)
+}
 
 export function boardsSemanticallyEqual(left: BoardDocument, right: BoardDocument): boolean {
-  return serializeBoard(left) === serializeBoard(right)
+  return serializeBoardSemantic(left) === serializeBoardSemantic(right)
 }

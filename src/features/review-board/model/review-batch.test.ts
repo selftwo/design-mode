@@ -114,4 +114,36 @@ describe('buildReviewBatch', () => {
     if (!result.ok) return
     expect(result.batch.annotations).toEqual([])
   })
+
+  it('excludes agent-question and teach annotations from the dispatch batch', () => {
+    const board = createPressureTestBoard()
+    const withAgentRows = {
+      ...board,
+      annotations: [
+        ...board.annotations,
+        {
+          ...board.annotations[0]!,
+          id: 'agent-q',
+          role: 'agent-question' as const,
+          instruction: 'What is this panel?',
+          runId: 'run-1',
+          canvasEventId: 'agent-q',
+        },
+        {
+          ...board.annotations[0]!,
+          id: 'teach-1',
+          role: 'teach' as const,
+          instruction: 'This is the side rail.',
+          runId: 'run-1',
+          canvasEventId: 'teach-1',
+        },
+      ],
+    }
+    const result = buildReviewBatch(withAgentRows)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.batch.annotations).toHaveLength(board.annotations.length)
+    expect(result.batch.annotations.find((item) => item.id === 'agent-q')).toBeUndefined()
+    expect(result.batch.annotations.find((item) => item.id === 'teach-1')).toBeUndefined()
+  })
 })

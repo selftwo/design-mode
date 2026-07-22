@@ -3,6 +3,7 @@ import { createPressureTestBoard } from '@/test-support/create-pressure-test-boa
 import {
   clearStoredBoard,
   deserializeBoard,
+  LEGACY_STORAGE_KEY,
   restoreBoard,
   saveBoard,
   serializeBoard,
@@ -80,6 +81,25 @@ describe('board-local-storage', () => {
     saveBoard(createPressureTestBoard(), storage)
     clearStoredBoard(storage)
     expect(storage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
+  it('migrates a legacy v1 override and rewrites it as v2 on the next save', () => {
+    const storage = createMemoryStorage()
+    const board = createPressureTestBoard()
+    const legacyFrame = { ...board.frames[0]!, kind: undefined, lifeState: undefined, source: 'captured-route' }
+    const legacyBoard = {
+      schemaVersion: 1,
+      boardId: board.boardId,
+      camera: board.camera,
+      frames: [legacyFrame],
+      annotations: [],
+    }
+    storage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(legacyBoard))
+    const restored = restoreBoard(createPressureTestBoard(), storage)
+    expect(restored.schemaVersion).toBe(2)
+    expect(restored.frames[0]!.kind).toBe('captured-route')
+    saveBoard(restored, storage)
+    expect(deserializeBoard(storage.getItem(STORAGE_KEY)!).schemaVersion).toBe(2)
   })
 
   it('rejects invalid serialized data on restore', () => {

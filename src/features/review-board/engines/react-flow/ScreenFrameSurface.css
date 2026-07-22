@@ -5,8 +5,38 @@
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.1);
 }
 
+.screen-node.is-zoned {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
 .react-flow__node.selected .screen-node {
   box-shadow: 0 0 0 2px var(--accent-ring), 0 6px 16px rgba(16, 24, 40, 0.1);
+}
+
+/* In select mode the whole frame is the grab target, so it reads as movable. */
+.screen-node[data-draggable='true'] {
+  cursor: grab;
+}
+
+.react-flow__node.dragging .screen-node[data-draggable='true'] {
+  cursor: grabbing;
+}
+
+/* Make the resize affordance obvious when a frame is selected: a visible ring
+   and grabbable corner handles instead of xyflow's faint default dots. */
+.react-flow__resize-control.line.frame-resize-line {
+  border-color: var(--accent-ring, #4c6fff);
+  border-width: 1.5px;
+}
+
+.react-flow__resize-control.handle.frame-resize-handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: #fff;
+  border: 1.5px solid var(--accent-ring, #4c6fff);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.25);
 }
 
 .react-flow__node.selectable:focus-visible {
@@ -51,5 +81,91 @@
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Lo-fi options are throwaway comparisons, not the real screen, so the frame
+   itself reads as provisional (dashed) until one is picked (solid + accent).
+   The badge/toggle live inside the (clipped) surface, not above the frame
+   like the label, so they can never land under the toolbar near the canvas top. */
+.screen-node.lofi-option .screen-content {
+  border-style: dashed;
+  border-color: #7c5cff;
+}
+
+.screen-node.lofi-option.is-preferred .screen-content {
+  border-style: solid;
+  border-color: #7c5cff;
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.35);
+}
+
+.lofi-option-chip {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lofi-option-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7c5cff;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #7c5cff;
+  border-radius: 999px;
+  padding: 1px 6px;
+  pointer-events: none;
+}
+
+.lofi-prefer-toggle {
+  flex-shrink: 0;
+  pointer-events: auto;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #d4d4d8;
+  background: rgba(255, 255, 255, 0.95);
+  color: #52525b;
+  cursor: pointer;
+}
+
+.lofi-prefer-toggle[aria-pressed='true'] {
+  background: #7c5cff;
+  border-color: #7c5cff;
+  color: #fff;
+}
+
+/* A playable option moves only by this handle, so its live iframe body stays
+   free for the reviewer to interact with and never initiates a node drag. */
+.frame-drag-handle {
+  position: absolute;
+  top: -24px;
+  right: 0;
+  z-index: 2;
+  width: 34px;
+  height: 18px;
+  border-radius: 6px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  background-image: radial-gradient(rgba(82, 82, 91, 0.6) 1px, transparent 1px);
+  background-size: 6px 6px;
+  background-position: center;
+  cursor: grab;
+  opacity: 0.75;
+}
+
+.react-flow__node.dragging .frame-drag-handle {
+  cursor: grabbing;
+}
+
+/* When the live layer owns pointer input, the mark and pin overlay stays mounted
+   and visible but must let input fall through to the iframe beneath. */
+.screen-content.live-interactive .annotation-mark,
+.screen-content.live-interactive .comment-pin {
   pointer-events: none;
 }

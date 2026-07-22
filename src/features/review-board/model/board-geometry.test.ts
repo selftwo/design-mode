@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { normalizedPathBounds, simplifyNormalizedPath } from './board-geometry'
-import type { NormalizedPoint } from './board-document.schema'
+import { normalizedPathBounds, projectNormalizedPoint, resizeFrameAspectLocked, simplifyNormalizedPath } from './board-geometry'
+import type { NormalizedPoint, ScreenFrame } from './board-document.schema'
+
+function frameFixture(overrides: Partial<ScreenFrame> = {}): ScreenFrame {
+  return {
+    id: 'f1',
+    label: 'Frame',
+    route: '/',
+    viewport: { width: 800, height: 1000 },
+    x: 100,
+    y: 50,
+    width: 400,
+    height: 500,
+    aspectRatio: 400 / 500,
+    screenshotPath: 'shot.png',
+    screenshotDataUrl: 'data:image/png;base64,x',
+    refreshedScreenshotDataUrl: 'data:image/png;base64,x',
+    captureHash: 'hash',
+    revision: 1,
+    elements: [],
+    kind: 'captured-route',
+    lifeState: 'active',
+    ...overrides,
+  }
+}
 
 describe('normalizedPathBounds', () => {
   it('covers a freehand loop that ends where it started', () => {
@@ -53,5 +76,34 @@ describe('simplifyNormalizedPath', () => {
 
   it('keeps a click as a single point', () => {
     expect(simplifyNormalizedPath([[0.4, 0.4]])).toEqual([[0.4, 0.4]])
+  })
+})
+
+describe('resizeFrameAspectLocked', () => {
+  it('scales width and derives height from the locked aspect ratio', () => {
+    const resized = resizeFrameAspectLocked(frameFixture(), 800)
+    expect(resized.width).toBe(800)
+    expect(resized.height).toBe(1000)
+  })
+
+  it('never shrinks below the minimum width', () => {
+    const resized = resizeFrameAspectLocked(frameFixture(), 40)
+    expect(resized.width).toBe(120)
+    expect(resized.height).toBeCloseTo(150)
+  })
+
+  it('keeps a normalized mark pinned to the same relative spot after resize', () => {
+    const frame = frameFixture()
+    const mark: NormalizedPoint = [0.25, 0.8]
+    const before = projectNormalizedPoint(frame, mark)
+    // the mark sits at a known fraction of the frame before resizing
+    expect((before.x - frame.x) / frame.width).toBeCloseTo(0.25)
+    expect((before.y - frame.y) / frame.height).toBeCloseTo(0.8)
+
+    const resized = resizeFrameAspectLocked(frame, 640)
+    const after = projectNormalizedPoint(resized, mark)
+    // normalized coordinates are unchanged, so the mark tracks the same fraction
+    expect((after.x - resized.x) / resized.width).toBeCloseTo(0.25)
+    expect((after.y - resized.y) / resized.height).toBeCloseTo(0.8)
   })
 })

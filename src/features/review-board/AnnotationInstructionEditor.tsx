@@ -26,8 +26,16 @@ export function AnnotationInstructionEditor({
 
   // Focus is requested for deliberate navigation (creation, banner jump), not for
   // inspecting an existing mark, so selection never yanks focus away from the mark.
+  // Retry once after paint: React Flow may remount the node when the board updates.
   useEffect(() => {
-    if (autoFocus) textareaRef.current?.focus()
+    if (!autoFocus) return
+    const focus = () => textareaRef.current?.focus()
+    focus()
+    const frame = requestAnimationFrame(() => {
+      focus()
+      requestAnimationFrame(focus)
+    })
+    return () => cancelAnimationFrame(frame)
   }, [autoFocus, annotation.id])
 
   return (

@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { BoardDocumentSchema, type BoardDocument } from '../src/features/review-board/model/board-document.schema.ts'
+import { parseBoardDocument } from '../src/features/review-board/model/board-document-migration.ts'
 import {
   AgentRunSchema,
   ProjectSchema,
@@ -23,9 +24,13 @@ function readJsonFile<Schema extends z.ZodTypeAny>(file: string, schema: Schema)
   return schema.parse(JSON.parse(readFileSync(file, 'utf8'))) as z.output<Schema>
 }
 
+// Write to a sibling temp file, then rename into place so a crash mid-write
+// never leaves a truncated JSON document at the durable path.
 function writeJsonFile(file: string, value: unknown) {
   mkdirSync(path.dirname(file), { recursive: true })
-  writeFileSync(file, JSON.stringify(value, null, 2))
+  const temp = `${file}.tmp-${randomUUID()}`
+  writeFileSync(temp, JSON.stringify(value, null, 2))
+  renameSync(temp, file)
 }
 
 function projectIdFrom(name: string): string {
@@ -69,9 +74,22 @@ export function createHostDataStore(dataDir: string = defaultDataDir()) {
     },
 
     readBoard(projectId: string): BoardDocument | null {
-      return readJsonFile(boardFile(projectId), BoardDocumentSchema)
+      const file = boardFile(projectId)
+      if (!existsSync(file)) return null
+      const raw: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      const board = parseBoardDocument(raw)
+      // A v1 board on disk is migrated once: keep the original as a .v1.bak, then
+      // rewrite the file as v2. If the backup fails, leave the file untouched.
+      if (raw && typeof raw === 'object' && (raw as { schemaVersion?: unknown }).schemaVersion === 1) {
+        const backup = `${file}.v1.bak`
+        if (!existsSync(backup)) writeFileSync(backup, readFileSync(file))
+        writeJsonFile(file, BoardDocumentSchema.parse(board))
+      }
+      return board
     },
 
+    // Persist a fully validated board. Callers that own compare-and-save /
+    // revision bumping (the project write queue) must pass the final revision.
     writeBoard(projectId: string, board: BoardDocument) {
       writeJsonFile(boardFile(projectId), BoardDocumentSchema.parse(board))
     },
@@ -91,6 +109,15 @@ export function createHostDataStore(dataDir: string = defaultDataDir()) {
 
     runAssetDir(runId: string): string {
       const dir = runDir(runId)
+      mkdirSync(dir, { recursive: true })
+      return dir
+    },
+
+    // Where an agent writes the standalone lo-fi HTML for one option set. Kept
+    // in the host data dir (not the project repo) so generation never dirties
+    // the user's source tree.
+    optionSetDir(projectId: string, optionSetId: string): string {
+      const dir = path.join(dataDir, 'scratch', projectId, optionSetId)
       mkdirSync(dir, { recursive: true })
       return dir
     },

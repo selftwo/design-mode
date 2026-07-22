@@ -290,8 +290,8 @@ test('fake host loads valid boards and bad messages keep the current board', asy
   await page.evaluate(() => window.postMessage({
     type: 'design-review/load-board',
     schemaVersion: 1,
-    board: { schemaVersion: 2 },
+    board: { schemaVersion: 3 },
   }, window.location.origin))
-  await expect(page.getByTestId('board-load-error')).toHaveText('Unsupported board schema version 2. This app supports version 1.')
+  await expect(page.getByTestId('board-load-error')).toHaveText('Unsupported board schema version 3. This app supports version 2.')
   await expect(page.getByTestId('board-status')).toContainText('50 screens')
 })

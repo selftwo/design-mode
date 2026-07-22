@@ -1,0 +1,83 @@
+.agent-question-bloom {
+  display: grid;
+  gap: 8px;
+  width: min(280px, 70vw);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel, 12px);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+  color: var(--ink);
+}
+
+.agent-question-bloom-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-question-bloom-glyph {
+  color: var(--ink-secondary);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.agent-question-bloom-title {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agent-question-bloom-close {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.agent-question-bloom-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.agent-question-bloom-run {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.agent-question-bloom-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Positioned over a frame mark/pin; stays above the clipped surface. */
+.annotation-bloom-anchor {
+  position: absolute;
+  z-index: 8;
+  width: max-content;
+  max-width: min(320px, 90%);
+  transform-origin: top left;
+}
+
+.annotation-bloom-anchor.at-anchor {
+  transform: translate(-8px, 10px);
+}
+
+/* Review editors hang below the frame so the surface stays free to drag. */
+.annotation-bloom-anchor.below-frame {
+  top: calc(100% + 8px);
+  transform: translateX(-12%);
+}
+
+.annotation-bloom-anchor .annotation-editor {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel, 12px);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+}

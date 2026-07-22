@@ -179,3 +179,15 @@ Reason: The prior work was prototyping to prove feasibility. The DLS direction w
 Rejected: The earlier draft's phase 2 of resizable docked panels with pointer-drag splitters. Adding a runtime dependency for drag or placement (buildable with the existing stack). Generation chat on the canvas.
 
 Revisit when: A later-phase trigger in `design/HANDOFF.md` fires, or the islands layout fails the phase 2 gate's keyboard workflow.
+
+## 2026-07-22: Re-baseline the React Flow route bundle budget for the collaboration surface
+
+Status: Accepted
+
+Decision: Raise the React Flow route gzip reference from 140,617 to 169,441 bytes, the measured initial size after the canvas collaboration surface shipped: playable-option iframes and kit dials, the verdict gestures and decision ledger, kill and archive zones, the agent-to-canvas back-channel, first-class references, and review telemetry. The gate stays at reference plus 20 percent.
+
+Reason: The 140,617 reference predated the entire six-item collaboration-surface branch. Items one through five already sat at 1.19 times that reference; review telemetry (item six) tipped it just over the cap. The added weight is hand-written feature code in the shared entry chunk, not an optional-engine leak (only 23 gzip bytes fell in the route chunk itself, and the excalidraw chain stays behind its dynamic import). The budget exists to catch accidental growth, not to freeze a planned feature set.
+
+Rejected: Shaving telemetry bytes to stay under the stale cap by dropping a plan requirement such as viewport-fraction dwell or cross-session totals. Removing the budget, which would stop catching optional engine code leaking into the default route.
+
+Revisit when: The route grows another 20 percent without a matching feature decision.

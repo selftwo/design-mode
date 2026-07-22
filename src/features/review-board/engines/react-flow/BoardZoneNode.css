@@ -1,0 +1,113 @@
+.board-zone-node {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px dashed var(--border, #d4d4d8);
+  pointer-events: auto;
+}
+
+.board-zone-node.zone-archive {
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.board-zone-node.zone-killed {
+  background: rgba(120, 90, 90, 0.22);
+  border-color: rgba(120, 90, 90, 0.35);
+}
+
+.board-zone-node--expanded {
+  min-height: 120px;
+}
+
+.board-zone-node--collapsed {
+  padding: 6px 8px;
+  background: var(--surface, #fff);
+  border-style: solid;
+}
+
+.board-zone-node--collapsed.zone-archive {
+  background: rgba(241, 245, 249, 0.95);
+}
+
+.board-zone-node--collapsed.zone-killed {
+  background: rgba(250, 242, 242, 0.95);
+}
+
+.board-zone-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 8px;
+  color: var(--ink-secondary, #52525b);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.board-zone-node--collapsed .board-zone-header {
+  padding: 0 0 6px;
+  min-height: auto;
+}
+
+.board-zone-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-zone-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.board-zone-collapse {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border, #d4d4d8);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: var(--ink-secondary, #52525b);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.board-zone-collapse:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.board-zone-thumbs {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0;
+}
+
+.board-zone-thumb {
+  flex-shrink: 0;
+  height: 48px;
+  width: auto;
+  max-width: 72px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #d4d4d8);
+  object-fit: cover;
+  background: #e7eaf0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.board-zone-body {
+  flex: 1;
+  min-height: 0;
+}

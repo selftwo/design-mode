@@ -1,9 +1,9 @@
 import { z } from 'zod'
 import {
   BOARD_SCHEMA_VERSION,
-  BoardDocumentSchema,
   type BoardDocument,
 } from '../model/board-document.schema'
+import { safeParseBoardDocument } from '../model/board-document-migration'
 
 export const HOST_BOARD_MESSAGE_VERSION = 1 as const
 export const HOST_BOARD_LOAD_TYPE = 'design-review/load-board' as const
@@ -51,14 +51,16 @@ export function readHostBoardLoadMessage(value: unknown): HostBoardLoadResult {
   const boardVersion = envelope.data.board && typeof envelope.data.board === 'object' && 'schemaVersion' in envelope.data.board
     ? envelope.data.board.schemaVersion
     : undefined
-  if (boardVersion !== BOARD_SCHEMA_VERSION) {
+  // A v1 board is migrated on the way in; only versions this app does not know
+  // are rejected outright.
+  if (boardVersion !== 1 && boardVersion !== BOARD_SCHEMA_VERSION) {
     return {
       status: 'rejected',
       error: `Unsupported board schema version ${String(boardVersion)}. This app supports version ${BOARD_SCHEMA_VERSION}.`,
     }
   }
 
-  const board = BoardDocumentSchema.safeParse(envelope.data.board)
+  const board = safeParseBoardDocument(envelope.data.board)
   if (!board.success) {
     return { status: 'rejected', error: `Invalid board data: ${formatIssues(board.error)}` }
   }

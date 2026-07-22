@@ -175,6 +175,13 @@
   color: var(--info);
 }
 
+.comment-chip.question,
+.comment-chip.teach {
+  border-color: #c5d0c4;
+  background: #f3f6f3;
+  color: #2f6b3a;
+}
+
 .comment-copy {
   flex: none;
   align-self: center;

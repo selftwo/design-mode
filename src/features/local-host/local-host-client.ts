@@ -6,10 +6,14 @@ import type { BoardDocument } from '../review-board/model/board-document.schema'
 import type { ReviewBatch } from '../review-board/model/review-batch'
 import {
   AgentListSchema,
+  BoardConflictResponseSchema,
+  BoardPutSuccessSchema,
   BoardResponseSchema,
   DispatchAcceptedSchema,
+  GenerateOptionsAcceptedSchema,
   HostErrorSchema,
   HostEventSchema,
+  LearnAcceptedSchema,
   LiveSessionResponseSchema,
   ProjectContextSchema,
   ProjectListSchema,
@@ -32,6 +36,32 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
+// A host request failure that carries the HTTP status, so a caller can tell a
+// 404 (unit gone) from a 409 (unit locked or blocked) apart from other errors.
+export class LocalHostRequestError extends Error {
+  readonly status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'LocalHostRequestError'
+    this.status = status
+  }
+}
+
+// Compare-and-save conflict: the host board moved ahead of the client's
+// baseRevision. Carries the authoritative board so the client can refresh its
+// revision baseline without clobbering local edits.
+export class BoardRevisionConflictError extends Error {
+  readonly status = 409
+  readonly documentRevision: number
+  readonly board: BoardDocument
+  constructor(message: string, documentRevision: number, board: BoardDocument) {
+    super(message)
+    this.name = 'BoardRevisionConflictError'
+    this.documentRevision = documentRevision
+    this.board = board
+  }
+}
+
 // The same BoardHost contract the window message host implements, spoken over
 // the local app's HTTP API, plus the project, context, and agent operations
 // that only exist when the local host is present.
@@ -47,13 +77,18 @@ export function createLocalHostClient(projectId: string | null) {
     for (const listener of listeners) listener(result)
   }
 
-  async function putBoard(board: BoardDocument): Promise<void> {
+  async function putBoard(input: { baseRevision: number; board: BoardDocument }): Promise<BoardDocument> {
     const response = await fetch(`/api/projects/${projectId}/board`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(board),
+      body: JSON.stringify({ baseRevision: input.baseRevision, board: input.board }),
     })
-    if (!response.ok) throw new Error(await readError(response))
+    if (response.status === 409) {
+      const conflict = BoardConflictResponseSchema.parse(await response.json())
+      throw new BoardRevisionConflictError(conflict.error, conflict.documentRevision, conflict.board)
+    }
+    if (!response.ok) throw new LocalHostRequestError(await readError(response), response.status)
+    return BoardPutSuccessSchema.parse(await response.json()).board
   }
 
   const boardHost: BoardHost = {
@@ -186,9 +221,20 @@ export function createLocalHostClient(projectId: string | null) {
     // Autosave storage for the persistence hook. Reset restores the board that
     // was loaded this session, so the host file matches what the reviewer sees.
     boardStorage: {
-      save: (board: BoardDocument) => putBoard(board),
-      clear: () => {
-        if (boardAtLoad) void putBoard(boardAtLoad).catch(() => {})
+      save: (input: { board: BoardDocument; baseRevision: number }) => putBoard(input),
+      clear: async () => {
+        if (!boardAtLoad || !projectId) return
+        try {
+          const response = await fetch(`/api/projects/${projectId}/board`)
+          if (!response.ok) return
+          const { board: current } = BoardResponseSchema.parse(await response.json())
+          await putBoard({
+            baseRevision: current.documentRevision,
+            board: boardAtLoad,
+          })
+        } catch {
+          // A failed reset write surfaces through confirmReset / applyImmediateReset.
+        }
       },
     },
 
@@ -207,6 +253,40 @@ export function createLocalHostClient(projectId: string | null) {
       if (!response.ok) throw new Error(await readError(response))
       const body = await response.json() as { project: unknown }
       return ProjectSchema.parse(body.project)
+    },
+
+    // Ask the current dispatch agent to generate lo-fi HTML options for a design
+    // unit. The host builds the agent text from the unit's brief and rules, so no
+    // prompt is sent. Returns the journaled run; options land on a later capture.
+    // Throws a LocalHostRequestError so the caller can distinguish 404 from 409.
+    async generateOptions(input: { unitId: string; count?: number }): Promise<AgentRun> {
+      const response = await fetch(`/api/projects/${projectId}/generate-options`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ agent: dispatchAgent, unitId: input.unitId, count: input.count ?? 3 }),
+      })
+      if (!response.ok) throw new LocalHostRequestError(await readError(response), response.status)
+      return GenerateOptionsAcceptedSchema.parse(await response.json()).run
+    },
+
+    // Ask the current dispatch agent to answer a question about one screen and pin
+    // the answer as a teach note. The agent echoes requestId on its teach-answer
+    // event, so the canvas can match the pinned answer to this ask. Returns the
+    // journaled run; the teach annotation arrives later over the board-patched SSE.
+    async requestLearnAnswer(input: {
+      frameId: string
+      anchor: [number, number]
+      question: string
+      requestId: string
+      elementLabel?: string
+    }): Promise<AgentRun> {
+      const response = await fetch(`/api/projects/${projectId}/learn`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ agent: dispatchAgent, ...input }),
+      })
+      if (!response.ok) throw new LocalHostRequestError(await readError(response), response.status)
+      return LearnAcceptedSchema.parse(await response.json()).run
     },
 
     async captureProject(targetProjectId: string): Promise<void> {

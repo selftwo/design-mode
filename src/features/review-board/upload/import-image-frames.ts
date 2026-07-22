@@ -44,11 +44,17 @@ export function readImageFile(file: File): Promise<ImportedImage> {
 // Uploaded images join the board as regular screen frames: same annotation,
 // export, and persistence path as captured screens. They are placed in a row
 // to the right of the existing content so they never cover captured work.
+// When a unit is active, the drop lands as a `reference-image` linked to that
+// unit (first-class research for its decision); with no active unit it stays a
+// plain `imported-image`. Reference frames never mount live; they take marks and
+// move like any other frame.
 export function buildUploadFrames(
   document: BoardDocument,
   images: ImportedImage[],
-  now: number = Date.now(),
+  options: { unitId?: string; now?: number } = {},
 ): ScreenFrame[] {
+  const now = options.now ?? Date.now()
+  const kind = options.unitId ? 'reference-image' : 'imported-image'
   let cursorX = document.frames.reduce((edge, frame) => Math.max(edge, frame.x + frame.width), 0)
   if (document.frames.length > 0) cursorX += UPLOAD_GAP
   const y = document.frames.reduce((top, frame) => Math.min(top, frame.y), 0)
@@ -74,6 +80,9 @@ export function buildUploadFrames(
       captureHash: `${id}-${image.width}x${image.height}`,
       revision: 1,
       elements: [],
+      kind,
+      lifeState: 'active',
+      ...(options.unitId ? { unitId: options.unitId } : {}),
     }
     cursorX += width + UPLOAD_GAP
     return frame

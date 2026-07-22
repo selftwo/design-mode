@@ -1,24 +1,46 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { boardsSemanticallyEqual } from '@/features/review-board/model/board-semantic-equality'
 import { exportAgentAnnotation } from '@/features/review-board/model/export-agent-annotation'
+import { applyUnitVerdict, type ApplyUnitVerdictResult } from '@/features/review-board/model/apply-unit-verdict'
+import { ensureZonesForAllUnits } from '@/features/review-board/model/ensure-zones-for-unit'
 import { buildReviewBatch, collectReviewBatchBlocks } from '@/features/review-board/model/review-batch'
 import { copyReviewText } from '@/features/review-board/copy-review-text'
 import { ReviewCommentsPanel, type PoolCopyState } from '@/features/review-board/ReviewCommentsPanel'
 import { ReviewToolbar } from '@/features/review-board/ReviewToolbar'
-import type { CanvasEngineProps } from '@/features/review-board/engines/canvas-engine'
+import type { CanvasEngineProps, KillConfirmRequest } from '@/features/review-board/engines/canvas-engine'
 import { readAllowedBoardHostOrigins } from '@/features/review-board/host/board-host-origin-config'
 import { createWindowBoardHost } from '@/features/review-board/host/window-board-host'
 import { ReviewBoardResetDialog } from '@/features/review-board/ReviewBoardResetDialog'
-import type { AnnotationIntent, BoardDocument, EngineName, ReviewAnnotation, ToolMode } from '@/features/review-board/model/board-document.schema'
+import type { AnnotationIntent, BoardDocument, EngineName, KitStateValue, ReviewAnnotation, ToolMode } from '@/features/review-board/model/board-document.schema'
 import { serializeBoardDiagnostics } from '@/features/review-board/serialize-board-diagnostics'
 import { useCaptureRefreshOnExit } from '@/features/review-board/use-capture-refresh-on-exit'
 import { useLiveFrameSession } from '@/features/review-board/use-live-frame-session'
 import { useReviewBatchExport } from '@/features/review-board/use-review-batch-export'
 import { useReviewBoardHostLoad } from '@/features/review-board/use-review-board-host-load'
 import { useReviewBoardPersistence } from '@/features/review-board/use-review-board-persistence'
+import { mergeBoardPatch } from '@/features/review-board/model/merge-board-patch'
+import {
+  createReviewTelemetry,
+  kitStateSignature,
+  recordKitState,
+  recordPlayedLive,
+  sampleVisibility,
+  seedReviewTelemetry,
+  toReviewSummaries,
+  verdictReviewWarning,
+  visibleFrameIds,
+} from '@/features/review-board/model/review-telemetry'
 import { buildUploadFrames, listImportableImageFiles, readImageFile } from '@/features/review-board/upload/import-image-frames'
-import { AgentActivityRail } from '@/features/local-host/AgentActivityRail'
+import { ProtoLofiPanel } from '@/features/review-board/proto/ProtoLofiPanel'
+import { buildProtoLofiBoard, isProtoLofiEnabled } from '@/features/review-board/proto/lofi-option-studio'
+import { RunsIsland } from '@/features/local-host/RunsIsland'
 import { DesignContextPane } from '@/features/local-host/DesignContextPane'
+import { UnitQueueIsland } from '@/features/local-host/UnitQueueIsland'
+import { LearnAskIsland } from '@/features/local-host/LearnAskIsland'
+import { DecisionLedgerIsland } from '@/features/local-host/DecisionLedgerIsland'
+import { VerdictConfirmBloom } from '@/features/review-board/VerdictConfirmBloom'
+import { FrameKitIsland } from '@/features/playable-option/FrameKitIsland'
+import type { PlayableInteractionMode } from '@/features/playable-option/PlayableOptionFrame'
 import { HostProjectPicker } from '@/features/local-host/HostProjectPicker'
 import { createLocalHostClient } from '@/features/local-host/local-host-client'
 import { activeProjectIdFromLocation, isServedByLocalHost } from '@/features/local-host/local-host-detection'
@@ -35,8 +57,28 @@ function selectedEngine(): EngineName {
     : 'reactflow'
 }
 
+// A verdict is only offered on an active option of an open unit, so these
+// rejections mean the board changed under the gesture (a reload or a race). The
+// message tells the reviewer to take a fresh look rather than retry blindly.
+function verdictErrorMessage(reason: Exclude<ApplyUnitVerdictResult, { ok: true }>['reason']): string {
+  switch (reason) {
+    case 'empty-summary':
+      return 'A verdict needs a one-line summary.'
+    case 'unit-locked':
+      return 'This unit is already decided.'
+    case 'frame-not-active':
+    case 'not-an-option':
+      return 'This option is no longer open for a verdict.'
+    default:
+      return 'This verdict could not be recorded.'
+  }
+}
+
 export default function App() {
   const engine = useMemo(selectedEngine, [])
+  // THROWAWAY prototype (Item 1, docs/plans/canvas-lofi-option-studio-2026-07-21.md):
+  // behind ?proto=lofi, seed the board with hardcoded lo-fi options to feel the loop.
+  const protoLofi = useMemo(() => (isProtoLofiEnabled() ? buildProtoLofiBoard() : null), [])
   const localHost = useMemo(
     () => (isServedByLocalHost() ? createLocalHostClient(activeProjectIdFromLocation()) : null),
     [],
@@ -53,11 +95,32 @@ export default function App() {
   const [poolCopyState, setPoolCopyState] = useState<PoolCopyState>('idle')
   const [copiedAnnotationId, setCopiedAnnotationId] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const [verdictError, setVerdictError] = useState<string | null>(null)
+  const [pendingKillDrag, setPendingKillDrag] = useState<KillConfirmRequest | null>(null)
+  // The active unit in the queue. Lifted here so a dropped image links to it and
+  // a verdict can offer its references. Kept pointing at a real unit below.
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null)
   const [dispatchAgent, setDispatchAgent] = useState<AgentId>('claude')
   const [dispatchAgents, setDispatchAgents] = useState<AgentAvailability[] | null>(null)
   const [agentRuns, setAgentRuns] = useState<AgentRun[]>([])
   const [captureActive, setCaptureActive] = useState(false)
   const [boardUpdateWaiting, setBoardUpdateWaiting] = useState(false)
+  // Learn/ask round trip: request ids waiting for a teach answer. The ref is read
+  // in the SSE handler (which is not re-subscribed per ask); the count drives UI.
+  const learnPendingRef = useRef<Set<string>>(new Set())
+  const [learnPendingCount, setLearnPendingCount] = useState(0)
+  const [learnAsking, setLearnAsking] = useState(false)
+  const [learnError, setLearnError] = useState<string | null>(null)
+  const [preferredOptionId, setPreferredOptionId] = useState<string | null>(null)
+  // Per-frame play/review mode for playable options. In memory only; never saved.
+  const [playableFrameModes, setPlayableFrameModes] = useState<Record<string, PlayableInteractionMode>>({})
+  // Review telemetry (item 6). The accumulator lives in memory; its totals flush
+  // into the board on a coarse cadence and on page hide. The view sample is the
+  // latest raw viewport the engine reported, used to derive visible frames.
+  const telemetryRef = useRef(createReviewTelemetry())
+  const viewSampleRef = useRef<{ view: { x: number; y: number; zoom: number }; canvasSize: { width: number; height: number } } | null>(null)
+  const seededBoardIdRef = useRef<string | null>(null)
+  const documentRef = useRef<BoardDocument | null>(null)
   const [readyMs, setReadyMs] = useState<number | null>(null)
   const boardStorage = localHost?.boardStorage
   const {
@@ -67,7 +130,9 @@ export default function App() {
     resetDialogOpen,
     resetError,
     setBaseline,
+    acknowledgeBoardPatch,
     save: persistBoard,
+    saveImmediately,
     clearSaveError,
     clearResetError,
     requestReset,
@@ -102,6 +167,7 @@ export default function App() {
     cancelPendingRefreshRef.current()
     resetExportState()
     setTool('select')
+    setPlayableFrameModes({})
   })
 
   const updateDocument: CanvasEngineProps['onDocumentChange'] = useCallback((update) => {
@@ -110,6 +176,99 @@ export default function App() {
       return typeof update === 'function' ? update(current) : update
     })
   }, [setDocument])
+
+  const setPlayableFrameMode = useCallback((frameId: string, mode: PlayableInteractionMode) => {
+    // Putting an option into play mode is the act of playing it live; record it
+    // for review telemetry so an unplayed winner can be flagged at verdict time.
+    if (mode === 'play') telemetryRef.current = recordPlayedLive(telemetryRef.current, frameId)
+    setPlayableFrameModes((current) => ({ ...current, [frameId]: mode }))
+  }, [])
+
+  // Keep the active unit pointing at a real unit: fall back to the first one, or
+  // nothing when the board has none. Mirrors the old in-island selection guard.
+  useEffect(() => {
+    const units = document?.units ?? []
+    setSelectedUnitId((current) => (current && units.some((unit) => unit.id === current) ? current : units[0]?.id ?? null))
+  }, [document?.units])
+
+  // A kit control edit, written immutably into the frame's saved kit state. The
+  // value is checked against its control so the board stays relation-valid; an
+  // unchanged value is a no-op. Autosave then persists it; the change is
+  // frame-local.
+  const setKitControlValue = useCallback((frameId: string, controlId: string, value: KitStateValue) => {
+    updateDocument((current) => {
+      const frame = current.frames.find((item) => item.id === frameId)
+      if (!frame || frame.kind !== 'playable-option' || !frame.kit) return current
+      const control = frame.kit.manifest.controls.find((item) => item.id === controlId)
+      if (!control) return current
+      if (control.kind === 'toggle' && typeof value !== 'boolean') return current
+      if (control.kind === 'choice' && (typeof value !== 'string' || !control.options.some((option) => option.value === value))) return current
+      if (frame.kit.state[controlId] === value) return current
+      const nextFrame = { ...frame, kit: { ...frame.kit, state: { ...frame.kit.state, [controlId]: value } } }
+      // Record the kit state the reviewer landed on. Dedup by signature keeps a
+      // repeat (including a strict-mode double invoke) from counting twice.
+      telemetryRef.current = recordKitState(telemetryRef.current, frameId, kitStateSignature(nextFrame.kit.state))
+      return { ...current, frames: current.frames.map((item) => item.id === frameId ? nextFrame : item) }
+    })
+  }, [updateDocument])
+
+  // Keep a ref to the live document so the telemetry interval reads the latest
+  // frames without re-subscribing every edit.
+  useEffect(() => { documentRef.current = document }, [document])
+
+  // Seed the telemetry accumulator from a freshly loaded board so a reload keeps
+  // prior review traces. Guarded by board id so ordinary edits do not reseed.
+  useEffect(() => {
+    if (!document || seededBoardIdRef.current === document.boardId) return
+    seededBoardIdRef.current = document.boardId
+    telemetryRef.current = seedReviewTelemetry(document.reviewSummaries)
+  }, [document])
+
+  // Flush the accumulated totals into the board when they changed, so autosave
+  // persists them and the host prompt can read them. Pruned to frames still on
+  // the board.
+  const flushTelemetry = useCallback(() => {
+    const current = documentRef.current
+    if (!current) return
+    const summaries = toReviewSummaries(telemetryRef.current, current.frames.map((frame) => frame.id))
+    if (JSON.stringify(summaries) === JSON.stringify(current.reviewSummaries)) return
+    updateDocument((doc) => ({ ...doc, reviewSummaries: summaries }))
+  }, [updateDocument])
+
+  // The heartbeat: integrate dwell each second from the latest viewport sample,
+  // and flush every few seconds. One stable interval; document is read via ref.
+  useEffect(() => {
+    let sinceFlush = 0
+    const tick = () => {
+      const doc = documentRef.current
+      const sample = viewSampleRef.current
+      const ids = doc && sample ? visibleFrameIds(doc.frames, sample.view, sample.canvasSize) : []
+      telemetryRef.current = sampleVisibility(telemetryRef.current, {
+        nowMs: Date.now(),
+        visibleFrameIds: ids,
+        pageVisible: typeof globalThis.document !== 'undefined' ? !globalThis.document.hidden : true,
+      })
+      sinceFlush += 1
+      if (sinceFlush >= 5) { sinceFlush = 0; flushTelemetry() }
+    }
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [flushTelemetry])
+
+  // On page hide, close the current dwell span and flush immediately, so a tab
+  // switch or close does not lose the last few seconds of review.
+  useEffect(() => {
+    const onHide = () => {
+      telemetryRef.current = sampleVisibility(telemetryRef.current, { nowMs: Date.now(), visibleFrameIds: [], pageVisible: false })
+      flushTelemetry()
+    }
+    globalThis.document.addEventListener('visibilitychange', onHide)
+    return () => globalThis.document.removeEventListener('visibilitychange', onHide)
+  }, [flushTelemetry])
+
+  const recordViewportSample: NonNullable<CanvasEngineProps['onViewportSample']> = useCallback((view, canvasSize) => {
+    viewSampleRef.current = { view, canvasSize }
+  }, [])
 
   const {
     refreshError,
@@ -133,6 +292,17 @@ export default function App() {
   useEffect(() => {
     setPoolCopyState('idle')
     setCopiedAnnotationId(null)
+  }, [document])
+
+  // Drop play/review modes for frames that left the board, so the map never
+  // grows unbounded or points at gone frames.
+  useEffect(() => {
+    if (!document) return
+    const ids = new Set(document.frames.map((frame) => frame.id))
+    setPlayableFrameModes((current) => {
+      const kept = Object.entries(current).filter(([id]) => ids.has(id))
+      return kept.length === Object.keys(current).length ? current : Object.fromEntries(kept)
+    })
   }, [document])
 
   // The board saves itself; a save error pauses retries until it is dismissed or the board changes.
@@ -169,6 +339,13 @@ export default function App() {
     bindDocument(document)
   }, [bindDocument, document])
 
+  // THROWAWAY prototype: with no host to send a board, seed the lo-fi options once.
+  useEffect(() => {
+    if (!protoLofi || document) return
+    setDocument(protoLofi.document)
+    setBaseline(protoLofi.document)
+  }, [protoLofi, document, setDocument, setBaseline])
+
   // Local app mode: agents appear as collaborators. The host streams run and
   // capture events; a finished run refreshes captures and reloads the board
   // once local edits are safe.
@@ -192,8 +369,30 @@ export default function App() {
         setCaptureActive(false)
         setBoardUpdateWaiting(true)
       }
+      // Agent-authored records: merge by id into the live document without a
+      // full reload, including when the reviewer has unsaved local edits.
+      if (event.type === 'board-patched' && event.projectId === localHost.activeProjectId) {
+        const patch = {
+          documentRevision: event.documentRevision,
+          records: event.records,
+        }
+        setDocument((current) => (current ? mergeBoardPatch(current, patch) : current))
+        acknowledgeBoardPatch(event.documentRevision, (saved) => mergeBoardPatch(saved, patch))
+        // A teach answer to one of our asks: open it at its anchor so the
+        // reviewer sees the pinned note the moment it lands.
+        const answer = event.records.find((record) =>
+          record.annotation.role === 'teach'
+          && record.annotation.requestId !== undefined
+          && learnPendingRef.current.has(record.annotation.requestId))
+        if (answer) {
+          learnPendingRef.current.delete(answer.annotation.requestId!)
+          setLearnPendingCount(learnPendingRef.current.size)
+          setSelectedFrameId(answer.annotation.frameId)
+          setSelectedAnnotationId(answer.annotation.id)
+        }
+      }
     })
-  }, [localHost])
+  }, [localHost, acknowledgeBoardPatch])
 
   useEffect(() => {
     localHost?.setDispatchAgent(dispatchAgent)
@@ -213,7 +412,60 @@ export default function App() {
     setSelectedFrameId(frameId)
     setSelectedAnnotationId(null)
     setTool('select')
-    beginLiveSession(frameId)
+    // Only captured routes use the project-route live session. Playable options
+    // mount their own iframe through the board engine's play/review mode instead.
+    const frame = document?.frames.find((item) => item.id === frameId)
+    if (frame?.kind === 'captured-route') beginLiveSession(frameId)
+  }
+
+  // A confirmed stamp or strike. The verdict is applied to the whole document and
+  // saved immediately through compare-and-save, so a decision reaches the host as
+  // soon as it is made. The local row is kept even if the save fails (the save
+  // error banner surfaces the failure, including revision conflicts).
+  const confirmVerdict = (
+    frameId: string,
+    kind: 'promote' | 'kill',
+    summary: string,
+    referenceFrameIds: string[] = [],
+    placement?: { x: number; y: number },
+  ) => {
+    const frame = document?.frames.find((item) => item.id === frameId)
+    if (!frame?.unitId) return
+    const result = applyUnitVerdict(document!, {
+      unitId: frame.unitId,
+      frameId,
+      kind,
+      summary,
+      referenceFrameIds,
+      placement,
+    })
+    if (!result.ok) {
+      setVerdictError(verdictErrorMessage(result.reason))
+      return
+    }
+    setVerdictError(null)
+    setPendingKillDrag(null)
+    updateDocument(result.document)
+    void saveImmediately(result.document)
+  }
+
+  // Send a learn/ask to the current agent about a screen. The answer is pinned
+  // back as a teach note by request id; the SSE handler above opens it on arrival.
+  // Anchored at the frame center: the ask is about the screen, not a picked point.
+  const askLearn = (frameId: string, question: string) => {
+    if (!localHost || learnAsking) return
+    const requestId = crypto.randomUUID()
+    setLearnAsking(true)
+    setLearnError(null)
+    localHost.requestLearnAnswer({ frameId, anchor: [0.5, 0.5], question, requestId })
+      .then(() => {
+        learnPendingRef.current.add(requestId)
+        setLearnPendingCount(learnPendingRef.current.size)
+      })
+      .catch((error: unknown) => {
+        setLearnError(error instanceof Error ? error.message : 'The question could not be sent.')
+      })
+      .finally(() => setLearnAsking(false))
   }
 
   const exitFocus = () => {
@@ -226,27 +478,31 @@ export default function App() {
 
   const applyHostBoard = useCallback((board: BoardDocument) => {
     cancelPendingRefresh()
-    resetLoadedBoard(board)
+    // Legacy boards may predate per-unit zones; backfill so drag targets exist.
+    resetLoadedBoard(ensureZonesForAllUnits(board))
     setSelectedFrameId(null)
     setSelectedAnnotationId(null)
     clearLiveSession()
     resetExportState()
     setExportEmptyNotice(false)
     setTool('select')
+    setPlayableFrameModes({})
   }, [cancelPendingRefresh, clearLiveSession, resetLoadedBoard, resetExportState])
 
   const handleReset = () => {
     if (!hostBoard || !document) return
     const outcome = requestReset(document, hostBoard)
     if (!outcome?.immediate) return
-    const result = applyImmediateReset(hostBoard)
-    if (result.ok) applyHostBoard(result.hostBoard)
+    void applyImmediateReset(hostBoard).then((result) => {
+      if (result.ok) applyHostBoard(result.hostBoard)
+    })
   }
 
   const handleConfirmReset = () => {
     if (!hostBoard) return
-    const result = confirmReset(hostBoard)
-    if (result.ok) applyHostBoard(result.hostBoard)
+    void confirmReset(hostBoard).then((result) => {
+      if (result.ok) applyHostBoard(result.hostBoard)
+    })
   }
 
   const handleExport = () => {
@@ -310,7 +566,7 @@ export default function App() {
     }
     try {
       const images = await Promise.all(importable.map(readImageFile))
-      const frames = buildUploadFrames(document, images)
+      const frames = buildUploadFrames(document, images, { unitId: selectedUnitId ?? undefined })
       updateDocument((current) => ({ ...current, frames: [...current.frames, ...frames] }))
       setImportError(null)
       const first = frames[0]
@@ -321,7 +577,7 @@ export default function App() {
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'The dropped images could not be imported.')
     }
-  }, [document, updateDocument])
+  }, [document, selectedUnitId, updateDocument])
 
   const setSelectedAnnotationIntent = useCallback((intent: AnnotationIntent | undefined) => {
     if (!selectedAnnotationId) return
@@ -389,6 +645,13 @@ export default function App() {
       }
     : null
   const focusedFrameId = session?.frameId ?? pendingFrameId
+  const selectedFrame = selectedFrameId ? document.frames.find((frame) => frame.id === selectedFrameId) ?? null : null
+  const kitFrame = engine === 'reactflow'
+    && selectedFrame?.kind === 'playable-option'
+    && selectedFrame.kit
+    && (selectedFrame.lifeState === 'active' || selectedFrame.lifeState === 'locked')
+    ? selectedFrame
+    : null
 
   const canvasProps: CanvasEngineProps = {
     document,
@@ -397,14 +660,31 @@ export default function App() {
     liveFrameConfig,
     selectedFrameId,
     selectedAnnotationId,
+    editorFocusId,
+    playableFrameModes,
     onDocumentChange: updateDocument,
     onFocusFrame: focusFrame,
     onSelectFrame: setSelectedFrameId,
     onSelectAnnotation: handleSelectAnnotation,
     onAnnotationCreated: handleAnnotationCreated,
+    onSaveAnnotationDraft: saveInstructionDraft,
+    onSetAnnotationIntent: setSelectedAnnotationIntent,
+    onDeleteAnnotation: deleteSelectedAnnotation,
+    onRequestKillConfirm: setPendingKillDrag,
+    onViewportSample: recordViewportSample,
     onReady: handleCanvasReady,
   }
   const Canvas = engine === 'reactflow' ? ReactFlowReviewBoard : ExcalidrawReviewBoard
+  const pendingKillFrame = pendingKillDrag
+    ? document.frames.find((frame) => frame.id === pendingKillDrag.frameId) ?? null
+    : null
+  // The references a verdict on a unit's option can link, all pre-selected in the
+  // confirm bloom. A frame with no unit has none.
+  const referencesForUnit = (unitId: string | undefined) => (unitId
+    ? document.frames
+      .filter((frame) => frame.kind === 'reference-image' && frame.unitId === unitId)
+      .map((frame) => ({ id: frame.id, label: frame.label }))
+    : [])
 
   return (
     <div className="app-shell">
@@ -412,7 +692,7 @@ export default function App() {
         engine={engine}
         tool={tool}
         focused={focusedFrameId !== null}
-        canFocus={selectedFrameId !== null}
+        canFocus={selectedFrame?.kind === 'captured-route'}
         onTool={setTool}
         onReset={handleReset}
         onFocusSelected={() => selectedFrameId && focusFrame(selectedFrameId)}
@@ -422,6 +702,7 @@ export default function App() {
         <aside className="engine-switcher" aria-label="Canvas engine">
           <a href="?engine=reactflow" aria-current={engine === 'reactflow' ? 'page' : undefined}>React Flow</a>
           <a href="?engine=excalidraw" aria-current={engine === 'excalidraw' ? 'page' : undefined}>Excalidraw</a>
+          <a href="?proto=lofi" aria-current={protoLofi ? 'page' : undefined} data-testid="proto-lofi-link">Lo-fi proto</a>
         </aside>
         {localHost ? <a className="projects-link" href="/" data-testid="back-to-projects">Projects</a> : null}
       </ReviewToolbar>
@@ -440,7 +721,70 @@ export default function App() {
         <Suspense fallback={<main className="canvas-loading">Loading {engine}…</main>}>
           <Canvas {...canvasProps} />
         </Suspense>
-        {localHost ? <AgentActivityRail runs={agentRuns} capturing={captureActive} /> : null}
+        {localHost ? (
+          <UnitQueueIsland
+            document={document}
+            client={localHost}
+            selectedUnitId={selectedUnitId}
+            onSelectUnit={setSelectedUnitId}
+            onDocumentChange={(next) => updateDocument(next)}
+            onSaveImmediately={saveImmediately}
+          />
+        ) : null}
+        {localHost ? <RunsIsland runs={agentRuns} capturing={captureActive} /> : null}
+        {localHost && selectedFrame ? (
+          <LearnAskIsland
+            frameLabel={selectedFrame.label}
+            asking={learnAsking}
+            pending={learnPendingCount}
+            error={learnError}
+            onAsk={(question) => askLearn(selectedFrame.id, question)}
+            onDismissError={() => setLearnError(null)}
+          />
+        ) : null}
+        {kitFrame ? (
+          <FrameKitIsland
+            frame={kitFrame}
+            mode={playableFrameModes[kitFrame.id] ?? 'review'}
+            canVerdict={kitFrame.lifeState === 'active'
+              && document.units.find((unit) => unit.id === kitFrame.unitId)?.state === 'open'}
+            references={referencesForUnit(kitFrame.unitId)}
+            reviewSummary={document.reviewSummaries.find((summary) => summary.frameId === kitFrame.id)}
+            promoteWarning={kitFrame.unitId
+              ? verdictReviewWarning(document.frames, document.reviewSummaries, kitFrame.unitId, kitFrame.id)
+              : null}
+            onModeChange={(mode) => setPlayableFrameMode(kitFrame.id, mode)}
+            onKitControlChange={(controlId, value) => setKitControlValue(kitFrame.id, controlId, value)}
+            onVerdict={(kind, summary, referenceFrameIds) => confirmVerdict(kitFrame.id, kind, summary, referenceFrameIds)}
+          />
+        ) : null}
+        {pendingKillFrame && pendingKillDrag ? (
+          <div className="drag-kill-bloom" data-testid="drag-kill-bloom">
+            <VerdictConfirmBloom
+              kind="kill"
+              frameLabel={pendingKillFrame.label}
+              references={referencesForUnit(pendingKillFrame.unitId)}
+              onConfirm={(summary, referenceFrameIds) => confirmVerdict(
+                pendingKillDrag.frameId,
+                'kill',
+                summary,
+                referenceFrameIds,
+                pendingKillDrag.dropPosition,
+              )}
+              onCancel={() => setPendingKillDrag(null)}
+            />
+          </div>
+        ) : null}
+        {document.verdicts.length > 0 ? <DecisionLedgerIsland document={document} /> : null}
+        {protoLofi ? (
+          <ProtoLofiPanel
+            document={document}
+            optionHtml={protoLofi.optionHtml}
+            preferredFrameId={preferredOptionId}
+            onPrefer={setPreferredOptionId}
+            onSelectFrame={setSelectedFrameId}
+          />
+        ) : null}
         <ReviewCommentsPanel
           document={document}
           selectedAnnotationId={selectedAnnotationId}
@@ -493,6 +837,12 @@ export default function App() {
           <p className="image-import-error" role="alert" data-testid="image-import-error">
             {importError}
             <button type="button" className="banner-dismiss" onClick={() => setImportError(null)} aria-label="Dismiss import error">×</button>
+          </p>
+        ) : null}
+        {verdictError ? (
+          <p className="verdict-error" role="alert" data-testid="verdict-error">
+            {verdictError}
+            <button type="button" className="banner-dismiss" onClick={() => setVerdictError(null)} aria-label="Dismiss verdict error">×</button>
           </p>
         ) : null}
         {sessionError ? (

@@ -3,6 +3,7 @@ import { NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import type { LiveReviewFrameConfig } from '@/features/live-review/LiveReviewFrame'
 import { LiveFrameHostConnecting } from '@/features/live-review/LiveFrameHostConnecting'
 import { LiveReviewFrame } from '@/features/live-review/LiveReviewFrame'
+import { PlayableOptionFrame, type PlayableInteractionMode } from '@/features/playable-option/PlayableOptionFrame'
 import type {
   FrameElement,
   NormalizedPoint,
@@ -13,7 +14,9 @@ import type {
 import { normalizeLocalPoint, simplifyNormalizedPath } from '../../model/board-geometry'
 import { pickAnnotationAtClientPoint } from '../../model/pick-annotation-at-point'
 import { isAnnotationStale } from '../../model/is-annotation-stale'
+import { AgentQuestionBloom } from '../../AgentQuestionBloom'
 import '../../FrameAnnotationMarks.css'
+import '../../AgentQuestionBloom.css'
 import './ScreenFrameSurface.css'
 
 export interface ScreenFrameNodeData extends Record<string, unknown> {
@@ -22,6 +25,10 @@ export interface ScreenFrameNodeData extends Record<string, unknown> {
   tool: ToolMode
   focused: boolean
   liveFrameConfig: LiveReviewFrameConfig | null
+  // Playable-option live mount: whether this frame is in the capped active set,
+  // and its in-memory play/review mode.
+  isPlayableLiveEligible: boolean
+  playableMode: PlayableInteractionMode
   selectedAnnotationId: string | null
   onCircle: (frameId: string, start: NormalizedPoint, end: NormalizedPoint) => void
   onPath: (frameId: string, points: NormalizedPoint[]) => void
@@ -29,7 +36,9 @@ export interface ScreenFrameNodeData extends Record<string, unknown> {
   onElementPick: (frameId: string, element: FrameElement) => void
   onFocus: (frameId: string) => void
   onResize: (frameId: string, width: number) => void
-  onSelectAnnotation: (annotationId: string) => void
+  onSelectAnnotation: (annotationId: string | null) => void
+  isNominee: boolean
+  onToggleNominee: (frameId: string) => void
 }
 
 function annotationAriaLabel(
@@ -40,11 +49,21 @@ function annotationAriaLabel(
 ): string {
   const ordinal = annotations.indexOf(annotation) + 1
   const subject = annotation.mark?.kind === 'element' ? ` on ${annotation.mark.label}` : ''
-  return `Review note ${ordinal} of ${annotations.length}${subject} on ${frame.label}${stale ? ', stale capture' : ''}`
+  const kind = annotation.role === 'agent-question'
+    ? 'Agent question'
+    : annotation.role === 'teach'
+      ? 'Teach note'
+      : 'Review note'
+  return `${kind} ${ordinal} of ${annotations.length}${subject} on ${frame.label}${stale ? ', stale capture' : ''}`
 }
 
-function markClassName(selected: boolean, stale: boolean): string {
-  return ['annotation-mark', selected ? 'selected' : '', stale ? 'stale' : ''].filter(Boolean).join(' ')
+function markClassName(selected: boolean, stale: boolean, role: ReviewAnnotation['role']): string {
+  return [
+    'annotation-mark',
+    selected ? 'selected' : '',
+    stale ? 'stale' : '',
+    role !== 'review' ? `role-${role}` : '',
+  ].filter(Boolean).join(' ')
 }
 
 function polylinePoints(points: readonly NormalizedPoint[]): string {
@@ -87,10 +106,11 @@ function FrameMarksSvg({
     return 0
   })
   const markProps = (annotation: ReviewAnnotation, selected: boolean, stale: boolean, shapeClass = '') => ({
-    className: `${shapeClass} ${markClassName(selected, stale)}`.trim(),
+    className: `${shapeClass} ${markClassName(selected, stale, annotation.role)}`.trim(),
     'data-testid': `mark-${annotation.id}`,
     'data-annotation-id': annotation.id,
     'data-stale': String(stale),
+    'data-role': annotation.role,
     vectorEffect: 'non-scaling-stroke' as const,
     pathLength: 100,
     tabIndex: 0,
@@ -185,11 +205,12 @@ function CommentPins({
           <button
             key={annotation.id}
             type="button"
-            className={`comment-pin ${markClassName(selected, stale)}`}
+            className={`comment-pin ${markClassName(selected, stale, annotation.role)}`}
             style={{ left: `${annotation.anchor[0] * 100}%`, top: `${annotation.anchor[1] * 100}%` }}
             data-testid={`mark-${annotation.id}`}
             data-annotation-id={annotation.id}
             data-stale={String(stale)}
+            data-role={annotation.role}
             aria-pressed={selected}
             aria-label={annotationAriaLabel(annotation, annotations, frame, stale)}
             onPointerDown={(event) => event.stopPropagation()}
@@ -223,6 +244,18 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
   const frame = node.frame
 
+  const isPlayable = frame.kind === 'playable-option'
+  // A live iframe is mounted for this frame (in the capped active set and it has
+  // a source). Element bounds describe the still screenshot, so picking/hovering
+  // elements is skipped over a mounted playable.
+  const playableLive = isPlayable && node.isPlayableLiveEligible && frame.liveSource !== undefined
+  const playMode = node.playableMode === 'play'
+  const capturedLive = node.focused && node.liveFrameConfig !== null
+  // In these modes the live layer owns pointer input; the mark overlay is kept
+  // mounted and visible but inert. This is also the fix for the old branch that
+  // dropped marks under a focused live frame.
+  const liveInteractive = capturedLive || (playableLive && playMode)
+
   const surfacePoint = (event: React.PointerEvent<HTMLDivElement>): NormalizedPoint => {
     const rect = event.currentTarget.getBoundingClientRect()
     return normalizeLocalPoint([event.clientX - rect.left, event.clientY - rect.top], rect.width, rect.height)
@@ -251,6 +284,7 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
         node.onSelectAnnotation(picked)
         return
       }
+      if (playableLive) return
       const element = elementAtNormalizedPoint(frame.elements, surfacePoint(event))
       if (element) {
         event.preventDefault()
@@ -268,6 +302,7 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (node.tool === 'select' && !node.focused) {
+      if (playableLive) return
       const element = elementAtNormalizedPoint(frame.elements, surfacePoint(event))
       setHoveredElementId((current) => (current === (element?.id ?? null) ? current : element?.id ?? null))
       return
@@ -308,70 +343,132 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
     ? frame.elements.find((element) => element.id === hoveredElementId) ?? null
     : null
 
+  const isOption = frame.kind === 'option-snapshot' || frame.kind === 'playable-option'
+  const isZoned = frame.lifeState === 'archived' || frame.lifeState === 'killed'
+
+  // One media stack for every frame: the screenshot shell, an optional live layer
+  // (captured-route session or playable-option iframe) over it, and the mark and
+  // pin overlay always mounted above. In a live-interactive mode the overlay is
+  // present but inert so the live layer takes pointer input.
   return (
     <div
-      className="screen-node"
+      className={`screen-node ${isOption ? 'lofi-option' : ''} ${node.isNominee ? 'is-preferred' : ''} ${isZoned ? 'is-zoned' : ''}`.trim()}
       style={{ width: frame.width, height: frame.height }}
       data-testid={`frame-${frame.id}`}
       data-frame-id={frame.id}
+      data-draggable={node.tool === 'select' && !node.focused && !isPlayable}
     >
       <NodeResizer
         isVisible={selected && node.tool === 'select' && !node.focused}
         keepAspectRatio
         minWidth={120}
+        handleClassName="frame-resize-handle"
+        lineClassName="frame-resize-line"
         onResizeEnd={(_, parameters) => node.onResize(frame.id, parameters.width)}
       />
-      {node.focused && node.liveFrameConfig ? (
-        <LiveReviewFrame config={node.liveFrameConfig} />
-      ) : node.focused ? (
-        <LiveFrameHostConnecting frameId={frame.id} />
-      ) : (
-        <div
-          className={`screen-content ${node.tool !== 'select' ? 'draw-active nodrag nopan' : ''}`}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={cancelDrawing}
-          onPointerLeave={() => setHoveredElementId(null)}
-          onClick={handleClick}
-          onDoubleClick={() => node.tool === 'select' && node.onFocus(frame.id)}
-          data-testid={`surface-${frame.id}`}
-        >
-          <img
-            src={frame.revision > 1 ? frame.refreshedScreenshotDataUrl : frame.screenshotDataUrl}
-            alt={frame.label}
-            draggable={false}
+      {isPlayable ? (
+        // A playable option only drags by this handle, so its live iframe body
+        // never fights canvas pan or the reviewer's input.
+        <div className="frame-drag-handle" data-testid={`drag-handle-${frame.id}`} title="Drag to move" />
+      ) : null}
+      <div
+        className={`screen-content ${node.tool !== 'select' && !liveInteractive ? 'draw-active nodrag nopan' : ''} ${liveInteractive ? 'live-interactive' : ''}`.trim()}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={cancelDrawing}
+        onPointerLeave={() => setHoveredElementId(null)}
+        onClick={handleClick}
+        onDoubleClick={() => node.tool === 'select' && frame.kind === 'captured-route' && node.onFocus(frame.id)}
+        data-testid={`surface-${frame.id}`}
+      >
+        <img
+          src={frame.revision > 1 ? frame.refreshedScreenshotDataUrl : frame.screenshotDataUrl}
+          alt={frame.label}
+          draggable={false}
+        />
+        {capturedLive && node.liveFrameConfig ? (
+          <LiveReviewFrame config={node.liveFrameConfig} />
+        ) : node.focused ? (
+          <LiveFrameHostConnecting frameId={frame.id} />
+        ) : null}
+        {playableLive && frame.liveSource ? (
+          <PlayableOptionFrame
+            frameId={frame.id}
+            sourcePath={frame.liveSource.path}
+            interactionMode={playMode ? 'play' : 'review'}
           />
-          <FrameMarksSvg
-            annotations={node.annotations}
-            frame={frame}
-            selectable={node.tool === 'select'}
-            selectedAnnotationId={node.selectedAnnotationId}
-            preview={inkPreview}
-            onSelectAnnotation={node.onSelectAnnotation}
-          />
-          {hoveredElement ? (
-            <div
-              className="element-hover"
-              data-testid={`element-hover-${hoveredElement.id}`}
-              style={{
-                left: `${hoveredElement.bounds[0][0] * 100}%`,
-                top: `${hoveredElement.bounds[0][1] * 100}%`,
-                width: `${(hoveredElement.bounds[1][0] - hoveredElement.bounds[0][0]) * 100}%`,
-                height: `${(hoveredElement.bounds[1][1] - hoveredElement.bounds[0][1]) * 100}%`,
+        ) : null}
+        {isOption ? (
+          <div className="lofi-option-chip">
+            <span className="lofi-option-badge">Option</span>
+            <button
+              type="button"
+              className="lofi-prefer-toggle"
+              aria-pressed={node.isNominee}
+              data-testid={`prefer-${frame.id}`}
+              title={node.isNominee ? 'Nominee' : 'Mark as nominee'}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                node.onToggleNominee(frame.id)
               }}
             >
-              <span className="element-hover-label">{hoveredElement.label}</span>
-            </div>
-          ) : null}
-          <CommentPins
-            annotations={node.annotations}
-            frame={frame}
-            selectedAnnotationId={node.selectedAnnotationId}
-            onSelectAnnotation={node.onSelectAnnotation}
-          />
-        </div>
-      )}
+              {node.isNominee ? '★ Nominee' : '☆ Nominate'}
+            </button>
+          </div>
+        ) : null}
+        <FrameMarksSvg
+          annotations={node.annotations}
+          frame={frame}
+          selectable={node.tool === 'select' && !liveInteractive}
+          selectedAnnotationId={node.selectedAnnotationId}
+          preview={inkPreview}
+          onSelectAnnotation={node.onSelectAnnotation}
+        />
+        {hoveredElement && !playableLive ? (
+          <div
+            className="element-hover"
+            data-testid={`element-hover-${hoveredElement.id}`}
+            style={{
+              left: `${hoveredElement.bounds[0][0] * 100}%`,
+              top: `${hoveredElement.bounds[0][1] * 100}%`,
+              width: `${(hoveredElement.bounds[1][0] - hoveredElement.bounds[0][0]) * 100}%`,
+              height: `${(hoveredElement.bounds[1][1] - hoveredElement.bounds[0][1]) * 100}%`,
+            }}
+          >
+            <span className="element-hover-label">{hoveredElement.label}</span>
+          </div>
+        ) : null}
+        <CommentPins
+          annotations={node.annotations}
+          frame={frame}
+          selectedAnnotationId={node.selectedAnnotationId}
+          onSelectAnnotation={node.onSelectAnnotation}
+        />
+      </div>
+      {/* Agent questions bloom at their mark anchors. Review editors are hosted
+          outside React Flow (App) so keyboard focus is not eaten by the canvas. */}
+      {(() => {
+        const selected = node.annotations.find((item) => item.id === node.selectedAnnotationId)
+        if (!selected) return null
+        if (selected.role !== 'agent-question' && selected.role !== 'teach') return null
+        return (
+          <div
+            className="annotation-bloom-anchor nodrag nopan nowheel at-anchor"
+            style={{ left: `${selected.anchor[0] * 100}%`, top: `${selected.anchor[1] * 100}%` }}
+            onPointerDown={(event) => event.stopPropagation()}
+            data-testid={`annotation-bloom-${selected.id}`}
+          >
+            <AgentQuestionBloom
+              kind={selected.role === 'teach' ? 'teach' : 'agent-question'}
+              instruction={selected.instruction}
+              runId={selected.runId}
+              onClose={() => node.onSelectAnnotation(null)}
+            />
+          </div>
+        )
+      })()}
       {/* Outside .screen-content so the label can sit above the clipped surface. */}
       <span className="screen-label">{frame.label}</span>
     </div>

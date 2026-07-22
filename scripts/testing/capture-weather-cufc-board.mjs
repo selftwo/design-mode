@@ -112,6 +112,8 @@ async function captureScreen(page, { id, label, route, navLabel }) {
     captureHash: `${id}-revision-1`,
     revision: 1,
     elements,
+    kind: 'captured-route',
+    lifeState: 'active',
   }
 }
 
@@ -164,11 +166,15 @@ async function main() {
     }
 
     const board = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       boardId: 'weather-cufc-manual-test',
+      documentRevision: 1,
       camera: { worldX: 0, worldY: -80, zoom: 0.8 },
       frames,
       annotations: [],
+      units: [],
+      zones: [],
+      verdicts: [],
     }
 
     await writeFile(outFile, JSON.stringify(board, null, 2))

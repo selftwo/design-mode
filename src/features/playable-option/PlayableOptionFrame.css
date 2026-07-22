@@ -1,0 +1,54 @@
+/* The live playable layer sits over the screenshot shell inside .screen-content.
+   It only reveals once the frame answers the handshake, so connecting and
+   unavailable states fall back to the screenshot beneath it. */
+.playable-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.playable-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.playable-frame[data-connection-state='ready'] iframe {
+  opacity: 1;
+}
+
+/* Pointer ownership: in play mode the iframe takes input; in review mode it is
+   inert so the mark overlay above it can draw and pick. The iframe stays mounted
+   in both modes. */
+.playable-frame.play iframe {
+  pointer-events: auto;
+}
+
+.playable-frame.review iframe {
+  pointer-events: none;
+}
+
+.playable-state {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.playable-frame[data-connection-state='ready'] .playable-state {
+  color: var(--ok, #1a7f37);
+}
+
+.playable-frame[data-connection-state='unavailable'] .playable-state {
+  color: var(--danger);
+}

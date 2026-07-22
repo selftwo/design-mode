@@ -8,9 +8,14 @@ function boardWith(frames: BoardDocument['frames']): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'upload-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: 0, zoom: 1 },
     frames,
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 
@@ -31,6 +36,8 @@ function frameAt(x: number, width: number): BoardDocument['frames'][number] {
     captureHash: 'hash',
     revision: 1,
     elements: [],
+    kind: 'captured-route',
+    lifeState: 'active',
   }
 }
 
@@ -51,13 +58,29 @@ describe('buildUploadFrames', () => {
     const board = boardWith([])
     const frames = buildUploadFrames(board, [
       { name: 'hero-mock.png', dataUrl, width: 1200, height: 800 },
-    ], 1700000000000)
+    ], { now: 1700000000000 })
     expect(frames).toHaveLength(1)
     const frame = frames[0]!
     expect(frame.label).toBe('hero-mock')
     expect(frame.route).toBe('uploaded:hero-mock.png')
     expect(frame.aspectRatio).toBeCloseTo(1.5)
     expect(frame.height).toBeCloseTo(frame.width / 1.5)
+    expect(frame.kind).toBe('imported-image')
+    expect(frame.unitId).toBeUndefined()
+    expect(() => BoardDocumentSchema.parse({ ...board, frames })).not.toThrow()
+  })
+
+  it('links a drop to the active unit as a reference image', () => {
+    const board: BoardDocument = {
+      ...boardWith([]),
+      units: [{ id: 'unit-1', label: 'Nav', brief: 'Pick a nav', rules: [], dependsOnUnitIds: [], state: 'open' }],
+    }
+    const frames = buildUploadFrames(board, [
+      { name: 'inspo.png', dataUrl, width: 800, height: 600 },
+    ], { unitId: 'unit-1', now: 1700000000000 })
+    const frame = frames[0]!
+    expect(frame.kind).toBe('reference-image')
+    expect(frame.unitId).toBe('unit-1')
     expect(() => BoardDocumentSchema.parse({ ...board, frames })).not.toThrow()
   })
 

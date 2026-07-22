@@ -2,6 +2,7 @@ import type { BoardDocument } from './model/board-document.schema'
 
 export function serializeBoardDiagnostics(document: BoardDocument): string {
   return JSON.stringify({
+    documentRevision: document.documentRevision,
     camera: document.camera,
     frames: document.frames.map(({
       id,
@@ -13,6 +14,12 @@ export function serializeBoardDiagnostics(document: BoardDocument): string {
       revision,
       captureHash,
       screenshotPath,
+      kind,
+      lifeState,
+      unitId,
+      zoneId,
+      liveSource,
+      kit,
     }) => ({
       id,
       x,
@@ -23,6 +30,12 @@ export function serializeBoardDiagnostics(document: BoardDocument): string {
       revision,
       captureHash,
       screenshotPath,
+      kind,
+      lifeState,
+      unitId,
+      zoneId: zoneId ?? null,
+      artifactHash: liveSource?.artifactHash ?? null,
+      kitState: kit?.state ?? null,
     })),
     annotations: document.annotations.map(({
       id,
@@ -40,6 +53,22 @@ export function serializeBoardDiagnostics(document: BoardDocument): string {
       mark,
       madeAgainstCaptureHash,
       madeAgainstRevision,
+    })),
+    units: document.units.map(({ id, state, nomineeFrameId, lockedFrameId, dependsOnUnitIds }) => ({
+      id,
+      state,
+      nomineeFrameId: nomineeFrameId ?? null,
+      lockedFrameId: lockedFrameId ?? null,
+      dependsOnUnitIds,
+    })),
+    zones: document.zones.map(({ id, unitId, kind, collapsed }) => ({ id, unitId, kind, collapsed })),
+    verdicts: document.verdicts.map(({ id, unitId, frameId, kind, summary, kitSnapshot }) => ({
+      id,
+      unitId,
+      frameId,
+      kind,
+      summary,
+      kitSnapshot: kitSnapshot ?? null,
     })),
   })
 }

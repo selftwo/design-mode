@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { BoardDocument } from './board-document.schema'
 // Explicit .ts extensions keep this module graph loadable by the Node host
 // process, which runs TypeScript through native type stripping.
+import { isDispatchableAnnotation } from './apply-canvas-event.ts'
 import { isInstructionIncomplete } from './annotation-instruction.ts'
 import { AgentAnnotationSchema, exportAgentAnnotation, isAbsoluteScreenshotPath } from './export-agent-annotation.ts'
 
@@ -27,9 +28,15 @@ export type ReviewBatchBuildResult =
   | { ok: true; batch: ReviewBatch }
   | { ok: false; blocks: ReviewBatchBlock[] }
 
+function dispatchableAnnotations(document: BoardDocument) {
+  // Teach notes and agent questions are inbound from the agent; they never
+  // leave as a code-change dispatch batch.
+  return document.annotations.filter(isDispatchableAnnotation)
+}
+
 export function collectReviewBatchBlocks(document: BoardDocument): ReviewBatchBlock[] {
   const blocks: ReviewBatchBlock[] = []
-  for (const annotation of document.annotations) {
+  for (const annotation of dispatchableAnnotations(document)) {
     if (isInstructionIncomplete(annotation.instruction)) {
       blocks.push({ annotationId: annotation.id, reason: 'incomplete-instruction' })
       continue
@@ -50,7 +57,7 @@ export function buildReviewBatch(document: BoardDocument, exportedAt: string = n
     schemaVersion: REVIEW_BATCH_SCHEMA_VERSION,
     boardId: document.boardId,
     exportedAt,
-    annotations: document.annotations.map((annotation) => exportAgentAnnotation(document, annotation.id)),
+    annotations: dispatchableAnnotations(document).map((annotation) => exportAgentAnnotation(document, annotation.id)),
   })
   return { ok: true, batch }
 }

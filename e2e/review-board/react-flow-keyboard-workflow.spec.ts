@@ -13,6 +13,7 @@ function keyboardWorkflowBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'keyboard-workflow-board',
+    documentRevision: 1,
     camera: { worldX: 99, worldY: -44, zoom: 0.55 },
     frames: [
       {
@@ -31,6 +32,8 @@ function keyboardWorkflowBoard(): BoardDocument {
         captureHash: 'kb-capture-a',
         revision: 1,
         elements: [],
+        kind: 'captured-route',
+        lifeState: 'active',
       },
       {
         id: 'kb-frame-b',
@@ -48,9 +51,15 @@ function keyboardWorkflowBoard(): BoardDocument {
         captureHash: 'kb-capture-b',
         revision: 1,
         elements: [],
+        kind: 'captured-route',
+        lifeState: 'active',
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 

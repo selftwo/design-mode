@@ -5,6 +5,10 @@ const FRAME_GAP = 80
 // A fresh capture must never destroy review work. Existing frames keep their
 // canvas position, size, and label; only capture identity moves forward, and
 // only when the pixels actually changed, so stale marking stays truthful.
+//
+// Units are never created here. Option frames belong to a unit the reviewer
+// already made on the board; capture merges frames into that existing board,
+// and board validation rejects a frame whose unit is missing.
 export function mergeCapturedFrames(
   existing: BoardDocument | null,
   captured: ScreenFrame[],
@@ -20,9 +24,14 @@ export function mergeCapturedFrames(
     return {
       schemaVersion: BOARD_SCHEMA_VERSION,
       boardId,
+      documentRevision: 1,
       camera: { worldX: 0, worldY: -80, zoom: 0.8 },
       frames,
       annotations: [],
+      units: [],
+      zones: [],
+      verdicts: [],
+      reviewSummaries: [],
     }
   }
 

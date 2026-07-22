@@ -44,11 +44,16 @@ export default function ExcalidrawReviewBoard({
   liveFrameConfig,
   selectedFrameId: _selectedFrameId,
   selectedAnnotationId: _selectedAnnotationId,
+  editorFocusId: _editorFocusId,
+  playableFrameModes: _playableFrameModes,
   onDocumentChange,
   onFocusFrame: _onFocusFrame,
   onSelectFrame,
   onSelectAnnotation: _onSelectAnnotation,
   onAnnotationCreated: _onAnnotationCreated,
+  onSaveAnnotationDraft: _onSaveAnnotationDraft,
+  onSetAnnotationIntent: _onSetAnnotationIntent,
+  onDeleteAnnotation: _onDeleteAnnotation,
   onReady,
 }: CanvasEngineProps) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
@@ -155,6 +160,7 @@ export default function ExcalidrawReviewBoard({
       const annotation: ReviewAnnotation = {
         id: crypto.randomUUID(),
         frameId: frame.id,
+        role: 'review',
         status: 'draft',
         instruction: tool === 'circle' ? 'Review the circled area.' : 'Review this point.',
         anchor: tool === 'circle'

@@ -8,6 +8,11 @@ describe('boardsSemanticallyEqual', () => {
     expect(boardsSemanticallyEqual(board, { ...board })).toBe(true)
   })
 
+  it('ignores documentRevision differences', () => {
+    const board = createPressureTestBoard()
+    expect(boardsSemanticallyEqual(board, { ...board, documentRevision: board.documentRevision + 1 })).toBe(true)
+  })
+
   it('detects semantic camera changes', () => {
     const board = createPressureTestBoard()
     const changed = { ...board, camera: { ...board.camera, zoom: board.camera.zoom + 0.1 } }

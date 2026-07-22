@@ -21,20 +21,24 @@ function capturedFrame(id: string, captureHash: string): ScreenFrame {
     captureHash,
     revision: 1,
     elements: [],
+    kind: 'captured-route',
+    lifeState: 'active',
   }
 }
 
 function existingBoard(): BoardDocument {
   const frame = { ...capturedFrame('home', 'hash-v1'), x: 300, y: 120, width: 600, height: 375, label: 'Home, arranged' }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     boardId: 'existing-board',
+    documentRevision: 1,
     camera: { worldX: 10, worldY: 20, zoom: 1.4 },
     frames: [frame],
     annotations: [
       {
         id: 'note-1',
         frameId: 'home',
+        role: 'review',
         status: 'draft',
         instruction: 'Tighten the hero spacing',
         anchor: [0.4, 0.3],
@@ -44,6 +48,10 @@ function existingBoard(): BoardDocument {
         madeAgainstRevision: 1,
       },
     ],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 
@@ -77,5 +85,14 @@ describe('mergeCapturedFrames', () => {
     const board = mergeCapturedFrames(existingBoard(), [capturedFrame('pricing', 'h3')], 'ignored')
     expect(board.frames).toHaveLength(2)
     expect(board.frames[1]!.x).toBeGreaterThanOrEqual(900)
+  })
+
+  it('never creates a unit from a captured frame; the board owns units', () => {
+    const fresh = mergeCapturedFrames(null, [capturedFrame('a', 'h1')], 'fresh-board')
+    expect(fresh.units).toEqual([])
+
+    const existing = existingBoard()
+    const merged = mergeCapturedFrames(existing, [capturedFrame('a', 'h1')], 'ignored')
+    expect(merged.units).toBe(existing.units)
   })
 })

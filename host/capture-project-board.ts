@@ -103,6 +103,8 @@ async function captureRoute(
     captureHash: createHash('sha1').update(screenshot).digest('hex'),
     revision: 1,
     elements,
+    kind: 'captured-route',
+    lifeState: 'active',
   })
 }
 

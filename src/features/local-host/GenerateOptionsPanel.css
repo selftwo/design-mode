@@ -1,0 +1,84 @@
+/* The selected-unit generation form. Placement and island chrome belong to
+   UnitQueueIsland; this styles only the form body inside it. */
+.generate-options-form {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.generate-options-empty {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.generate-options-unit-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.generate-options-brief {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.generate-options-rules {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.generate-options-reason {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.generate-options-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.generate-options-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-secondary);
+  font-size: 12px;
+}
+
+.generate-options-submit {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--accent-ring, #4c6fff);
+  border-radius: 6px;
+  background: var(--accent-ring, #4c6fff);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.generate-options-submit:disabled {
+  opacity: 0.5;
+}
+
+.generate-options-notice {
+  margin: 0;
+  color: var(--ok, #1a7f37);
+  font-size: 12px;
+}
+
+.generate-options-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+}

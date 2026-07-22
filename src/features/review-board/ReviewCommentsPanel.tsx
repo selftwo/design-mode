@@ -21,6 +21,15 @@ const DISPATCH_AGENT_LABELS: Record<DispatchAgentOption['id'], string> = {
   cursor: 'Cursor',
 }
 
+function roleChip(role: BoardDocument['annotations'][number]['role']): string | null {
+  if (role === 'agent-question') return 'question'
+  if (role === 'teach') return 'teach'
+  return null
+}
+
+// Jump list of every annotation. Review notes still edit inline when selected
+// (human marks keep the existing editor until issue 09 blooms). Agent questions
+// and teach notes jump to their canvas blooms instead — no inline editor here.
 export function ReviewCommentsPanel({
   document,
   selectedAnnotationId,
@@ -56,7 +65,7 @@ export function ReviewCommentsPanel({
 }) {
   const [collapsed, setCollapsed] = useCollapsedPanelState('design-review-comments-collapsed', false)
 
-  // Jumping to a comment (mark click, blocked-export banner) must reveal its editor.
+  // Jumping to a comment must reveal the list so the selected row is visible.
   useEffect(() => {
     if (selectedAnnotationId) setCollapsed(false)
   }, [selectedAnnotationId])
@@ -112,8 +121,9 @@ export function ReviewCommentsPanel({
               .filter((item) => item.frameId === annotation.frameId)
               .indexOf(annotation) + 1
             const selected = annotation.id === selectedAnnotationId
-            const incomplete = isInstructionIncomplete(annotation.instruction)
+            const incomplete = annotation.role === 'review' && isInstructionIncomplete(annotation.instruction)
             const stale = isAnnotationStale(annotation, frame)
+            const role = roleChip(annotation.role)
             const subject = annotation.mark?.kind === 'element'
               ? `${annotation.mark.label} · ${frame.label}`
               : frame.label
@@ -137,19 +147,22 @@ export function ReviewCommentsPanel({
                         {annotation.instruction.trim() || 'No instruction yet'}
                       </span>
                     </span>
+                    {role ? <span className={`comment-chip ${role}`}>{role}</span> : null}
                     {annotation.intent ? <span className="comment-chip intent">{annotation.intent}</span> : null}
                     {stale ? <span className="comment-chip">stale</span> : null}
                   </button>
-                  <button
-                    type="button"
-                    className="comment-copy"
-                    onClick={() => onCopyAnnotation(annotation.id)}
-                    data-testid={`copy-comment-${annotation.id}`}
-                  >
-                    {copiedAnnotationId === annotation.id ? 'Copied' : 'Copy'}
-                  </button>
+                  {annotation.role === 'review' ? (
+                    <button
+                      type="button"
+                      className="comment-copy"
+                      onClick={() => onCopyAnnotation(annotation.id)}
+                      data-testid={`copy-comment-${annotation.id}`}
+                    >
+                      {copiedAnnotationId === annotation.id ? 'Copied' : 'Copy'}
+                    </button>
+                  ) : null}
                 </div>
-                {selected ? (
+                {selected && annotation.role === 'review' ? (
                   <AnnotationInstructionEditor
                     annotation={annotation}
                     frame={frame}

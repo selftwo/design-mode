@@ -6,6 +6,7 @@ function comment(id: string, anchor: [number, number]): ReviewAnnotation {
   return {
     id,
     frameId: 'frame-01',
+    role: 'review',
     status: 'draft',
     instruction: '',
     anchor,
@@ -23,6 +24,7 @@ function circle(
   return {
     id,
     frameId: 'frame-01',
+    role: 'review',
     status: 'draft',
     instruction: '',
     anchor: [(points[0][0] + points[1][0]) / 2, (points[0][1] + points[1][1]) / 2],

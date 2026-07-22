@@ -17,6 +17,7 @@ function elementPickingBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'element-picking-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: -60, zoom: 1 },
     frames: [
       {
@@ -48,9 +49,15 @@ function elementPickingBoard(): BoardDocument {
             bounds: [[0.5, 0.4], [0.95, 0.9]],
           },
         ],
+        kind: 'captured-route',
+        lifeState: 'active',
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 
