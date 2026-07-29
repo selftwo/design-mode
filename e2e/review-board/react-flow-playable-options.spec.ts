@@ -17,9 +17,18 @@ test('reactflow: mounts at most the cap of sandboxed iframes and reaches ready o
   await page.goto('/?engine=reactflow')
   await expect(page.getByTestId('board-status')).toContainText('8 screens', { timeout: 30_000 })
 
-  // At least one option mounts, and the live-iframe count never exceeds the cap.
-  await expect.poll(async () => page.locator('[data-testid^="playable-iframe-"]').count()).toBeGreaterThan(0)
-  expect(await page.locator('[data-testid^="playable-iframe-"]').count()).toBeLessThanOrEqual(6)
+  // Wait for the mount set to settle (same nonzero count on two consecutive
+  // polls) before asserting the cap: sampling once mid-mount can undercount,
+  // and the sticky policy keeps membership stable once settled.
+  let previousCount = -1
+  await expect.poll(async () => {
+    const current = await page.locator('[data-testid^="playable-iframe-"]').count()
+    const settled = current > 0 && current === previousCount
+    previousCount = current
+    return settled
+  }, { timeout: 20_000 }).toBe(true)
+  expect(previousCount).toBeGreaterThan(0)
+  expect(previousCount).toBeLessThanOrEqual(6)
 
   // The option iframe is sandboxed as allow-scripts, so it runs at an opaque origin.
   await expect(page.locator('[data-testid^="playable-iframe-"]').first()).toHaveAttribute('sandbox', 'allow-scripts')

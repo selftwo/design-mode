@@ -24,6 +24,9 @@ export interface MountPolicyInput {
   canvasSize: CanvasSize
   selectedFrameId: string | null
   focusedFrameId: string | null
+  // The set mounted right now. Mounting is expensive and remounting loses
+  // in-iframe state, so at equal standing an already-mounted frame stays in.
+  mountedIds?: Set<string>
   cap?: number
 }
 
@@ -85,7 +88,12 @@ function centerDistanceSq(frame: ScreenFrame, rect: Rect): number {
 // active or locked options are eligible; archived and killed never mount. The
 // selected and focused options are always kept in, even if offscreen, so a
 // reviewer working an option never loses its live view. Ranking is stable so the
-// mounted set does not churn on redraw.
+// mounted set does not churn on redraw, and already-mounted frames win ties so
+// panning along the eligibility boundary does not evict and remount them.
+//
+// When membership is unchanged the caller's `mountedIds` set is returned as-is:
+// the selection runs once per pan animation frame, and a stable identity lets
+// React memoization skip rebuilding every canvas node.
 export function selectLivePlayableFrameIds(input: MountPolicyInput): Set<string> {
   const cap = input.cap ?? MAX_MOUNTED_PLAYABLE_OPTIONS
   const view = worldView(input.view, input.canvasSize)
@@ -103,6 +111,7 @@ export function selectLivePlayableFrameIds(input: MountPolicyInput): Set<string>
         inExpanded: intersects(rect, expanded),
         isSelected: frame.id === input.selectedFrameId,
         isFocused: frame.id === input.focusedFrameId,
+        isMounted: input.mountedIds?.has(frame.id) ?? false,
         dist: centerDistanceSq(frame, view),
       }
     })
@@ -112,10 +121,23 @@ export function selectLivePlayableFrameIds(input: MountPolicyInput): Set<string>
     if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1
     if (a.isFocused !== b.isFocused) return a.isFocused ? -1 : 1
     if (a.inView !== b.inView) return a.inView ? -1 : 1
+    if (a.isMounted !== b.isMounted) return a.isMounted ? -1 : 1
     if (a.dist !== b.dist) return a.dist - b.dist
     if (a.index !== b.index) return a.index - b.index
     return a.frame.id < b.frame.id ? -1 : 1
   })
 
-  return new Set(candidates.slice(0, Math.max(0, cap)).map((candidate) => candidate.frame.id))
+  const next = new Set(candidates.slice(0, Math.max(0, cap)).map((candidate) => candidate.frame.id))
+  const previous = input.mountedIds
+  if (previous && previous.size === next.size) {
+    let same = true
+    for (const id of next) {
+      if (!previous.has(id)) {
+        same = false
+        break
+      }
+    }
+    if (same) return previous
+  }
+  return next
 }

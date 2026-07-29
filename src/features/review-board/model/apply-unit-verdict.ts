@@ -1,8 +1,15 @@
-import { BoardDocumentSchema, type BoardDocument, type KitStateValue, type UnitVerdict } from './board-document.schema'
+import {
+  BoardDocumentSchema,
+  type BoardDocument,
+  type BoardZone,
+  type KitStateValue,
+  type ScreenFrame,
+  type UnitVerdict,
+} from './board-document.schema'
 import { isOptionFrame } from './board-relations'
 import { checkVerdictGesture, type VerdictBlock } from './design-unit-state'
 import { ensureZonesForUnit } from './ensure-zones-for-unit'
-import { framesInZone, stackFrameInZone, unitZone } from './board-zone-geometry'
+import { framesInZone, stackFramesInZone, unitZone } from './board-zone-geometry'
 
 // The reviewer's gesture: promote one option to lock its unit, or kill one
 // option. The summary is the single ledger line; id and time are injectable so
@@ -86,38 +93,45 @@ export function applyUnitVerdict(
   if (!archiveZone || !killedZone) return { ok: false, reason: 'invalid' }
 
   if (input.kind === 'promote') {
-    const archivedIds = candidate.frames
-      .filter((item) => item.unitId === input.unitId && item.lifeState === 'archived')
-      .map((item) => item.id)
-      .sort()
     // Already-zoned archived frames keep their place; newly archived ones stack.
-    let stackIndex = framesInZone(candidate, archiveZone.id).length
+    const entrants = candidate.frames.filter((item) => item.unitId === input.unitId
+      && item.lifeState === 'archived'
+      && item.zoneId !== archiveZone.id)
+    candidate = stackEntrantsIntoZone(candidate, archiveZone, entrants)
+  } else if (input.placement) {
+    const placement = input.placement
     candidate = {
       ...candidate,
-      frames: candidate.frames.map((item) => {
-        if (item.unitId !== input.unitId || item.lifeState !== 'archived') return item
-        if (item.zoneId === archiveZone.id) return item
-        if (!archivedIds.includes(item.id)) return item
-        const position = stackFrameInZone(archiveZone, item, stackIndex)
-        stackIndex += 1
-        return { ...item, zoneId: archiveZone.id, ...position }
-      }),
+      frames: candidate.frames.map((item) => item.id === input.frameId
+        ? { ...item, zoneId: killedZone.id, x: placement.x, y: placement.y }
+        : item),
     }
   } else {
-    candidate = {
-      ...candidate,
-      frames: candidate.frames.map((item) => {
-        if (item.id !== input.frameId) return item
-        if (input.placement) {
-          return { ...item, zoneId: killedZone.id, x: input.placement.x, y: input.placement.y }
-        }
-        const index = framesInZone(candidate, killedZone.id).length
-        return { ...item, zoneId: killedZone.id, ...stackFrameInZone(killedZone, item, index) }
-      }),
-    }
+    const entrants = candidate.frames.filter((item) => item.id === input.frameId)
+    candidate = stackEntrantsIntoZone(candidate, killedZone, entrants)
   }
 
   const parsed = BoardDocumentSchema.safeParse(candidate)
   if (!parsed.success) return { ok: false, reason: 'invalid' }
   return { ok: true, document: parsed.data, verdict }
+}
+
+// Stacks the entrant frames into the zone and grows the zone's stored bounds in
+// the same step, so every auto-placed frame lies fully inside the zone it now
+// belongs to. Frames already in the zone are never moved.
+function stackEntrantsIntoZone(
+  document: BoardDocument,
+  zone: BoardZone,
+  entrants: ScreenFrame[],
+): BoardDocument {
+  const { positions, bounds } = stackFramesInZone(zone, framesInZone(document, zone.id), entrants)
+  const positionById = new Map(entrants.map((item, index) => [item.id, positions[index]!]))
+  return {
+    ...document,
+    zones: document.zones.map((item) => (item.id === zone.id ? { ...item, ...bounds } : item)),
+    frames: document.frames.map((item) => {
+      const position = positionById.get(item.id)
+      return position ? { ...item, zoneId: zone.id, ...position } : item
+    }),
+  }
 }

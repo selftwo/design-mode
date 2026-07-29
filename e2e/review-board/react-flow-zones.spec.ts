@@ -61,6 +61,11 @@ test('reactflow: unit zones render behind options', async ({ page }) => {
 
 test('reactflow: drag into archive zones the option; drag out restores it', async ({ page }) => {
   await openBoard(page, 2)
+  // The frame's own pre-drag position is the drag-out target: it is outside
+  // every zone by construction, and it tracks toolbar or camera changes instead
+  // of assuming a hard-coded viewport coordinate.
+  const homeBox = await page.getByTestId('drag-handle-p0').boundingBox()
+  if (!homeBox) throw new Error('Missing pre-drag handle box')
   await dragFrameToZone(page, 'p0', 'archive')
 
   await expect.poll(async () => {
@@ -72,13 +77,13 @@ test('reactflow: drag into archive zones the option; drag out restores it', asyn
   expect(archived?.zoneId).toBeTruthy()
   await expect(page.getByTestId('frame-p0')).toHaveClass(/is-zoned/)
 
-  // Drag back toward the option row (above the zones).
+  // Drag back to where the frame came from (outside the zones).
   const handle = page.getByTestId('drag-handle-p0')
   const handleBox = await handle.boundingBox()
   if (!handleBox) throw new Error('Missing drag handle')
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
   await page.mouse.down()
-  await page.mouse.move(handleBox.x + handleBox.width / 2, 80, { steps: 12 })
+  await page.mouse.move(homeBox.x + homeBox.width / 2, homeBox.y + homeBox.height / 2, { steps: 12 })
   await page.mouse.up()
 
   await expect.poll(async () => {

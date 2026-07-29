@@ -57,10 +57,30 @@ function migrateFrameKind(frame: LegacyScreenFrame): ScreenFrame['kind'] {
 // Turns a validated v1 board into a v2 board object. Old lo-fi options become
 // non-playable option snapshots grouped under one unit per option set; an old
 // `preferred` flag becomes a unit nominee, never a confirmed lock.
+//
+// v1 never enforced the v2 relation rules, so this migration salvages instead
+// of failing: duplicate frame and annotation ids keep the first occurrence, and
+// annotations pointing at a missing frame are dropped. Throwing here would make
+// the storage load path discard every local v1 edit over one bad record.
 export function migrateBoardDocumentV1(input: LegacyBoardDocumentV1): BoardDocument {
   const units: DesignUnit[] = []
   const unitByGroup = new Map<string, DesignUnit>()
   const usedUnitIds = new Set<string>()
+
+  const seenFrameIds = new Set<string>()
+  const sourceFrames = input.frames.filter((frame) => {
+    if (seenFrameIds.has(frame.id)) return false
+    seenFrameIds.add(frame.id)
+    return true
+  })
+
+  const seenAnnotationIds = new Set<string>()
+  const annotations = input.annotations.filter((annotation) => {
+    if (!seenFrameIds.has(annotation.frameId)) return false
+    if (seenAnnotationIds.has(annotation.id)) return false
+    seenAnnotationIds.add(annotation.id)
+    return true
+  })
 
   const uniqueUnitId = (base: string): string => {
     let id = base
@@ -73,7 +93,7 @@ export function migrateBoardDocumentV1(input: LegacyBoardDocumentV1): BoardDocum
     return id
   }
 
-  const frames: ScreenFrame[] = input.frames.map((frame) => {
+  const frames: ScreenFrame[] = sourceFrames.map((frame) => {
     const kind = migrateFrameKind(frame)
     const base: ScreenFrame = {
       id: frame.id,
@@ -121,7 +141,7 @@ export function migrateBoardDocumentV1(input: LegacyBoardDocumentV1): BoardDocum
     documentRevision: 1,
     camera: input.camera,
     frames,
-    annotations: input.annotations,
+    annotations,
     units,
     zones: [],
     verdicts: [],
@@ -137,10 +157,12 @@ function schemaVersionOf(input: unknown): unknown {
 
 // Boards written before item 4a have no documentRevision. Treat them as
 // revision 1 so parse stays forward-compatible without a schemaVersion bump.
+// Only an absent field is defaulted: a present but wrong-typed value must fail
+// validation instead of silently regressing the optimistic-lock counter.
 function withDefaultDocumentRevision(input: unknown): unknown {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input
   const record = input as Record<string, unknown>
-  if (typeof record.documentRevision === 'number') return input
+  if (record.documentRevision !== undefined) return input
   return { ...record, documentRevision: 1 }
 }
 

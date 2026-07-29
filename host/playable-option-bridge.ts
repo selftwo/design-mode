@@ -83,6 +83,16 @@ export function checkPlayableScratchHtml(html: string): { ok: true } | { ok: fal
   if (!htmlHasPlayableBridgeHook(html)) {
     return { ok: false, reason: `missing ${PLAYABLE_BRIDGE_HOOK}` }
   }
+  // Injection is suppressed when the marker is already present, so raw HTML
+  // that carries the literal anywhere (a class name, visible text) would be
+  // served with no bridge script and the handshake would never complete.
+  // Reserving the literal here means every accepted artifact gets the script.
+  if (html.includes(PLAYABLE_BRIDGE_SCRIPT_MARKER)) {
+    return {
+      ok: false,
+      reason: `the text "${PLAYABLE_BRIDGE_SCRIPT_MARKER}" is reserved for the host-injected bridge script and may not appear in authored HTML`,
+    }
+  }
   if (htmlHasAuthoredScript(html)) {
     return { ok: false, reason: 'authored <script> is not allowed; the host injects the only script' }
   }

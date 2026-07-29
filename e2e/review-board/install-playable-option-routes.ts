@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { injectPlayableBridge, PLAYABLE_SCRATCH_CONTENT_SECURITY_POLICY } from '../../host/playable-option-bridge'
-import type { BoardDocument, ScreenFrame } from '../../src/features/review-board/model/board-document.schema'
+import { BoardDocumentSchema, type BoardDocument, type ScreenFrame } from '../../src/features/review-board/model/board-document.schema'
 import { ensureZonesForUnit } from '../../src/features/review-board/model/ensure-zones-for-unit'
 
 const HOOK = '<meta name="design-mode-playable-bridge" content="1">'
@@ -84,8 +84,10 @@ function playableFrame(index: number): ScreenFrame {
 
 // A board of playable options in one row under one open unit. `count` above the
 // cap (6) exercises the live-mount limit. Zones are ensured so drag targets exist.
+// Parsed through the real board schema so drift fails here in the fixture, not
+// as an opaque board-load error inside the app.
 export function buildPlayableBoard(count: number): BoardDocument {
-  return ensureZonesForUnit({
+  return BoardDocumentSchema.parse(ensureZonesForUnit({
     schemaVersion: 2,
     boardId: 'playable-board',
     documentRevision: 1,
@@ -96,5 +98,5 @@ export function buildPlayableBoard(count: number): BoardDocument {
     zones: [],
     verdicts: [],
     reviewSummaries: [],
-  }, 'unit-1')
+  }, 'unit-1'))
 }

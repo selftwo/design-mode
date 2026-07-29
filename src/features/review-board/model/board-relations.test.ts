@@ -240,6 +240,83 @@ describe('board relations', () => {
     expect(BoardDocumentSchema.safeParse(board).success).toBe(true)
   })
 
+  it('rejects a kill verdict that names a frame that is not killed', () => {
+    const result = mutate((board) => {
+      board.verdicts.push({
+        id: 'kill-1',
+        unitId: 'unit-a',
+        frameId: 'opt-1',
+        kind: 'kill',
+        summary: 'gone',
+        createdAt: '2026-07-16T10:00:00.000Z',
+        kitSnapshot: null,
+        referenceFrameIds: [],
+      })
+    })
+    expect(result.success).toBe(false)
+    expect(firstPath(result)).toContain('verdicts.0.frameId')
+  })
+
+  it('rejects a killed frame without a matching kill verdict', () => {
+    const result = mutate((board) => {
+      board.zones.push({ id: 'zone-kill', unitId: 'unit-a', kind: 'killed', label: 'Killed', x: 0, y: 300, width: 400, height: 180, collapsed: false })
+      board.frames[0] = { ...board.frames[0]!, lifeState: 'killed', zoneId: 'zone-kill' }
+    })
+    expect(result.success).toBe(false)
+    expect(firstPath(result)).toContain('frames.0.lifeState')
+  })
+
+  it('rejects a second verdict on the same frame', () => {
+    const result = mutate((board) => {
+      board.zones.push({ id: 'zone-kill', unitId: 'unit-a', kind: 'killed', label: 'Killed', x: 0, y: 300, width: 400, height: 180, collapsed: false })
+      board.frames[0] = { ...board.frames[0]!, lifeState: 'killed', zoneId: 'zone-kill' }
+      const kill = {
+        unitId: 'unit-a',
+        frameId: 'opt-1',
+        kind: 'kill' as const,
+        summary: 'gone',
+        createdAt: '2026-07-16T10:00:00.000Z',
+        kitSnapshot: null,
+        referenceFrameIds: [],
+      }
+      board.verdicts.push({ ...kill, id: 'kill-1' })
+      board.verdicts.push({ ...kill, id: 'kill-2' })
+    })
+    expect(result.success).toBe(false)
+    expect(firstPath(result)).toContain('verdicts.1.frameId')
+  })
+
+  it('rejects a promote verdict on an open unit', () => {
+    const result = mutate((board) => {
+      board.verdicts.push({
+        id: 'promote-1',
+        unitId: 'unit-a',
+        frameId: 'opt-1',
+        kind: 'promote',
+        summary: 'winner',
+        createdAt: '2026-07-16T10:00:00.000Z',
+        kitSnapshot: null,
+        referenceFrameIds: [],
+      })
+    })
+    expect(result.success).toBe(false)
+    expect(firstPath(result)).toContain('units.0.state')
+  })
+
+  it('rejects a non-option frame that left the active life state', () => {
+    const archivedRoute = mutate((board) => {
+      board.frames.push({ ...optionFrameBase('shot'), kind: 'captured-route', unitId: undefined, lifeState: 'archived' })
+    })
+    expect(archivedRoute.success).toBe(false)
+    expect(firstPath(archivedRoute)).toContain('frames.2.lifeState')
+
+    const killedUpload = mutate((board) => {
+      board.frames.push({ ...optionFrameBase('upload'), kind: 'imported-image', unitId: undefined, lifeState: 'killed' })
+    })
+    expect(killedUpload.success).toBe(false)
+    expect(firstPath(killedUpload)).toContain('frames.2.lifeState')
+  })
+
   it('rejects two review summaries for the same frame', () => {
     const result = mutate((board) => {
       board.reviewSummaries.push({ frameId: 'opt-1', visibleSeconds: 3, kitStatesTried: 1, playedLive: false })

@@ -36,6 +36,9 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
+// The event stream is either up or waiting for EventSource's automatic retry.
+export type HostConnectionState = 'connected' | 'reconnecting'
+
 // A host request failure that carries the HTTP status, so a caller can tell a
 // 404 (unit gone) from a 409 (unit locked or blocked) apart from other errors.
 export class LocalHostRequestError extends Error {
@@ -312,8 +315,16 @@ export function createLocalHostClient(projectId: string | null) {
       return RunListSchema.parse(await response.json()).runs
     },
 
-    subscribeHostEvents(listener: (event: HostEvent) => void): () => void {
+    subscribeHostEvents(
+      listener: (event: HostEvent) => void,
+      onConnectionChange?: (state: HostConnectionState) => void,
+    ): () => void {
       const source = new EventSource('/api/events')
+      // EventSource reconnects on its own but replays nothing, so events sent
+      // while the stream was down are lost. The connection callback lets the
+      // UI say the stream is down and resync once it comes back.
+      source.onopen = () => onConnectionChange?.('connected')
+      source.onerror = () => onConnectionChange?.('reconnecting')
       source.onmessage = (message) => {
         const parsed = HostEventSchema.safeParse(JSON.parse(message.data as string))
         if (parsed.success) listener(parsed.data)

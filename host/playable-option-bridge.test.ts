@@ -32,6 +32,16 @@ describe('playable bridge HTML checks', () => {
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toContain('script')
   })
+
+  it('rejects HTML carrying the reserved injected-script marker so injection is never suppressed', () => {
+    const asClassName = `<html><head>${PLAYABLE_BRIDGE_HOOK}</head><body><p class="data-design-mode-playable">Hi</p></body></html>`
+    const asText = `<html><head>${PLAYABLE_BRIDGE_HOOK}</head><body>data-design-mode-playable</body></html>`
+    for (const html of [asClassName, asText]) {
+      const result = checkPlayableScratchHtml(html)
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.reason).toContain('data-design-mode-playable')
+    }
+  })
 })
 
 describe('injectPlayableBridge', () => {

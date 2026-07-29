@@ -13,6 +13,25 @@ describe('boardsSemanticallyEqual', () => {
     expect(boardsSemanticallyEqual(board, { ...board, documentRevision: board.documentRevision + 1 })).toBe(true)
   })
 
+  it('ignores review summary differences so telemetry never dirties the board', () => {
+    const board = createPressureTestBoard()
+    const withDwell = {
+      ...board,
+      reviewSummaries: [{ frameId: board.frames[0]!.id, visibleSeconds: 12, kitStatesTried: 2, playedLive: true }],
+    }
+    expect(boardsSemanticallyEqual(board, withDwell)).toBe(true)
+  })
+
+  it('does not throw on a board that fails schema validation', () => {
+    const board = createPressureTestBoard()
+    const invalid = {
+      ...board,
+      annotations: [{ ...board.annotations[0]!, frameId: 'missing-frame' }, ...board.annotations.slice(1)],
+    }
+    expect(() => boardsSemanticallyEqual(invalid, board)).not.toThrow()
+    expect(boardsSemanticallyEqual(invalid, board)).toBe(false)
+  })
+
   it('detects semantic camera changes', () => {
     const board = createPressureTestBoard()
     const changed = { ...board, camera: { ...board.camera, zoom: board.camera.zoom + 0.1 } }

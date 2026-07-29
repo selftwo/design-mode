@@ -264,6 +264,12 @@ export function addBoardRelationIssues(document: BoardDocument, context: Ctx): v
       fail(context, ['frames', index, 'zoneId'], 'A frame without a unit cannot sit in a zone')
     }
 
+    // Only option frames move through the lifecycle. Captured routes, uploads,
+    // and pinned references never lock, archive, or die.
+    if (!isOptionFrame(frame) && frame.lifeState !== 'active') {
+      fail(context, ['frames', index, 'lifeState'], `A ${frame.kind} frame must stay active`)
+    }
+
     if (frame.lifeState === 'active' || frame.lifeState === 'locked') {
       if (frame.zoneId) fail(context, ['frames', index, 'zoneId'], 'Active and locked frames cannot sit in a zone')
     }

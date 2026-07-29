@@ -36,14 +36,35 @@ export function listCanvasEventIds(store: HostDataStore, runId: string): Set<str
   return new Set(readCanvasEvents(store, runId).map((event) => event.id))
 }
 
+// Append dedupe keeps one id set per run in memory instead of rescanning the
+// jsonl (which can hold many lines) on every append. Seeded from the file on
+// first use and refreshed by sync, which reads the file anyway; keyed weakly by
+// store so a closed host's cache can be collected and test stores stay isolated.
+const seenEventIdsByStore = new WeakMap<HostDataStore, Map<string, Set<string>>>()
+
+function seenEventIds(store: HostDataStore, runId: string): Set<string> {
+  let byRun = seenEventIdsByStore.get(store)
+  if (!byRun) {
+    byRun = new Map()
+    seenEventIdsByStore.set(store, byRun)
+  }
+  let ids = byRun.get(runId)
+  if (!ids) {
+    ids = listCanvasEventIds(store, runId)
+    byRun.set(runId, ids)
+  }
+  return ids
+}
+
 // Append one checked event. Returns false when the id is already in the log
 // (dedupe), so callers can still apply it idempotently via the board.
 export function appendCanvasEvent(store: HostDataStore, event: CanvasEvent): boolean {
-  const existing = listCanvasEventIds(store, event.runId)
-  if (existing.has(event.id)) return false
+  const seen = seenEventIds(store, event.runId)
+  if (seen.has(event.id)) return false
   const file = canvasEventsPath(store, event.runId)
   mkdirSync(path.dirname(file), { recursive: true })
   appendFileSync(file, `${JSON.stringify(event)}\n`, 'utf8')
+  seen.add(event.id)
   return true
 }
 
@@ -67,9 +88,12 @@ export type IngestCanvasEventResult =
     }
   | { ok: false; reason: 'unknown-frame' | 'run-mismatch' | 'no-board' }
 
-// Validate → append (dedupe) → apply through the write queue → emit a revisioned
-// SSE patch. Re-ingesting the same event id is safe: jsonl skips the append and
-// the board write is skipped when the annotation already exists.
+// Validate → apply through the write queue → append (dedupe) → emit a
+// revisioned SSE patch. The board apply comes first so the journal only ever
+// records events the board accepted; a rejected event (unknown frame, no board)
+// never reaches the jsonl and so can never replay on a later sync. Re-ingesting
+// the same event id is safe: the board write is skipped when the annotation
+// already exists and jsonl skips the append.
 export async function ingestCanvasEvent(input: {
   store: HostDataStore
   boardWrites: ProjectBoardWriteQueue
@@ -80,8 +104,6 @@ export async function ingestCanvasEvent(input: {
 }): Promise<IngestCanvasEventResult> {
   const { store, boardWrites, events, projectId, runId, event } = input
   if (event.runId !== runId) return { ok: false, reason: 'run-mismatch' }
-
-  const appended = appendCanvasEvent(store, event)
 
   let result: { board: BoardDocument; changed: boolean }
   try {
@@ -95,6 +117,8 @@ export async function ingestCanvasEvent(input: {
     if (error instanceof CanvasEventIngestError) return { ok: false, reason: error.reason }
     throw error
   }
+
+  const appended = appendCanvasEvent(store, event)
 
   const annotation = result.board.annotations.find((item) => item.id === event.id)
   if (!annotation) return { ok: false, reason: 'unknown-frame' }
@@ -120,6 +144,8 @@ export async function ingestCanvasEvent(input: {
 
 // Apply every jsonl line not yet present on the board. Used when an agent
 // appends events to the file directly (no POST), and at the end of a run.
+// The whole file lands in one board read/write: board JSON embeds screenshot
+// data URLs, so per-line writes would re-parse megabytes per event.
 export async function syncCanvasEventsFromFile(input: {
   store: HostDataStore
   boardWrites: ProjectBoardWriteQueue
@@ -127,17 +153,47 @@ export async function syncCanvasEventsFromFile(input: {
   projectId: string
   runId: string
 }): Promise<{ applied: ReviewAnnotation[]; board: BoardDocument | null }> {
-  const fileEvents = readCanvasEvents(input.store, input.runId)
-  if (fileEvents.length === 0) return { applied: [], board: null }
+  const { store, boardWrites, events, projectId, runId } = input
+  const fileEvents = readCanvasEvents(store, runId)
+  // The file is the source of truth for this run's ids: fold in anything an
+  // agent appended directly so the POST dedupe set stays accurate.
+  const seen = seenEventIds(store, runId)
+  for (const event of fileEvents) seen.add(event.id)
 
-  const applied: ReviewAnnotation[] = []
-  let board: BoardDocument | null = null
+  const pending = fileEvents.filter((event) => event.runId === runId)
+  if (pending.length === 0) return { applied: [], board: null }
 
-  for (const event of fileEvents) {
-    const result = await ingestCanvasEvent({ ...input, event })
-    if (!result.ok) continue
+  let applied: ReviewAnnotation[] = []
+  let board: BoardDocument
+  try {
+    const result = await boardWrites.mutateAndSaveIfChanged(projectId, (latest) => {
+      if (!latest) throw new CanvasEventIngestError('no-board')
+      applied = []
+      let next = latest
+      for (const event of pending) {
+        const outcome = applyCanvasEvent(next, event)
+        // An unknown frame is skipped, not fatal: the line stays in the file for
+        // a later sync (agents may write events before the frame is captured).
+        if (!outcome.ok) continue
+        next = outcome.board
+        if (outcome.applied) applied.push(outcome.annotation)
+      }
+      return { board: next, changed: applied.length > 0 }
+    })
     board = result.board
-    if (result.applied) applied.push(result.annotation)
+  } catch (error) {
+    if (error instanceof CanvasEventIngestError) return { applied: [], board: null }
+    throw error
+  }
+
+  if (applied.length > 0) {
+    events.publish({
+      type: 'board-patched',
+      projectId,
+      documentRevision: board.documentRevision,
+      runId,
+      records: applied.map((annotation) => ({ kind: 'annotation' as const, annotation })),
+    })
   }
 
   return { applied, board }

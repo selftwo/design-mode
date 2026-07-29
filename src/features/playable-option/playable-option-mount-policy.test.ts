@@ -39,6 +39,32 @@ function input(frames: ScreenFrame[], overrides: Partial<MountPolicyInput> = {})
 }
 
 describe('selectLivePlayableFrameIds', () => {
+  it('returns the mountedIds set object itself when membership is unchanged', () => {
+    const frames = [frame('a', 100), frame('b', 600)]
+    const first = selectLivePlayableFrameIds(input(frames))
+    const second = selectLivePlayableFrameIds(input(frames, { mountedIds: first }))
+    expect(second).toBe(first)
+    // A real membership change still produces a fresh set.
+    const third = selectLivePlayableFrameIds(input([frames[0]!], { mountedIds: first }))
+    expect(third).not.toBe(first)
+    expect([...third]).toEqual(['a'])
+  })
+
+  it('keeps an already-mounted frame over an equally ranked unmounted one', () => {
+    // Both frames sit outside the view but inside the expanded margin, with
+    // centers exactly 1490 world units either side of the view center, so only
+    // mounted state breaks the tie (otherwise array order would pick "left").
+    const left = frame('left', -1200)
+    const right = frame('right', 1780)
+    const mounted = selectLivePlayableFrameIds(input([left, right], {
+      cap: 1,
+      mountedIds: new Set(['right']),
+    }))
+    expect([...mounted]).toEqual(['right'])
+    const unbiased = selectLivePlayableFrameIds(input([left, right], { cap: 1 }))
+    expect([...unbiased]).toEqual(['left'])
+  })
+
   it('mounts only playable options, not screenshots or captured routes', () => {
     const result = selectLivePlayableFrameIds(input([
       frame('play', 100),

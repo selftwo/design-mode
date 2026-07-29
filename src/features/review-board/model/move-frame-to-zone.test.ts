@@ -38,6 +38,29 @@ describe('classifyFrameDragStop', () => {
     expect(intent).toEqual({ kind: 'restore-active' })
   })
 
+  it('classifies auto-stacked archived frames as still inside their zone', () => {
+    // Shrink the archive zone so the third loser must wrap into a second row;
+    // the placement math must grow the zone so even that row stays contained.
+    const base = optionBoard(['a', 'b', 'c', 'd'])
+    const narrowed = {
+      ...base,
+      zones: base.zones.map((zone) => (zone.kind === 'archive' ? { ...zone, width: 400 } : zone)),
+    }
+    const promoted = applyUnitVerdict(
+      narrowed,
+      { unitId: 'unit', frameId: 'a', kind: 'promote', summary: 'lock' },
+      () => 'v1',
+      () => '2026-07-22T12:00:00.000Z',
+    )
+    expect(promoted.ok).toBe(true)
+    if (!promoted.ok) return
+    for (const id of ['b', 'c', 'd']) {
+      const frame = promoted.document.frames.find((item) => item.id === id)!
+      const intent = classifyFrameDragStop(promoted.document, id, { x: frame.x, y: frame.y })
+      expect(intent).toEqual({ kind: 'reposition-only' })
+    }
+  })
+
   it('snaps back when a promote-archived frame leaves its zone under a locked unit', () => {
     const promoted = applyUnitVerdict(
       optionBoard(['a', 'b']),

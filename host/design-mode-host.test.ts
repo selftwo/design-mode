@@ -380,6 +380,52 @@ describe('design-mode host API', () => {
     expect(health.body.ok).toBe(true)
   })
 
+  it('allows state-changing POSTs with no Origin header and with a localhost Origin', async () => {
+    // No Origin header (CLI, curl, tests): the plain-fetch helper already
+    // omits it, so registration succeeding covers the header-free path.
+    const projectId = await registerProject()
+    expect(projectId).toBeTruthy()
+
+    const localhostOrigin = await fetch(`${host.origin}/api/projects`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:5173' },
+      body: JSON.stringify({
+        name: 'Origin project',
+        path: projectDir,
+        devCommand: 'npm run dev',
+        devPort: 5187,
+        routes: [{ id: 'home', label: 'Home', path: '/' }],
+      }),
+    })
+    expect(localhostOrigin.status).toBe(201)
+  })
+
+  it('rejects state-changing requests from a foreign Origin with 403 and does no work', async () => {
+    const projectId = await registerProject()
+    await putBoard(projectId, testBoard(), 0)
+
+    // A drive-by page can send a text/plain POST without a CORS preflight; the
+    // host must refuse it before launching any agent run.
+    const batch = { schemaVersion: 1, boardId: 'host-test-board', exportedAt: new Date().toISOString(), annotations: [] }
+    const dispatched = await fetch(`${host.origin}/api/projects/${projectId}/dispatch`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain', origin: 'https://evil.example' },
+      body: JSON.stringify({ agent: 'claude', batch }),
+    })
+    expect(dispatched.status).toBe(403)
+    expect((await api('GET', '/api/runs')).body.runs).toHaveLength(0)
+
+    const put = await fetch(`${host.origin}/api/projects/${projectId}/board`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', origin: 'https://evil.example' },
+      body: JSON.stringify({ baseRevision: 1, board: { ...testBoard(), boardId: 'evil-board' } }),
+    })
+    expect(put.status).toBe(403)
+    const board = (await api('GET', `/api/projects/${projectId}/board`)).body.board as BoardDocument
+    expect(board.boardId).toBe('host-test-board')
+    expect(board.documentRevision).toBe(1)
+  })
+
   it('rejects generation for an unknown unit with 404 and launches no run', async () => {
     const projectId = await registerProject()
     await putBoard(projectId, boardWithOpenUnit(), 0)

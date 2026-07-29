@@ -4,7 +4,7 @@ import { createDesignUnit } from '../review-board/model/create-design-unit'
 import type { BoardDocument, DesignUnit } from '../review-board/model/board-document.schema'
 import type { ImmediateSaveResult } from '../review-board/use-review-board-persistence'
 import { buildUnitQueueRows } from './unit-queue-model'
-import { GenerateOptionsPanel } from './GenerateOptionsPanel'
+import { GenerateOptionsPanel, useGenerateOptionsState } from './GenerateOptionsPanel'
 import type { LocalHostClient } from './local-host-client'
 import './UnitQueueIsland.css'
 
@@ -35,6 +35,10 @@ export function UnitQueueIsland({
   const [rulesText, setRulesText] = useState('')
   const [draftDeps, setDraftDeps] = useState<string[]>([])
   const [createError, setCreateError] = useState<string | null>(null)
+  // Generation status lives here, above the collapse boundary, so collapsing
+  // the island does not lose an in-flight run's outcome (the panel below
+  // unmounts while collapsed).
+  const generation = useGenerateOptionsState(selectedUnitId)
 
   const rows = useMemo(() => buildUnitQueueRows(document), [document])
 
@@ -113,10 +117,17 @@ export function UnitQueueIsland({
       )}
 
       {creating ? (
-        <div className="unit-queue-create" data-testid="unit-queue-create">
+        <form
+          className="unit-queue-create"
+          data-testid="unit-queue-create"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submitCreate()
+          }}
+        >
           <label className="unit-queue-field">
             Label
-            <input value={label} onChange={(event) => setLabel(event.target.value)} data-testid="unit-create-label" />
+            <input value={label} autoFocus onChange={(event) => setLabel(event.target.value)} data-testid="unit-create-label" />
           </label>
           <label className="unit-queue-field">
             Brief
@@ -145,9 +156,9 @@ export function UnitQueueIsland({
           {createError ? <p className="unit-queue-error" role="alert" data-testid="unit-create-error">{createError}</p> : null}
           <div className="unit-queue-create-actions">
             <button type="button" className="unit-queue-secondary" onClick={() => { setCreating(false); setCreateError(null) }}>Cancel</button>
-            <button type="button" className="unit-queue-primary" data-testid="unit-create-submit" onClick={submitCreate}>Add unit</button>
+            <button type="submit" className="unit-queue-primary" data-testid="unit-create-submit">Add unit</button>
           </div>
-        </div>
+        </form>
       ) : (
         <button type="button" className="unit-queue-add" data-testid="unit-queue-add" onClick={() => setCreating(true)}>
           New unit
@@ -158,6 +169,7 @@ export function UnitQueueIsland({
         document={document}
         unit={selectedUnit}
         client={client}
+        state={generation}
         onSaveImmediately={onSaveImmediately}
       />
     </aside>

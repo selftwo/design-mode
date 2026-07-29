@@ -53,6 +53,33 @@ describe('mergeBoardPatch', () => {
     expect(patched.annotations.find((item) => item.id === 'spoof')).toBeUndefined()
   })
 
+  it('drops a record on a frame this client has not loaded yet', () => {
+    const board = createPressureTestBoard()
+    const onUnknownFrame = { ...agentQuestion(), frameId: 'frame-from-a-newer-board' }
+    const patched = mergeBoardPatch(board, {
+      documentRevision: board.documentRevision + 1,
+      records: [{ kind: 'annotation', annotation: onUnknownFrame }],
+    })
+    expect(patched.annotations.find((item) => item.id === 'q-1')).toBeUndefined()
+    // The revision still advances so the client does not re-request the patch.
+    expect(patched.documentRevision).toBe(board.documentRevision + 1)
+  })
+
+  it('returns the same document object for a no-op patch', () => {
+    const board = createPressureTestBoard()
+    const patched = mergeBoardPatch(board, { documentRevision: board.documentRevision, records: [] })
+    expect(patched).toBe(board)
+  })
+
+  it('never lowers documentRevision when the patch is older', () => {
+    const board = { ...createPressureTestBoard(), documentRevision: 12 }
+    const patched = mergeBoardPatch(board, {
+      documentRevision: 3,
+      records: [{ kind: 'annotation', annotation: agentQuestion() }],
+    })
+    expect(patched.documentRevision).toBe(12)
+  })
+
   it('updates an existing agent annotation in place', () => {
     const board = {
       ...createPressureTestBoard(),

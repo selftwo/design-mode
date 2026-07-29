@@ -108,13 +108,22 @@ export default function ReactFlowReviewBoard({
     onViewportSample?.({ x: liveViewport.x, y: liveViewport.y, zoom: liveViewport.zoom }, canvasSize)
   }, [onViewportSample, liveViewport, canvasSize])
 
-  const liveEligibleIds = useMemo(() => selectLivePlayableFrameIds({
-    frames: document.frames,
-    view: liveViewport,
-    canvasSize,
-    selectedFrameId,
-    focusedFrameId,
-  }), [document.frames, liveViewport, canvasSize, selectedFrameId, focusedFrameId])
+  // Feeding the current set back in keeps mounted iframes sticky at ties and,
+  // when membership is unchanged, keeps the same Set identity, so a viewport
+  // tick during panning does not rebuild (and re-render) every canvas node.
+  const liveEligibleRef = useRef<Set<string>>(new Set())
+  const liveEligibleIds = useMemo(() => {
+    const next = selectLivePlayableFrameIds({
+      frames: document.frames,
+      view: liveViewport,
+      canvasSize,
+      selectedFrameId,
+      focusedFrameId,
+      mountedIds: liveEligibleRef.current,
+    })
+    liveEligibleRef.current = next
+    return next
+  }, [document.frames, liveViewport, canvasSize, selectedFrameId, focusedFrameId])
 
   const addCircle = useCallback((frameId: string, start: NormalizedPoint, end: NormalizedPoint) => {
     const frame = document.frames.find((item) => item.id === frameId)

@@ -84,7 +84,7 @@ export function useReviewBoardPersistence(storage: BoardStorage = localStorageBo
         if (isBoardRevisionConflict(error)) {
           revisionRef.current = error.documentRevision
           if (baselineEpochRef.current === epoch) setLastSaved(error.board)
-          const message = 'The board changed on the server. Your edits are still here; save again to publish.'
+          const message = 'The board changed on the host while you were editing. Your version is kept, and the next save will replace the host’s changes.'
           if (saveSeqRef.current === seq) {
             setSaveStatus('error')
             setSaveError(message)
@@ -103,6 +103,9 @@ export function useReviewBoardPersistence(storage: BoardStorage = localStorageBo
 
   const setBaseline = useCallback((baseline: BoardDocument) => {
     baselineEpochRef.current += 1
+    // Take status ownership away from any in-flight save, so it cannot flip
+    // the fresh baseline's 'idle' to 'saved' or 'error' when it settles.
+    saveSeqRef.current += 1
     revisionRef.current = baseline.documentRevision
     setLastSaved(baseline)
     setSaveStatus('idle')
@@ -155,12 +158,14 @@ export function useReviewBoardPersistence(storage: BoardStorage = localStorageBo
     setResetDialogOpen(false)
   }, [])
 
-  const confirmReset = useCallback(async (hostBoard: BoardDocument): Promise<{ ok: true; hostBoard: BoardDocument } | { ok: false; message: string }> => {
+  const applyReset = useCallback(async (hostBoard: BoardDocument, closeDialog: boolean): Promise<{ ok: true; hostBoard: BoardDocument } | { ok: false; message: string }> => {
     try {
       await storage.clear()
       baselineEpochRef.current += 1
+      // As in setBaseline: an in-flight save must not own status after a reset.
+      saveSeqRef.current += 1
       revisionRef.current = hostBoard.documentRevision
-      setResetDialogOpen(false)
+      if (closeDialog) setResetDialogOpen(false)
       setResetError(null)
       setSaveStatus('idle')
       setSaveError(null)
@@ -173,22 +178,9 @@ export function useReviewBoardPersistence(storage: BoardStorage = localStorageBo
     }
   }, [storage])
 
-  const applyImmediateReset = useCallback(async (hostBoard: BoardDocument): Promise<{ ok: true; hostBoard: BoardDocument } | { ok: false; message: string }> => {
-    try {
-      await storage.clear()
-      baselineEpochRef.current += 1
-      revisionRef.current = hostBoard.documentRevision
-      setResetError(null)
-      setSaveStatus('idle')
-      setSaveError(null)
-      setLastSaved(hostBoard)
-      return { ok: true, hostBoard }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Stored board could not be cleared.'
-      setResetError(message)
-      return { ok: false, message }
-    }
-  }, [storage])
+  const confirmReset = useCallback((hostBoard: BoardDocument) => applyReset(hostBoard, true), [applyReset])
+
+  const applyImmediateReset = useCallback((hostBoard: BoardDocument) => applyReset(hostBoard, false), [applyReset])
 
   return {
     lastSaved,

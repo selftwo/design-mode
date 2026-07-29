@@ -18,7 +18,6 @@ import { useLiveFrameSession } from '@/features/review-board/use-live-frame-sess
 import { useReviewBatchExport } from '@/features/review-board/use-review-batch-export'
 import { useReviewBoardHostLoad } from '@/features/review-board/use-review-board-host-load'
 import { useReviewBoardPersistence } from '@/features/review-board/use-review-board-persistence'
-import { mergeBoardPatch } from '@/features/review-board/model/merge-board-patch'
 import {
   createReviewTelemetry,
   kitStateSignature,
@@ -44,7 +43,8 @@ import type { PlayableInteractionMode } from '@/features/playable-option/Playabl
 import { HostProjectPicker } from '@/features/local-host/HostProjectPicker'
 import { createLocalHostClient } from '@/features/local-host/local-host-client'
 import { activeProjectIdFromLocation, isServedByLocalHost } from '@/features/local-host/local-host-detection'
-import type { AgentAvailability, AgentId, AgentRun } from '@/features/local-host/host-api.schema'
+import { useAgentCollaboration } from '@/features/local-host/use-agent-collaboration'
+import type { AgentId } from '@/features/local-host/host-api.schema'
 
 const ReactFlowReviewBoard = lazy(() => import('@/features/review-board/engines/react-flow/ReactFlowReviewBoard'))
 const ExcalidrawReviewBoard = lazy(() => import('@/features/review-board/engines/excalidraw/ExcalidrawReviewBoard'))
@@ -101,16 +101,6 @@ export default function App() {
   // a verdict can offer its references. Kept pointing at a real unit below.
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null)
   const [dispatchAgent, setDispatchAgent] = useState<AgentId>('claude')
-  const [dispatchAgents, setDispatchAgents] = useState<AgentAvailability[] | null>(null)
-  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([])
-  const [captureActive, setCaptureActive] = useState(false)
-  const [boardUpdateWaiting, setBoardUpdateWaiting] = useState(false)
-  // Learn/ask round trip: request ids waiting for a teach answer. The ref is read
-  // in the SSE handler (which is not re-subscribed per ask); the count drives UI.
-  const learnPendingRef = useRef<Set<string>>(new Set())
-  const [learnPendingCount, setLearnPendingCount] = useState(0)
-  const [learnAsking, setLearnAsking] = useState(false)
-  const [learnError, setLearnError] = useState<string | null>(null)
   const [preferredOptionId, setPreferredOptionId] = useState<string | null>(null)
   // Per-frame play/review mode for playable options. In memory only; never saved.
   const [playableFrameModes, setPlayableFrameModes] = useState<Record<string, PlayableInteractionMode>>({})
@@ -227,12 +217,13 @@ export default function App() {
   // Flush the accumulated totals into the board when they changed, so autosave
   // persists them and the host prompt can read them. Pruned to frames still on
   // the board.
-  const flushTelemetry = useCallback(() => {
+  const flushTelemetry = useCallback((): BoardDocument | null => {
     const current = documentRef.current
-    if (!current) return
+    if (!current) return null
     const summaries = toReviewSummaries(telemetryRef.current, current.frames.map((frame) => frame.id))
-    if (JSON.stringify(summaries) === JSON.stringify(current.reviewSummaries)) return
+    if (JSON.stringify(summaries) === JSON.stringify(current.reviewSummaries)) return null
     updateDocument((doc) => ({ ...doc, reviewSummaries: summaries }))
+    return { ...current, reviewSummaries: summaries }
   }, [updateDocument])
 
   // The heartbeat: integrate dwell each second from the latest viewport sample,
@@ -255,16 +246,20 @@ export default function App() {
     return () => window.clearInterval(timer)
   }, [flushTelemetry])
 
-  // On page hide, close the current dwell span and flush immediately, so a tab
-  // switch or close does not lose the last few seconds of review.
+  // On page hide, close the current dwell span, flush, and persist directly:
+  // summaries do not mark the board dirty (see board-semantic-equality), so
+  // autosave never picks up a telemetry-only change, and a closing tab has no
+  // later chance to save.
   useEffect(() => {
     const onHide = () => {
+      if (globalThis.document.visibilityState !== 'hidden') return
       telemetryRef.current = sampleVisibility(telemetryRef.current, { nowMs: Date.now(), visibleFrameIds: [], pageVisible: false })
-      flushTelemetry()
+      const flushed = flushTelemetry()
+      if (flushed && !saveError) persistBoard(flushed)
     }
     globalThis.document.addEventListener('visibilitychange', onHide)
     return () => globalThis.document.removeEventListener('visibilitychange', onHide)
-  }, [flushTelemetry])
+  }, [flushTelemetry, persistBoard, saveError])
 
   const recordViewportSample: NonNullable<CanvasEngineProps['onViewportSample']> = useCallback((view, canvasSize) => {
     viewSampleRef.current = { view, canvasSize }
@@ -280,10 +275,21 @@ export default function App() {
     bindDocument,
   } = useCaptureRefreshOnExit(host, updateDocument)
 
+  // An identity that only changes when reviewer-visible content changes, so the
+  // notices below survive a telemetry-only flush (which replaces the document
+  // object every few seconds without changing anything the reviewer did).
+  const prevSemanticDocumentRef = useRef<BoardDocument | null>(null)
+  const semanticDocument = useMemo(() => {
+    const previous = prevSemanticDocumentRef.current
+    if (document && previous && boardsSemanticallyEqual(document, previous)) return previous
+    prevSemanticDocumentRef.current = document
+    return document
+  }, [document])
+
   // A delivered batch describes a moment in time: editing the board afterwards makes it stale.
   useEffect(() => {
     acknowledgeDelivery()
-  }, [document, acknowledgeDelivery])
+  }, [semanticDocument, acknowledgeDelivery])
 
   useEffect(() => {
     setBatchCopyState('idle')
@@ -292,7 +298,7 @@ export default function App() {
   useEffect(() => {
     setPoolCopyState('idle')
     setCopiedAnnotationId(null)
-  }, [document])
+  }, [semanticDocument])
 
   // Drop play/review modes for frames that left the board, so the map never
   // grows unbounded or points at gone frames.
@@ -346,53 +352,31 @@ export default function App() {
     setBaseline(protoLofi.document)
   }, [protoLofi, document, setDocument, setBaseline])
 
-  // Local app mode: agents appear as collaborators. The host streams run and
-  // capture events; a finished run refreshes captures and reloads the board
-  // once local edits are safe.
-  useEffect(() => {
-    if (!localHost?.activeProjectId) return
-    void localHost.listAgents().then(setDispatchAgents).catch(() => setDispatchAgents([]))
-    void localHost.listRuns()
-      .then((runs) => setAgentRuns(runs.filter((run) => run.projectId === localHost.activeProjectId)))
-      .catch(() => {})
-    return localHost.subscribeHostEvents((event) => {
-      if (event.type === 'run-updated' && event.run.projectId === localHost.activeProjectId) {
-        setAgentRuns((current) => [event.run, ...current.filter((run) => run.id !== event.run.id)])
-      }
-      if (event.type === 'capture-started' && event.projectId === localHost.activeProjectId) {
-        setCaptureActive(true)
-      }
-      if (event.type === 'capture-failed' && event.projectId === localHost.activeProjectId) {
-        setCaptureActive(false)
-      }
-      if (event.type === 'board-updated' && event.projectId === localHost.activeProjectId) {
-        setCaptureActive(false)
-        setBoardUpdateWaiting(true)
-      }
-      // Agent-authored records: merge by id into the live document without a
-      // full reload, including when the reviewer has unsaved local edits.
-      if (event.type === 'board-patched' && event.projectId === localHost.activeProjectId) {
-        const patch = {
-          documentRevision: event.documentRevision,
-          records: event.records,
-        }
-        setDocument((current) => (current ? mergeBoardPatch(current, patch) : current))
-        acknowledgeBoardPatch(event.documentRevision, (saved) => mergeBoardPatch(saved, patch))
-        // A teach answer to one of our asks: open it at its anchor so the
-        // reviewer sees the pinned note the moment it lands.
-        const answer = event.records.find((record) =>
-          record.annotation.role === 'teach'
-          && record.annotation.requestId !== undefined
-          && learnPendingRef.current.has(record.annotation.requestId))
-        if (answer) {
-          learnPendingRef.current.delete(answer.annotation.requestId!)
-          setLearnPendingCount(learnPendingRef.current.size)
-          setSelectedFrameId(answer.annotation.frameId)
-          setSelectedAnnotationId(answer.annotation.id)
-        }
-      }
-    })
-  }, [localHost, acknowledgeBoardPatch])
+  // A teach answer to one of our asks: open it at its anchor so the reviewer
+  // sees the pinned note the moment it lands.
+  const openLearnAnswer = useCallback((annotation: ReviewAnnotation) => {
+    setSelectedFrameId(annotation.frameId)
+    setSelectedAnnotationId(annotation.id)
+  }, [])
+
+  const {
+    dispatchAgents,
+    agentRuns,
+    captureActive,
+    boardUpdateWaiting,
+    acknowledgeBoardUpdate,
+    hostConnection,
+    learnPendingCount,
+    learnAsking,
+    learnError,
+    askLearn,
+    dismissLearnError,
+  } = useAgentCollaboration({
+    localHost,
+    setDocument,
+    acknowledgeBoardPatch,
+    onLearnAnswer: openLearnAnswer,
+  })
 
   useEffect(() => {
     localHost?.setDispatchAgent(dispatchAgent)
@@ -400,9 +384,9 @@ export default function App() {
 
   useEffect(() => {
     if (!boardUpdateWaiting || !localHost || boardDirty) return
-    setBoardUpdateWaiting(false)
+    acknowledgeBoardUpdate()
     host.requestBoard()
-  }, [boardUpdateWaiting, localHost, boardDirty, host])
+  }, [boardUpdateWaiting, localHost, boardDirty, host, acknowledgeBoardUpdate])
 
   const handleCanvasReady = useCallback(() => {
     requestAnimationFrame(() => setReadyMs((current) => current ?? Math.round(performance.now())))
@@ -447,25 +431,6 @@ export default function App() {
     setPendingKillDrag(null)
     updateDocument(result.document)
     void saveImmediately(result.document)
-  }
-
-  // Send a learn/ask to the current agent about a screen. The answer is pinned
-  // back as a teach note by request id; the SSE handler above opens it on arrival.
-  // Anchored at the frame center: the ask is about the screen, not a picked point.
-  const askLearn = (frameId: string, question: string) => {
-    if (!localHost || learnAsking) return
-    const requestId = crypto.randomUUID()
-    setLearnAsking(true)
-    setLearnError(null)
-    localHost.requestLearnAnswer({ frameId, anchor: [0.5, 0.5], question, requestId })
-      .then(() => {
-        learnPendingRef.current.add(requestId)
-        setLearnPendingCount(learnPendingRef.current.size)
-      })
-      .catch((error: unknown) => {
-        setLearnError(error instanceof Error ? error.message : 'The question could not be sent.')
-      })
-      .finally(() => setLearnAsking(false))
   }
 
   const exitFocus = () => {
@@ -739,7 +704,7 @@ export default function App() {
             pending={learnPendingCount}
             error={learnError}
             onAsk={(question) => askLearn(selectedFrame.id, question)}
-            onDismissError={() => setLearnError(null)}
+            onDismissError={dismissLearnError}
           />
         ) : null}
         {kitFrame ? (
@@ -804,6 +769,11 @@ export default function App() {
         />
       </div>
       <div className="status-banners" data-testid="status-banners">
+        {localHost && hostConnection === 'reconnecting' ? (
+          <p className="host-connection-notice export-empty-notice" role="status" data-testid="host-connection-notice">
+            Host connection lost, reconnecting…
+          </p>
+        ) : null}
         {boardLoadError ? <p className="board-load-error" role="alert" data-testid="board-load-error">{boardLoadError}</p> : null}
         {saveError ? (
           <p className="board-save-error" role="alert" data-testid="board-save-error">
@@ -825,7 +795,7 @@ export default function App() {
               className="banner-action"
               data-testid="reload-updated-board"
               onClick={() => {
-                setBoardUpdateWaiting(false)
+                acknowledgeBoardUpdate()
                 host.requestBoard()
               }}
             >

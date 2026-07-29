@@ -52,6 +52,17 @@ describe('parseBoardDocument', () => {
     expect(parseBoardDocument(withoutRevision).documentRevision).toBe(1)
   })
 
+  it('keeps a present numeric documentRevision instead of regressing it to 1', () => {
+    const v2 = migrateBoardDocumentV1(legacyBoard([legacyFrame()]) as never)
+    expect(parseBoardDocument({ ...v2, documentRevision: 7 }).documentRevision).toBe(7)
+  })
+
+  it('rejects a present but non-number documentRevision instead of silently resetting it', () => {
+    const v2 = migrateBoardDocumentV1(legacyBoard([legacyFrame()]) as never)
+    expect(() => parseBoardDocument({ ...v2, documentRevision: '7' })).toThrow()
+    expect(() => parseBoardDocument({ ...v2, documentRevision: null })).toThrow()
+  })
+
   it('rejects an unsupported schema version', () => {
     expect(() => parseBoardDocument({ schemaVersion: 3 })).toThrow(/Unsupported board schema version 3/)
     expect(safeParseBoardDocument({ schemaVersion: 3 }).success).toBe(false)
@@ -94,6 +105,82 @@ describe('migrateBoardDocumentV1', () => {
     expect(unit.state).toBe('open')
     expect(board.verdicts).toHaveLength(0)
     expect(board.frames.every((frame) => frame.lifeState === 'active')).toBe(true)
+  })
+
+  it('salvages an annotation pointing at a missing frame by dropping it, not throwing', () => {
+    const board = parseBoardDocument({
+      ...legacyBoard([legacyFrame({ id: 'kept' })]),
+      annotations: [
+        {
+          id: 'orphan',
+          frameId: 'deleted-frame',
+          status: 'draft',
+          instruction: 'Ghost',
+          anchor: [0.5, 0.5],
+          mark: null,
+          createdAt: '2026-07-16T10:00:00.000Z',
+          madeAgainstCaptureHash: 'hash-x',
+          madeAgainstRevision: 1,
+        },
+        {
+          id: 'valid',
+          frameId: 'kept',
+          status: 'draft',
+          instruction: 'Keep',
+          anchor: [0.5, 0.5],
+          mark: null,
+          createdAt: '2026-07-16T10:00:00.000Z',
+          madeAgainstCaptureHash: 'hash-1',
+          madeAgainstRevision: 1,
+        },
+      ],
+    })
+    expect(board.frames.map((frame) => frame.id)).toEqual(['kept'])
+    expect(board.annotations.map((annotation) => annotation.id)).toEqual(['valid'])
+  })
+
+  it('dedupes duplicate frame and annotation ids, keeping the first of each', () => {
+    const annotation = (id: string, instruction: string) => ({
+      id,
+      frameId: 'dup',
+      status: 'draft',
+      instruction,
+      anchor: [0.5, 0.5],
+      mark: null,
+      createdAt: '2026-07-16T10:00:00.000Z',
+      madeAgainstCaptureHash: 'hash-1',
+      madeAgainstRevision: 1,
+    })
+    const board = parseBoardDocument({
+      ...legacyBoard([
+        legacyFrame({ id: 'dup', label: 'First' }),
+        legacyFrame({ id: 'dup', label: 'Second' }),
+        legacyFrame({ id: 'other' }),
+      ]),
+      annotations: [annotation('note', 'first'), annotation('note', 'second')],
+    })
+    expect(board.frames.map((frame) => frame.id)).toEqual(['dup', 'other'])
+    expect(board.frames[0]?.label).toBe('First')
+    expect(board.annotations).toHaveLength(1)
+    expect(board.annotations[0]?.instruction).toBe('first')
+  })
+
+  it('suffixes an optionSetId that collides with a generated legacy unit id', () => {
+    const board = parseBoardDocument(legacyBoard([
+      legacyFrame({ id: 'c', source: 'lofi-option' }),
+      legacyFrame({ id: 'x', source: 'lofi-option', optionSetId: 'legacy-unit-c' }),
+    ]))
+    expect(board.units.map((unit) => unit.id)).toEqual(['legacy-unit-c', 'legacy-unit-c-2'])
+    expect(board.frames.map((frame) => frame.unitId)).toEqual(['legacy-unit-c', 'legacy-unit-c-2'])
+  })
+
+  it('ignores optionSetId and preferred on a captured-route frame', () => {
+    const board = parseBoardDocument(legacyBoard([
+      legacyFrame({ id: 'route', source: 'captured-route', optionSetId: 'set-a', preferred: true }),
+    ]))
+    expect(board.frames[0]).toMatchObject({ kind: 'captured-route', lifeState: 'active' })
+    expect(board.frames[0]?.unitId).toBeUndefined()
+    expect(board.units).toEqual([])
   })
 
   it('adds empty zones and verdicts and preserves annotations', () => {

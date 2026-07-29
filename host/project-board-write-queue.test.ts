@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BoardDocument } from '../src/features/review-board/model/board-document.schema.ts'
 import { createHostDataStore } from './host-data-store.ts'
-import { createProjectBoardWriteQueue } from './project-board-write-queue.ts'
+import { BoardMissingForSaveError, createProjectBoardWriteQueue } from './project-board-write-queue.ts'
 
 const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
@@ -106,5 +106,52 @@ describe('project board write queue', () => {
     expect(board3.documentRevision).toBe(3)
     expect(seenBaseRevisions).toEqual([1, 2])
     expect(store.readBoard(projectId)?.boardId).toBe('step-3')
+  })
+
+  it('a slow async capture merge and a queued reviewer save both land with monotonic revisions', async () => {
+    await queue.compareAndSave(projectId, { baseRevision: 0, board: sampleBoard() })
+
+    let releaseCapture!: () => void
+    const captureGate = new Promise<void>((resolve) => {
+      releaseCapture = resolve
+    })
+    const capturedFrame = { id: 'captured', label: 'Captured', route: '/', viewport: { width: 100, height: 100 }, x: 0, y: 0, width: 100, height: 62.5, aspectRatio: 1.6, screenshotPath: 's.png', screenshotDataUrl: dataUrl, refreshedScreenshotDataUrl: dataUrl, captureHash: 'h', revision: 1, elements: [], kind: 'captured-route' as const, lifeState: 'active' as const }
+
+    // The capture merge holds the chain while it awaits; the reviewer save
+    // enqueued behind it must see the merged frames, never the base board.
+    const capture = queue.mutateAndSave(projectId, async (current) => {
+      await captureGate
+      return { ...current!, frames: [...current!.frames, capturedFrame] }
+    })
+    const reviewerSave = queue.mutateAndSave(projectId, (current) => ({
+      ...current!,
+      units: [...current!.units, { id: 'reviewer-unit', label: 'Reviewer unit', brief: 'added mid-capture', rules: [], dependsOnUnitIds: [], state: 'open' as const }],
+    }))
+
+    releaseCapture()
+    const [capturedBoard, finalBoard] = await Promise.all([capture, reviewerSave])
+    expect(capturedBoard.documentRevision).toBe(2)
+    expect(finalBoard.documentRevision).toBe(3)
+    expect(finalBoard.frames.some((frame) => frame.id === 'captured')).toBe(true)
+    expect(finalBoard.units.some((unit) => unit.id === 'reviewer-unit')).toBe(true)
+    const stored = store.readBoard(projectId)
+    expect(stored?.frames.some((frame) => frame.id === 'captured')).toBe(true)
+    expect(stored?.units.some((unit) => unit.id === 'reviewer-unit')).toBe(true)
+  })
+
+  it('a job that rejects does not block the next job', async () => {
+    await expect(queue.mutateAndSave(projectId, () => {
+      throw new Error('merge exploded')
+    })).rejects.toThrow('merge exploded')
+
+    const saved = await queue.mutateAndSave(projectId, () => sampleBoard({ boardId: 'after-failure' }))
+    expect(saved.documentRevision).toBe(1)
+    expect(store.readBoard(projectId)?.boardId).toBe('after-failure')
+  })
+
+  it('compareAndSave with baseRevision > 0 and no stored board throws BoardMissingForSaveError', async () => {
+    await expect(queue.compareAndSave(projectId, { baseRevision: 3, board: sampleBoard() }))
+      .rejects.toBeInstanceOf(BoardMissingForSaveError)
+    expect(store.readBoard(projectId)).toBeNull()
   })
 })

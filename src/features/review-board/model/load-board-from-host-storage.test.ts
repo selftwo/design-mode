@@ -41,28 +41,27 @@ describe('loadBoardFromHostStorage', () => {
     expect(loaded.lastSaved).toEqual(persisted)
   })
 
-  it('falls back to the host board when stored data is invalid', () => {
+  it('falls back to the host board and keeps an invalid stored payload recoverable', () => {
     const hostBoard = createPressureTestBoard()
     const storage = createMemoryStorage()
     storage.setItem(STORAGE_KEY, '{"schemaVersion":2}')
     const loaded = loadBoardFromHostStorage(hostBoard, storage)
     expect(loaded.document).toEqual(hostBoard)
     expect(loaded.lastSaved).toEqual(hostBoard)
-    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    // The payload stays in place so a failed parse never destroys local edits.
+    expect(storage.getItem(STORAGE_KEY)).toBe('{"schemaVersion":2}')
   })
 
-  it('loads the host board when invalid storage cannot be cleared', () => {
+  it('falls back to the host board and keeps an unparseable stored payload', () => {
     const hostBoard = createPressureTestBoard()
     const storage = createMemoryStorage()
     storage.setItem(STORAGE_KEY, '{invalid')
-    storage.removeItem = () => {
-      throw new Error('clear blocked')
-    }
 
     expect(loadBoardFromHostStorage(hostBoard, storage)).toEqual({
       document: hostBoard,
       lastSaved: hostBoard,
     })
+    expect(storage.getItem(STORAGE_KEY)).toBe('{invalid')
   })
 
   it('ignores stored overrides for a different board id', () => {

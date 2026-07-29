@@ -1,10 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { chromium } from '@playwright/test'
-import { ScreenFrameSchema, type BoardDocument, type ScreenFrame } from '../src/features/review-board/model/board-document.schema.ts'
+import { ScreenFrameSchema, type ScreenFrame } from '../src/features/review-board/model/board-document.schema.ts'
 import type { Project, ProjectRoute } from '../src/features/local-host/host-api.schema.ts'
 import { collectFrameElementsInPage } from './extract-frame-elements.ts'
-import { mergeCapturedFrames } from './merge-captured-frames.ts'
 import { spawnEnvironment } from './spawn-environment.ts'
 
 const CAPTURE_VIEWPORT = { width: 1440, height: 900 }
@@ -110,12 +109,15 @@ async function captureRoute(
 
 // The caller owns the dev server (see the dev server pool in the host), so a
 // capture never tears down a server a live session still depends on.
-export async function captureProjectBoard(
+//
+// Returns bare frames rather than a merged board: capture takes seconds, so the
+// merge must happen inside the board write queue against the board as it is at
+// write time, or a reviewer PUT that lands mid-capture gets clobbered.
+export async function captureProjectFrames(
   project: Project,
   baseUrl: string,
-  existingBoard: BoardDocument | null,
   routes: ProjectRoute[] = project.routes,
-): Promise<BoardDocument> {
+): Promise<ScreenFrame[]> {
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage({ viewport: CAPTURE_VIEWPORT })
@@ -123,7 +125,7 @@ export async function captureProjectBoard(
     for (const route of routes) {
       frames.push(await captureRoute(page, baseUrl, route))
     }
-    return mergeCapturedFrames(existingBoard, frames, `${project.id}-board`)
+    return frames
   } finally {
     await browser.close()
   }

@@ -65,6 +65,49 @@ describe('createBoardSaveQueue', () => {
     expect(seen).toEqual(['bad', 'good'])
   })
 
+  it('coalesces a burst: three enqueues during one in-flight write cost two writes', async () => {
+    const started: string[] = []
+    const gate = deferred()
+    const queue = createBoardSaveQueue((document) => {
+      started.push(document.boardId)
+      if (document.boardId === 'one') return gate.promise
+      return Promise.resolve(boardWithId(document.boardId, 9))
+    })
+
+    const first = queue.enqueue(boardWithId('one'))
+    const second = queue.enqueue(boardWithId('two'))
+    const third = queue.enqueue(boardWithId('three'))
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(started).toEqual(['one'])
+    gate.resolve(boardWithId('one', 2))
+
+    await expect(first).resolves.toMatchObject({ boardId: 'one', documentRevision: 2 })
+    // The displaced middle enqueue settles with the result of the save that
+    // carried its superseded document: the newer one.
+    await expect(second).resolves.toMatchObject({ boardId: 'three', documentRevision: 9 })
+    await expect(third).resolves.toMatchObject({ boardId: 'three', documentRevision: 9 })
+    // Only the first and last documents ever reached storage, in call order.
+    expect(started).toEqual(['one', 'three'])
+  })
+
+  it('rejects displaced enqueues when the carrying write fails', async () => {
+    const gate = deferred()
+    const queue = createBoardSaveQueue((document) => {
+      if (document.boardId === 'one') return gate.promise
+      return Promise.reject(new Error('carrier failed'))
+    })
+
+    const first = queue.enqueue(boardWithId('one'))
+    const second = queue.enqueue(boardWithId('two'))
+    const third = queue.enqueue(boardWithId('three'))
+    gate.resolve(boardWithId('one', 2))
+
+    await expect(first).resolves.toMatchObject({ boardId: 'one', documentRevision: 2 })
+    await expect(second).rejects.toThrow('carrier failed')
+    await expect(third).rejects.toThrow('carrier failed')
+  })
+
   it('reports each write its own result', async () => {
     const queue = createBoardSaveQueue((document) =>
       document.boardId === 'fail'

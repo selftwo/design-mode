@@ -60,14 +60,16 @@ export function createProjectBoardWriteQueue(store: HostDataStore) {
     },
 
     // Capture / merge paths: read the latest board (or null), mutate, write with
-    // a bumped revision. Always goes through the same per-project chain.
+    // a bumped revision. Always goes through the same per-project chain. An
+    // async mutator holds the chain until it settles, so a slow merge and a
+    // direct save can never interleave their read-modify-write.
     mutateAndSave(
       projectId: string,
-      mutate: (current: BoardDocument | null) => BoardDocument,
+      mutate: (current: BoardDocument | null) => BoardDocument | Promise<BoardDocument>,
     ): Promise<BoardDocument> {
-      return enqueue(projectId, () => {
+      return enqueue(projectId, async () => {
         const current = store.readBoard(projectId)
-        const next = mutate(current)
+        const next = await mutate(current)
         return persist(projectId, next, revisionOf(current) + 1)
       })
     },

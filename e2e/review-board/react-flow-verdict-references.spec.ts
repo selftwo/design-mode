@@ -67,3 +67,30 @@ test('reactflow: a verdict pre-selects the unit reference and the ledger shows i
   // The confirmed decision links the reference in the ledger.
   await expect(page.getByTestId(`ledger-references-${verdictId}`)).toContainText('Reference A')
 })
+
+test('reactflow: unchecking a pre-selected reference drops it from the verdict and the ledger', async ({ page }) => {
+  await installPlayableOptionRoutes(page)
+  await installFakeBoardHost(page, boardWithReference())
+  await page.goto('/?engine=reactflow')
+  await expect(page.getByTestId('board-status')).toContainText('3 screens', { timeout: 30_000 })
+
+  await page.getByTestId('surface-p0').click({ position: { x: 10, y: 10 } })
+  await expect(page.getByTestId('frame-kit-island')).toBeVisible()
+
+  await page.getByTestId('frame-verdict-promote').click()
+  await expect(page.getByTestId('verdict-bloom')).toBeVisible()
+
+  // The reference starts checked; unchecking removes it from this verdict only.
+  await expect(page.getByTestId('verdict-reference-ref-a')).toBeChecked()
+  await page.getByTestId('verdict-reference-ref-a').uncheck()
+  await expect(page.getByTestId('verdict-reference-ref-a')).not.toBeChecked()
+
+  await page.getByTestId('verdict-confirm').click()
+  await expect.poll(async () => (await diagnostics(page)).verdicts.length).toBe(1)
+  const verdictId = (await diagnostics(page)).verdicts[0]!.id
+
+  // The ledger renders straight from verdict.referenceFrameIds, so an absent
+  // references list proves the unchecked reference was dropped from the record.
+  await expect(page.getByTestId(`ledger-row-${verdictId}`)).toBeVisible()
+  await expect(page.getByTestId(`ledger-references-${verdictId}`)).toHaveCount(0)
+})

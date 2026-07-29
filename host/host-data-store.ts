@@ -107,6 +107,12 @@ export function createHostDataStore(dataDir: string = defaultDataDir()) {
       writeJsonFile(runFile(run.id), AgentRunSchema.parse(run))
     },
 
+    // One run's journal entry, without readdir-ing and parsing every run the
+    // way listRuns does. Null when the run was never journaled.
+    readRun(runId: string): AgentRun | null {
+      return readJsonFile(runFile(runId), AgentRunSchema)
+    },
+
     runAssetDir(runId: string): string {
       const dir = runDir(runId)
       mkdirSync(dir, { recursive: true })
@@ -117,9 +123,15 @@ export function createHostDataStore(dataDir: string = defaultDataDir()) {
     // in the host data dir (not the project repo) so generation never dirties
     // the user's source tree.
     optionSetDir(projectId: string, optionSetId: string): string {
-      const dir = path.join(dataDir, 'scratch', projectId, optionSetId)
+      const dir = this.optionSetPath(projectId, optionSetId)
       mkdirSync(dir, { recursive: true })
       return dir
+    },
+
+    // Read-only sibling of optionSetDir: resolves where a set would live
+    // without creating directories, so serving a miss never dirties the disk.
+    optionSetPath(projectId: string, optionSetId: string): string {
+      return path.join(dataDir, 'scratch', projectId, optionSetId)
     },
   }
 }

@@ -8,7 +8,34 @@ import './GenerateOptionsPanel.css'
 
 const OPTION_COUNTS = [1, 2, 3, 4, 5, 6]
 
-type Phase = 'idle' | 'saving' | 'sending' | 'sent' | 'error'
+export type GenerateOptionsPhase = 'idle' | 'saving' | 'sending' | 'sent' | 'error'
+
+export interface GenerateOptionsState {
+  count: number
+  setCount: (count: number) => void
+  phase: GenerateOptionsPhase
+  setPhase: (phase: GenerateOptionsPhase) => void
+  message: string | null
+  setMessage: (message: string | null) => void
+}
+
+// The generation form's state, owned by the caller above the panel's unmount
+// boundary: collapsing the island unmounts the panel, so an in-flight
+// generation's outcome must land in state that survives the collapse and never
+// hits an unmounted component.
+export function useGenerateOptionsState(unitId: string | null): GenerateOptionsState {
+  const [count, setCount] = useState(3)
+  const [phase, setPhase] = useState<GenerateOptionsPhase>('idle')
+  const [message, setMessage] = useState<string | null>(null)
+
+  // A change of selection clears any stale status from the previous unit.
+  useEffect(() => {
+    setPhase('idle')
+    setMessage(null)
+  }, [unitId])
+
+  return { count, setCount, phase, setPhase, message, setMessage }
+}
 
 // The selected-unit generation form. It never carries free prompt text: the
 // host builds the agent request from the unit's brief and rules. Generation goes
@@ -17,22 +44,16 @@ export function GenerateOptionsPanel({
   document,
   unit,
   client,
+  state,
   onSaveImmediately,
 }: {
   document: BoardDocument
   unit: DesignUnit | null
   client: LocalHostClient
+  state: GenerateOptionsState
   onSaveImmediately: (document: BoardDocument) => Promise<ImmediateSaveResult>
 }) {
-  const [count, setCount] = useState(3)
-  const [phase, setPhase] = useState<Phase>('idle')
-  const [message, setMessage] = useState<string | null>(null)
-
-  // A change of selection clears any stale status from the previous unit.
-  useEffect(() => {
-    setPhase('idle')
-    setMessage(null)
-  }, [unit?.id])
+  const { count, setCount, phase, setPhase, message, setMessage } = state
 
   const eligibility = useMemo(
     () => (unit ? getUnitGenerationEligibility(document, unit.id) : null),

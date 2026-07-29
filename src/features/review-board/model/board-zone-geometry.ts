@@ -76,22 +76,48 @@ export function defaultZoneLayout(
   }
 }
 
-// Automatic placement for verdicts: tile left-to-right inside the zone under
-// the label band. Frames keep world coordinates; this only picks x/y.
-export function stackFrameInZone(
+// Automatic placement for verdicts: tile entrants left-to-right in rows under
+// the label band, below whatever already sits in the zone, so occupants keep
+// their place. Row height follows the tallest frame in that row, so mixed
+// sizes never overlap. Frames keep world coordinates; the returned bounds grow
+// the zone (never shrink it) so every placed frame lies fully inside — a frame
+// whose center leaves its zone would otherwise classify as dragged out.
+export function stackFramesInZone(
   zone: Pick<BoardZone, 'x' | 'y' | 'width' | 'height'>,
-  frame: Pick<ScreenFrame, 'width' | 'height'>,
-  indexInZone: number,
+  occupants: readonly Pick<ScreenFrame, 'x' | 'y' | 'width' | 'height'>[],
+  entrants: readonly Pick<ScreenFrame, 'width' | 'height'>[],
   gap = ZONE_INNER_GAP,
-): { x: number; y: number } {
-  const innerWidth = Math.max(frame.width, zone.width - ZONE_PADDING * 2)
-  const stride = frame.width + gap
-  const columns = Math.max(1, Math.floor((innerWidth + gap) / stride))
-  const column = indexInZone % columns
-  const row = Math.floor(indexInZone / columns)
+): {
+  positions: { x: number; y: number }[]
+  bounds: Pick<BoardZone, 'x' | 'y' | 'width' | 'height'>
+} {
+  const innerLeft = zone.x + ZONE_PADDING
+  const topY = zone.y + ZONE_PADDING + ZONE_LABEL_BAND
+  let requiredWidth = zone.width
+  let rowY = occupants.reduce(
+    (lowest, frame) => Math.max(lowest, frame.y + frame.height + gap),
+    topY,
+  )
+  let cursorX = innerLeft
+  let rowHeight = 0
+  const positions: { x: number; y: number }[] = []
+  for (const frame of entrants) {
+    requiredWidth = Math.max(requiredWidth, frame.width + ZONE_PADDING * 2)
+    if (cursorX > innerLeft && cursorX + frame.width > zone.x + zone.width - ZONE_PADDING) {
+      rowY += rowHeight + gap
+      cursorX = innerLeft
+      rowHeight = 0
+    }
+    positions.push({ x: cursorX, y: rowY })
+    cursorX += frame.width + gap
+    rowHeight = Math.max(rowHeight, frame.height)
+  }
+  const requiredHeight = positions.length === 0
+    ? zone.height
+    : Math.max(zone.height, rowY + rowHeight + ZONE_PADDING - zone.y)
   return {
-    x: zone.x + ZONE_PADDING + column * stride,
-    y: zone.y + ZONE_PADDING + ZONE_LABEL_BAND + row * (frame.height + gap),
+    positions,
+    bounds: { x: zone.x, y: zone.y, width: requiredWidth, height: requiredHeight },
   }
 }
 

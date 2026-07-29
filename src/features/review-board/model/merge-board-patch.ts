@@ -17,10 +17,16 @@ export type BoardPatch = {
 export function mergeBoardPatch(document: BoardDocument, patch: BoardPatch): BoardDocument {
   let annotations = document.annotations
   let changed = false
+  const frameIds = new Set(document.frames.map((frame) => frame.id))
 
   for (const record of patch.records) {
     if (record.kind !== 'annotation') continue
     if (!isAgentAuthoredAnnotation(record.annotation)) continue
+    // The host may know frames this client has not reloaded yet (a run landed
+    // new options). An annotation on an unknown frame would make the local
+    // document fail relation checks, so drop it; the record returns with the
+    // board itself on the next reload.
+    if (!frameIds.has(record.annotation.frameId)) continue
 
     const index = annotations.findIndex((item) => item.id === record.annotation.id)
     if (index === -1) {

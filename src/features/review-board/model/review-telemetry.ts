@@ -1,4 +1,5 @@
 import type { ReviewSummary, ScreenFrame } from './board-document.schema'
+import { isOptionFrame } from './board-relations'
 
 // Exploration should leave traces without becoming an event log. This is a
 // bounded per-frame accumulator: it integrates how long each frame was looked at
@@ -120,10 +121,6 @@ export function isReviewed(summary: ReviewSummary): boolean {
   return summary.playedLive || summary.visibleSeconds >= REVIEWED_VISIBLE_SECONDS
 }
 
-function isOption(frame: ScreenFrame): boolean {
-  return frame.kind === 'option-snapshot' || frame.kind === 'playable-option'
-}
-
 // A non-blocking heads-up for a promote: the winner was never played live, or
 // sibling options went unreviewed. Returns null when the decision looks well
 // explored. Advisory only, so a reviewer who knows their mind can still confirm.
@@ -145,7 +142,7 @@ export function verdictReviewWarning(
   }
   const unreviewedSiblings = frames.filter((frame) => frame.unitId === unitId
     && frame.id !== winnerFrameId
-    && isOption(frame)
+    && isOptionFrame(frame)
     && frame.lifeState === 'active'
     && !reviewed(frame.id)).length
   if (unreviewedSiblings > 0) {

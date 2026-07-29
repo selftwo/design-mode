@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './VerdictConfirmBloom.css'
 
 // A reference the reviewer can link to this decision. The label is what the
@@ -32,6 +32,17 @@ export function VerdictConfirmBloom({
   const [summary, setSummary] = useState(
     kind === 'promote' ? `Locked ${frameLabel} as the direction.` : `Killed ${frameLabel}.`,
   )
+  const rootRef = useRef<HTMLFormElement>(null)
+  // The element that opened the bloom, captured during the first render because
+  // the summary input's autofocus moves focus before any effect runs.
+  const [opener] = useState<HTMLElement | null>(() =>
+    document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  useEffect(() => () => {
+    // Hand focus back only on a real unmount: Strict Mode re-runs this cleanup
+    // while the bloom's DOM is still attached, and then focus must stay inside.
+    if (rootRef.current?.isConnected) return
+    if (opener?.isConnected) opener.focus()
+  }, [opener])
   // References start selected, matching "the verdict form pre-selects the unit's
   // references"; unchecking one drops it from this verdict only.
   const [linkedIds, setLinkedIds] = useState<Set<string>>(() => new Set(references.map((reference) => reference.id)))
@@ -49,13 +60,22 @@ export function VerdictConfirmBloom({
 
   return (
     <form
+      ref={rootRef}
       className={`verdict-bloom ${kind}`}
       role="dialog"
+      aria-modal="true"
       aria-label={title}
       data-testid="verdict-bloom"
       onSubmit={(event) => {
         event.preventDefault()
         if (!disabled) onConfirm(summary, references.filter((reference) => linkedIds.has(reference.id)).map((reference) => reference.id))
+      }}
+      onKeyDown={(event) => {
+        // Escape cancels from inside the bloom itself, so every mount context
+        // (kit island, drag-kill bloom) gets it without the host wiring a key.
+        if (event.key !== 'Escape') return
+        event.stopPropagation()
+        onCancel()
       }}
     >
       <p className="verdict-bloom-title">{title}</p>

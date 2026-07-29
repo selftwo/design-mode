@@ -18,6 +18,7 @@ import {
   LearnRequestSchema,
   LiveSessionResponseSchema,
   ProjectRegistrationSchema,
+  type AgentId,
   type AgentRun,
   type Project,
 } from '../src/features/local-host/host-api.schema.ts'
@@ -27,7 +28,7 @@ import { buildTeachPrompt } from './build-teach-prompt.ts'
 import { buildLofiGeneratePrompt, type GenerationReference, type GenerationReviewTrace, type PriorDecision } from './build-lofi-generate-prompt.ts'
 import { isReviewed } from '../src/features/review-board/model/review-telemetry.ts'
 import { captureLofiOptions } from './capture-lofi-options.ts'
-import { captureProjectBoard, ensureDevServer, type DevServerHandle } from './capture-project-board.ts'
+import { captureProjectFrames, ensureDevServer, type DevServerHandle } from './capture-project-board.ts'
 import { createHostDataStore, defaultDataDir } from './host-data-store.ts'
 import { createHostEventBus } from './host-event-bus.ts'
 import { startLiveReviewProxy, type LiveReviewProxy } from './live-review-proxy.ts'
@@ -144,11 +145,10 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     events.publish({ type: 'capture-started', projectId: project.id })
     try {
       const devServer = await devServerFor(project)
-      // Capture uses the latest board as a layout hint, then the write queue
-      // re-reads and bumps documentRevision so it cannot race a reviewer PUT.
-      const hint = store.readBoard(project.id)
-      const captured = await captureProjectBoard(project, devServer.url, hint)
-      await boardWrites.mutateAndSave(project.id, () => captured)
+      // Merge inside the write queue against the board as it is at write time,
+      // so a reviewer PUT that lands during the capture is never clobbered.
+      const frames = await captureProjectFrames(project, devServer.url)
+      await boardWrites.mutateAndSave(project.id, (latest) => mergeCapturedFrames(latest, frames, `${project.id}-board`))
       events.publish({ type: 'board-updated', projectId: project.id })
     } catch (error) {
       events.publish({ type: 'capture-failed', projectId: project.id, error: errorMessage(error) })
@@ -180,6 +180,59 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     }
   }
 
+  // Shared spawn lifecycle for every launcher: send the prompt over stdin,
+  // collect a bounded output tail, and journal every status transition.
+  // stdin errors are swallowed because an agent may exit without reading its
+  // prompt (EPIPE must not crash the host), and a spawn error marks the run
+  // failed once: the close event that follows it (code null) must not
+  // overwrite the real error with "exited with code null".
+  function runAgentProcess(input: {
+    run: AgentRun
+    agent: AgentId
+    prompt: string
+    cwd: string
+    onSuccess?: () => void
+  }) {
+    const { run, agent, prompt, cwd, onSuccess } = input
+    const command = resolveAgentCommand(agent, prompt, options.agentCommands)
+    const child = spawn(command.executable, command.args, { cwd, env: spawnEnvironment() })
+    child.stdin.on('error', () => {})
+    if (command.stdin !== null) {
+      child.stdin.write(command.stdin)
+    }
+    child.stdin.end()
+
+    let tail = ''
+    const collect = (chunk: Buffer) => {
+      tail = (tail + chunk.toString('utf8')).slice(-OUTPUT_TAIL_LIMIT)
+      updateRun({ ...run, status: 'running', outputTail: tail })
+    }
+    child.stdout.on('data', collect)
+    child.stderr.on('data', collect)
+    updateRun({ ...run, status: 'running' })
+
+    let spawnFailed = false
+    child.on('error', (error) => {
+      spawnFailed = true
+      updateRun({ ...run, status: 'failed', outputTail: tail, finishedAt: new Date().toISOString(), error: errorMessage(error) })
+    })
+    child.on('close', (code) => {
+      if (spawnFailed) return
+      if (code === 0) {
+        updateRun({ ...run, status: 'done', outputTail: tail, finishedAt: new Date().toISOString() })
+        onSuccess?.()
+      } else {
+        updateRun({
+          ...run,
+          status: 'failed',
+          outputTail: tail,
+          finishedAt: new Date().toISOString(),
+          error: `${command.executable} exited with code ${String(code)}`,
+        })
+      }
+    })
+  }
+
   function launchAgentRun(project: Project, dispatch: z.infer<typeof DispatchRequestSchema>) {
     const run: AgentRun = {
       id: randomUUID(),
@@ -206,28 +259,12 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     writeFileSync(path.join(assetDir, 'prompt.md'), prompt)
     writeFileSync(path.join(assetDir, 'batch.json'), JSON.stringify(dispatch.batch, null, 2))
 
-    const command = resolveAgentCommand(dispatch.agent, prompt, options.agentCommands)
-    const child = spawn(command.executable, command.args, { cwd: project.path, env: spawnEnvironment() })
-    if (command.stdin !== null) {
-      child.stdin.write(command.stdin)
-    }
-    child.stdin.end()
-
-    let tail = ''
-    const collect = (chunk: Buffer) => {
-      tail = (tail + chunk.toString('utf8')).slice(-OUTPUT_TAIL_LIMIT)
-      updateRun({ ...run, status: 'running', outputTail: tail })
-    }
-    child.stdout.on('data', collect)
-    child.stderr.on('data', collect)
-    updateRun({ ...run, status: 'running' })
-
-    child.on('error', (error) => {
-      updateRun({ ...run, status: 'failed', outputTail: tail, finishedAt: new Date().toISOString(), error: errorMessage(error) })
-    })
-    child.on('close', (code) => {
-      if (code === 0) {
-        updateRun({ ...run, status: 'done', outputTail: tail, finishedAt: new Date().toISOString() })
+    runAgentProcess({
+      run,
+      agent: dispatch.agent,
+      prompt,
+      cwd: project.path,
+      onSuccess: () => {
         // Agents may have appended canvas-events.jsonl during the run; land them
         // before (or instead of) a full recapture so questions appear promptly.
         void syncCanvasEventsFromFile({
@@ -239,15 +276,7 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
         }).finally(() => {
           if (recaptureAfterRun) void recaptureProject(project)
         })
-      } else {
-        updateRun({
-          ...run,
-          status: 'failed',
-          outputTail: tail,
-          finishedAt: new Date().toISOString(),
-          error: `${command.executable} exited with code ${String(code)}`,
-        })
-      }
+      },
     })
     return run
   }
@@ -289,28 +318,12 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     })
     writeFileSync(path.join(assetDir, 'prompt.md'), prompt)
 
-    const command = resolveAgentCommand(request.agent, prompt, options.agentCommands)
-    const child = spawn(command.executable, command.args, { cwd: project.path, env: spawnEnvironment() })
-    if (command.stdin !== null) {
-      child.stdin.write(command.stdin)
-    }
-    child.stdin.end()
-
-    let tail = ''
-    const collect = (chunk: Buffer) => {
-      tail = (tail + chunk.toString('utf8')).slice(-OUTPUT_TAIL_LIMIT)
-      updateRun({ ...run, status: 'running', outputTail: tail })
-    }
-    child.stdout.on('data', collect)
-    child.stderr.on('data', collect)
-    updateRun({ ...run, status: 'running' })
-
-    child.on('error', (error) => {
-      updateRun({ ...run, status: 'failed', outputTail: tail, finishedAt: new Date().toISOString(), error: errorMessage(error) })
-    })
-    child.on('close', (code) => {
-      if (code === 0) {
-        updateRun({ ...run, status: 'done', outputTail: tail, finishedAt: new Date().toISOString() })
+    runAgentProcess({
+      run,
+      agent: request.agent,
+      prompt,
+      cwd: project.path,
+      onSuccess: () => {
         void syncCanvasEventsFromFile({
           store,
           boardWrites,
@@ -318,15 +331,7 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
           projectId: project.id,
           runId: run.id,
         })
-      } else {
-        updateRun({
-          ...run,
-          status: 'failed',
-          outputTail: tail,
-          finishedAt: new Date().toISOString(),
-          error: `${command.executable} exited with code ${String(code)}`,
-        })
-      }
+      },
     })
     return run
   }
@@ -343,7 +348,7 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     const parts = sourcePath.split('/')
     // A scratch locator is '/scratch/<projectId>/<optionSetId>/<fileName>'.
     if (parts.length !== 5 || parts[1] !== 'scratch') return ''
-    const dir = store.optionSetDir(parts[2]!, parts[3]!)
+    const dir = store.optionSetPath(parts[2]!, parts[3]!)
     const target = path.join(dir, parts[4]!)
     if (!target.startsWith(dir + path.sep) || !existsSync(target)) return ''
     return readFileSync(target, 'utf8')
@@ -432,38 +437,14 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     const prompt = buildLofiGeneratePrompt({ project, unit, count: request.count, outputDir, contextFiles, priorDecisions, references, reviewTraces })
     writeFileSync(path.join(assetDir, 'prompt.md'), prompt)
 
-    const command = resolveAgentCommand(request.agent, prompt, options.agentCommands)
-    const child = spawn(command.executable, command.args, { cwd: outputDir, env: spawnEnvironment() })
-    if (command.stdin !== null) {
-      child.stdin.write(command.stdin)
-    }
-    child.stdin.end()
-
-    let tail = ''
-    const collect = (chunk: Buffer) => {
-      tail = (tail + chunk.toString('utf8')).slice(-OUTPUT_TAIL_LIMIT)
-      updateRun({ ...run, status: 'running', outputTail: tail })
-    }
-    child.stdout.on('data', collect)
-    child.stderr.on('data', collect)
-    updateRun({ ...run, status: 'running' })
-
-    child.on('error', (error) => {
-      updateRun({ ...run, status: 'failed', outputTail: tail, finishedAt: new Date().toISOString(), error: errorMessage(error) })
-    })
-    child.on('close', (code) => {
-      if (code === 0) {
-        updateRun({ ...run, status: 'done', outputTail: tail, finishedAt: new Date().toISOString() })
+    runAgentProcess({
+      run,
+      agent: request.agent,
+      prompt,
+      cwd: outputDir,
+      onSuccess: () => {
         if (recaptureAfterRun) void captureLofiOptionsIntoBoard(project, run.id, unit.id, request.count)
-      } else {
-        updateRun({
-          ...run,
-          status: 'failed',
-          outputTail: tail,
-          finishedAt: new Date().toISOString(),
-          error: `${command.executable} exited with code ${String(code)}`,
-        })
-      }
+      },
     })
     return run
   }
@@ -509,7 +490,9 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
       response.end('Not found')
       return
     }
-    const dir = store.optionSetDir(projectId, optionSetId)
+    // Resolve without creating directories: a GET for a set that does not
+    // exist must 404, not mkdir on every probe.
+    const dir = store.optionSetPath(projectId, optionSetId)
     const target = path.join(dir, fileName)
     if (!target.startsWith(dir + path.sep) || !existsSync(target)) {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
@@ -606,7 +589,9 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     const canvasEventMatch = pathname.match(/^\/api\/runs\/([^/]+)\/canvas-events(?:\/(sync))?$/)
     if (canvasEventMatch) {
       const runId = canvasEventMatch[1]!
-      const run = store.listRuns().find((item) => item.id === runId) ?? activeRuns.get(runId)
+      // Active runs are in memory; otherwise read just this run's journal
+      // entry instead of parsing every runs/*/run.json per event.
+      const run = activeRuns.get(runId) ?? store.readRun(runId)
       if (!run) {
         sendJson(response, 404, { error: `Unknown run: ${runId}` })
         return
@@ -712,9 +697,8 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
       events.publish({ type: 'capture-started', projectId: project.id })
       try {
         const devServer = await devServerFor(project)
-        const hint = store.readBoard(project.id)
-        const captured = await captureProjectBoard(project, devServer.url, hint)
-        const board = await boardWrites.mutateAndSave(project.id, () => captured)
+        const frames = await captureProjectFrames(project, devServer.url)
+        const board = await boardWrites.mutateAndSave(project.id, (latest) => mergeCapturedFrames(latest, frames, `${project.id}-board`))
         events.publish({ type: 'board-updated', projectId: project.id })
         sendJson(response, 200, BoardResponseSchema.parse({ board }))
       } catch (error) {
@@ -732,9 +716,8 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
         return
       }
       const devServer = await devServerFor(project)
-      const hint = store.readBoard(project.id)
-      const captured = await captureProjectBoard(project, devServer.url, hint, [route])
-      const board = await boardWrites.mutateAndSave(project.id, () => captured)
+      const frames = await captureProjectFrames(project, devServer.url, [route])
+      const board = await boardWrites.mutateAndSave(project.id, (latest) => mergeCapturedFrames(latest, frames, `${project.id}-board`))
       sendJson(response, 200, BoardResponseSchema.parse({ board }))
       return
     }
@@ -811,7 +794,31 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     sendJson(response, 405, { error: `${method} is not supported on ${pathname}` })
   }
 
+  // Browsers send text/plain POSTs without a CORS preflight, so a drive-by web
+  // page could hit state-changing routes (dispatch spawns agent CLIs). Requests
+  // with no Origin header (CLI, curl, tests) pass; a browser-supplied Origin
+  // must be this host or another local http origin (any port). Everything else
+  // is refused before any handler work happens.
+  function requestOriginAllowed(request: IncomingMessage): boolean {
+    const origin = request.headers.origin
+    if (typeof origin !== 'string' || origin.length === 0) return true
+    if (origin === hostOrigin) return true
+    let parsed: URL
+    try {
+      parsed = new URL(origin)
+    } catch {
+      return false
+    }
+    if (parsed.protocol !== 'http:') return false
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '[::1]'
+  }
+
   const server = createServer((request, response) => {
+    const method = request.method ?? 'GET'
+    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && !requestOriginAllowed(request)) {
+      sendJson(response, 403, { error: 'Cross-origin state-changing requests are not allowed.' })
+      return
+    }
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
     if (pathname.startsWith('/api/')) {
       handleApi(request, response, pathname).catch((error) => {
