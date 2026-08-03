@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import type { BoardDocument, DesignUnit } from '../src/features/review-board/model/board-document.schema.ts'
+import { BoardDocumentSchema } from '../src/features/review-board/model/board-document.schema.ts'
 import { getUnitGenerationEligibility } from '../src/features/review-board/model/unit-generation-eligibility.ts'
 import {
   AgentListSchema,
@@ -823,6 +824,7 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
           }))
           return
         }
+        events.publish({ type: 'board-updated', projectId: project.id })
         sendJson(response, 200, BoardPutSuccessSchema.parse({ board: result.board }))
       } catch (error) {
         if (error instanceof BoardMissingForSaveError) {

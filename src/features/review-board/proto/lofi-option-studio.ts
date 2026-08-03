@@ -7,7 +7,7 @@
 // canvas (drag, resize, marks) works unchanged, and the handoff payload is built
 // but only shown, not dispatched. Delete this folder when the real loop lands.
 
-import type { BoardDocument, ReviewAnnotation, ScreenFrame } from '../model/board-document.schema'
+import type { BoardAnnotation, BoardDocument, ScreenFrame } from '../model/board-document.schema'
 
 const PROTO_FLAG = 'lofi'
 const OPTION_VIEWPORT = { width: 480, height: 600 } as const
@@ -153,7 +153,7 @@ export function buildProtoLofiBoard(now: number = Date.now()): ProtoLofiSeed {
 export interface LofiHandoffPayload {
   kind: 'lofi-handoff'
   chosenOption: { frameId: string; label: string; html: string }
-  marks: ReviewAnnotation[]
+  marks: BoardAnnotation[]
   // Stubbed: the real loop (Item 6) will let the user name a target file/route.
   target: string
 }

@@ -8,6 +8,7 @@ function islandDragBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'island-drag-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: -60, zoom: 1 },
     frames: [
       {
@@ -25,6 +26,8 @@ function islandDragBoard(): BoardDocument {
         refreshedScreenshotDataUrl: dataUrl,
         captureHash: 'pick-capture',
         revision: 1,
+        kind: 'captured-route',
+        lifeState: 'active',
         elements: [
           {
             id: 'pick-frame-el-1',
@@ -42,6 +45,10 @@ function islandDragBoard(): BoardDocument {
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 

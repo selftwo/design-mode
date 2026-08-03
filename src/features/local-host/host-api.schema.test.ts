@@ -84,6 +84,7 @@ describe('HostEventSchema', () => {
       records: [{
         kind: 'annotation',
         annotation: {
+          kind: 'review',
           id: 'q-1',
           frameId: 'home',
           role: 'agent-question',

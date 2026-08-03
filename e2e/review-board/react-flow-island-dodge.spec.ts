@@ -8,6 +8,7 @@ function centeredDodgeBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'island-dodge-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: 0, zoom: 1 },
     frames: [
       {
@@ -25,6 +26,8 @@ function centeredDodgeBoard(): BoardDocument {
         refreshedScreenshotDataUrl: dataUrl,
         captureHash: 'center-capture',
         revision: 1,
+        kind: 'captured-route',
+        lifeState: 'active',
         elements: [
           {
             id: 'center-frame-el',
@@ -36,6 +39,10 @@ function centeredDodgeBoard(): BoardDocument {
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 

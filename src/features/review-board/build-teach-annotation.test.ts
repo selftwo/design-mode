@@ -15,9 +15,11 @@ const frame = {
   screenshotPath: 'screens/pricing.svg',
   screenshotDataUrl: 'data:image/svg+xml;base64,PHN2Zy8+',
   refreshedScreenshotDataUrl: 'data:image/svg+xml;base64,PHN2Zy8+',
-  captureHash: 'capture-1',
-  revision: 1,
-  elements: [],
+    captureHash: 'capture-1',
+    revision: 1,
+    elements: [],
+    kind: 'captured-route' as const,
+    lifeState: 'active' as const,
 }
 
 const element = {
@@ -66,9 +68,14 @@ describe('buildTeachAnnotation', () => {
     const document = BoardDocumentSchema.parse({
       schemaVersion: BOARD_SCHEMA_VERSION,
       boardId: 'board-1',
+      documentRevision: 1,
       camera: { worldX: 0, worldY: 0, zoom: 1 },
       frames: [frame],
       annotations: [annotation],
+      units: [],
+      zones: [],
+      verdicts: [],
+      reviewSummaries: [],
     })
     expect(document.annotations[0]?.kind).toBe('teach')
   })

@@ -8,6 +8,7 @@ function teachBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'teach-annotation-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: -60, zoom: 1 },
     frames: [
       {
@@ -25,6 +26,8 @@ function teachBoard(): BoardDocument {
         refreshedScreenshotDataUrl: dataUrl,
         captureHash: 'teach-capture',
         revision: 1,
+        kind: 'captured-route',
+        lifeState: 'active',
         elements: [
           {
             id: 'teach-el-card',
@@ -36,6 +39,10 @@ function teachBoard(): BoardDocument {
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 

@@ -8,6 +8,7 @@ function learnLensBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'learn-lens-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: -60, zoom: 1 },
     frames: [
       {
@@ -25,6 +26,8 @@ function learnLensBoard(): BoardDocument {
         refreshedScreenshotDataUrl: dataUrl,
         captureHash: 'learn-capture',
         revision: 1,
+        kind: 'captured-route',
+        lifeState: 'active',
         elements: [
           {
             id: 'learn-el-cta',
@@ -49,6 +52,10 @@ function learnLensBoard(): BoardDocument {
       },
     ],
     annotations: [],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 

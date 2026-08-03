@@ -37,12 +37,24 @@ const LegacyScreenFrameSchema = z.object({
   preferred: z.boolean().optional(),
 })
 
+// v1 boards never stored `kind` / `role`. Prefill them before the current
+// ReviewAnnotationSchema validates, so local storage from the prototype still loads.
+const LegacyReviewAnnotationSchema = z.preprocess((value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const record = value as Record<string, unknown>
+  return {
+    ...record,
+    kind: 'review',
+    role: record.role ?? 'review',
+  }
+}, ReviewAnnotationSchema)
+
 const LegacyBoardDocumentSchema = z.object({
   schemaVersion: z.literal(1),
   boardId: z.string().min(1),
   camera: BoardCameraSchema,
   frames: z.array(LegacyScreenFrameSchema),
-  annotations: z.array(ReviewAnnotationSchema),
+  annotations: z.array(LegacyReviewAnnotationSchema),
 })
 
 export type LegacyBoardDocumentV1 = z.infer<typeof LegacyBoardDocumentSchema>

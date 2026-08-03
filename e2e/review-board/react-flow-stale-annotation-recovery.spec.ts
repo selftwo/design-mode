@@ -8,6 +8,7 @@ function staleDraftBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'stale-draft-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: 0, zoom: 1 },
     frames: [
       {
@@ -25,12 +26,15 @@ function staleDraftBoard(): BoardDocument {
         refreshedScreenshotDataUrl: dataUrl,
         captureHash: 'checkout-revision-2',
         revision: 2,
+        kind: 'captured-route',
+        lifeState: 'active',
         elements: [],
       },
     ],
     annotations: [
       {
         kind: 'review',
+        role: 'review',
         id: 'stale-draft-1',
         status: 'draft',
         instruction: '',
@@ -43,6 +47,7 @@ function staleDraftBoard(): BoardDocument {
       },
       {
         kind: 'review',
+        role: 'review',
         id: 'ready-export-1',
         status: 'draft',
         instruction: 'Keep the checkout header contrast high',
@@ -54,6 +59,10 @@ function staleDraftBoard(): BoardDocument {
         madeAgainstRevision: 2,
       },
     ],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }
 

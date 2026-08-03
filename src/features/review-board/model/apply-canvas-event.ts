@@ -1,12 +1,13 @@
 import {
   BoardDocumentSchema,
+  type BoardAnnotation,
   type BoardDocument,
   type ReviewAnnotation,
 } from './board-document.schema.ts'
 import type { CanvasEvent } from './canvas-event.schema.ts'
 
 export type ApplyCanvasEventResult =
-  | { ok: true; board: BoardDocument; annotation: ReviewAnnotation; applied: boolean }
+  | { ok: true; board: BoardDocument; annotation: BoardAnnotation; applied: boolean }
   | { ok: false; reason: 'unknown-frame' }
 
 // Turns one checked canvas event into a board annotation. The event id is the
@@ -32,9 +33,10 @@ export function annotationFromCanvasEvent(
   event: CanvasEvent,
   captureHash: string,
   revision: number,
-): ReviewAnnotation {
+): BoardAnnotation {
   if (event.type === 'question') {
     return {
+      kind: 'review',
       id: event.id,
       frameId: event.frameId,
       role: 'agent-question',
@@ -51,6 +53,7 @@ export function annotationFromCanvasEvent(
   }
 
   return {
+    kind: 'review',
     id: event.id,
     frameId: event.frameId,
     role: 'teach',
@@ -67,8 +70,8 @@ export function annotationFromCanvasEvent(
   }
 }
 
-export function isAgentAuthoredAnnotation(annotation: ReviewAnnotation): boolean {
-  return annotation.role === 'agent-question' || annotation.role === 'teach'
+export function isAgentAuthoredAnnotation(annotation: BoardAnnotation): annotation is ReviewAnnotation {
+  return annotation.kind === 'review' && (annotation.role === 'agent-question' || annotation.role === 'teach')
 }
 
 export function isDispatchableAnnotation(annotation: ReviewAnnotation): boolean {

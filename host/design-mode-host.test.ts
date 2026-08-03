@@ -157,6 +157,7 @@ function blockedUnitBoard(): BoardDocument {
 function reviewAnnotation(id: string): BoardDocument['annotations'][number] {
   return {
     kind: 'review',
+    role: 'review',
     id,
     status: 'draft',
     instruction: 'Raise the contrast of the header',
@@ -944,7 +945,7 @@ describe('design-mode host API', () => {
     expect(synced.status).toBe(200)
     expect(synced.body.applied).toBe(1)
     expect((synced.body.board as BoardDocument).annotations.map((item) => item.id).sort()).toEqual(['q-1', 't-1'])
-    expect((synced.body.board as BoardDocument).annotations.find((item) => item.id === 't-1')?.role).toBe('teach')
+    expect((synced.body.board as BoardDocument).annotations.find((item) => item.id === 't-1' && item.kind === 'review' && item.role === 'teach')).toBeDefined()
   })
 
   it('appends a reply without clobbering annotations added after the client loaded', async () => {
@@ -1069,14 +1070,18 @@ describe('design-mode host API', () => {
         const boardResponse = await fetch(`${learnHost.origin}/api/projects/${projectId}/board`)
         if (boardResponse.status === 200) {
           const board = (await boardResponse.json() as { board: BoardDocument }).board
-          teach = board.annotations.find((item) => item.role === 'teach')
+          teach = board.annotations.find((item) => item.kind === 'review' && item.role === 'teach')
           if (teach) break
         }
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
       expect(teach).toBeDefined()
-      expect(teach?.requestId).toBe(requestId)
+      expect(teach?.kind).toBe('review')
+      if (teach?.kind === 'review') {
+        expect(teach.role).toBe('teach')
+        expect(teach.requestId).toBe(requestId)
+      }
       expect(teach?.frameId).toBe('home')
       expect(teach?.instruction).toBe('That is the primary submit button.')
     } finally {

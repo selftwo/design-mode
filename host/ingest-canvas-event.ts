@@ -1,8 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { CanvasEventSchema, type CanvasEvent } from '../src/features/review-board/model/canvas-event.schema.ts'
-import { applyCanvasEvent } from '../src/features/review-board/model/apply-canvas-event.ts'
-import type { BoardDocument, ReviewAnnotation } from '../src/features/review-board/model/board-document.schema.ts'
+import { applyCanvasEvent, isAgentAuthoredAnnotation } from '../src/features/review-board/model/apply-canvas-event.ts'
+import type { BoardDocument, BoardAnnotation, ReviewAnnotation } from '../src/features/review-board/model/board-document.schema.ts'
 import type { HostDataStore } from './host-data-store.ts'
 import type { HostEventBus } from './host-event-bus.ts'
 import type { ProjectBoardWriteQueue } from './project-board-write-queue.ts'
@@ -121,7 +121,7 @@ export async function ingestCanvasEvent(input: {
   const appended = appendCanvasEvent(store, event)
 
   const annotation = result.board.annotations.find((item) => item.id === event.id)
-  if (!annotation) return { ok: false, reason: 'unknown-frame' }
+  if (!annotation || !isAgentAuthoredAnnotation(annotation)) return { ok: false, reason: 'unknown-frame' }
 
   if (result.changed) {
     events.publish({
@@ -176,7 +176,7 @@ export async function syncCanvasEventsFromFile(input: {
         // a later sync (agents may write events before the frame is captured).
         if (!outcome.ok) continue
         next = outcome.board
-        if (outcome.applied) applied.push(outcome.annotation)
+        if (outcome.applied && isAgentAuthoredAnnotation(outcome.annotation)) applied.push(outcome.annotation)
       }
       return { board: next, changed: applied.length > 0 }
     })

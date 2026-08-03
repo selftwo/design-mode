@@ -11,6 +11,7 @@ describe('buildBoardListEntry', () => {
       boardId: 'smalltools — landing review',
       annotations: [{
         kind: 'review' as const,
+        role: 'review' as const,
         id: 'ann-open',
         frameId: 'frame-00',
         status: 'draft' as const,

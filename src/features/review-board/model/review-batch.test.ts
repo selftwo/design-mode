@@ -24,6 +24,7 @@ describe('buildReviewBatch', () => {
         {
           ...board.annotations[0]!,
           kind: 'review' as const,
+          role: 'review' as const,
           id: 'ink-note',
           instruction: 'Tighten the drawn area',
           mark: { kind: 'path' as const, points: [[0.2, 0.2], [0.5, 0.25], [0.4, 0.5], [0.21, 0.22]] as [number, number][] },
@@ -31,6 +32,7 @@ describe('buildReviewBatch', () => {
         {
           ...board.annotations[0]!,
           kind: 'review' as const,
+          role: 'review' as const,
           id: 'element-note',
           instruction: 'Align this pane with the grid',
           mark: {

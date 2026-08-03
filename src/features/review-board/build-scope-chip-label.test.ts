@@ -5,6 +5,7 @@ import type { ReviewAnnotation } from './model/board-document.schema'
 function annotation(overrides: Partial<ReviewAnnotation> = {}): ReviewAnnotation {
   return {
     kind: 'review',
+    role: 'review',
     id: 'ann-1',
     frameId: 'frame-1',
     status: 'draft',

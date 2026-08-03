@@ -1,9 +1,9 @@
-import type { BoardDocument, ReviewAnnotation } from './board-document.schema'
+import type { BoardAnnotation, BoardDocument } from './board-document.schema'
 import { isAgentAuthoredAnnotation } from './apply-canvas-event'
 
 export type BoardPatchRecord = {
   kind: 'annotation'
-  annotation: ReviewAnnotation
+  annotation: BoardAnnotation
 }
 
 export type BoardPatch = {

@@ -36,6 +36,7 @@ function teachBoard(): BoardDocument {
     ],
     annotations: [
       {
+        kind: 'review',
         id: 'teach-1',
         frameId: 'home',
         role: 'teach',

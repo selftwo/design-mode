@@ -26,11 +26,14 @@ export function createMWebTestBoard(): BoardDocument {
     captureHash: 'home-revision-1',
     revision: 1,
     elements: [],
+    kind: 'captured-route' as const,
+    lifeState: 'active' as const,
   }
   const annotation: ReviewAnnotation = {
     kind: 'review',
     id: 'annotation-hero',
     frameId: frame.id,
+    role: 'review',
     status: 'draft',
     instruction: 'Hero measure runs the full row. Cap it and let the cards carry the width.',
     intent: 'distill',
@@ -44,8 +47,13 @@ export function createMWebTestBoard(): BoardDocument {
   return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'smalltools — landing review',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: 0, zoom: 1 },
     frames: [frame],
     annotations: [annotation],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 }

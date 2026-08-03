@@ -5,6 +5,7 @@ import type { ReviewAnnotation } from './board-document.schema'
 
 function agentQuestion(): ReviewAnnotation {
   return {
+    kind: 'review',
     id: 'q-1',
     frameId: 'frame-00',
     role: 'agent-question',
@@ -34,17 +35,24 @@ describe('mergeBoardPatch', () => {
       records: [{ kind: 'annotation', annotation: agentQuestion() }],
     })
     expect(patched.documentRevision).toBe(9)
-    expect(patched.annotations.find((item) => item.id === 'q-1')?.role).toBe('agent-question')
+    expect(patched.annotations.find((item) => item.id === 'q-1' && item.kind === 'review' && item.role === 'agent-question')).toBeDefined()
     expect(patched.annotations[0]?.instruction).toBe('Local edit still drafting')
   })
 
   it('ignores review-role records so a patch cannot clobber human notes', () => {
     const board = createPressureTestBoard()
     const review: ReviewAnnotation = {
-      ...board.annotations[0]!,
+      kind: 'review',
       id: 'spoof',
       role: 'review',
+      frameId: 'frame-00',
+      status: 'draft',
       instruction: 'Should not land via patch',
+      anchor: [0.5, 0.5],
+      mark: null,
+      createdAt: '2026-07-22T00:00:00.000Z',
+      madeAgainstCaptureHash: 'hash',
+      madeAgainstRevision: 1,
     }
     const patched = mergeBoardPatch(board, {
       documentRevision: board.documentRevision + 1,

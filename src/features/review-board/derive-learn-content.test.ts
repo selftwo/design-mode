@@ -19,6 +19,8 @@ function frame(elements: FrameElement[]): ScreenFrame {
     captureHash: 'pricing-hash',
     revision: 1,
     elements,
+    kind: 'captured-route',
+    lifeState: 'active',
   }
 }
 

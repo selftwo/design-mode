@@ -101,6 +101,7 @@ describe('board relations', () => {
   it('rejects an annotation that names a missing frame', () => {
     const result = mutate((board) => {
       board.annotations.push({
+        kind: 'review',
         id: 'note',
         frameId: 'ghost',
         role: 'review',

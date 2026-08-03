@@ -6,6 +6,7 @@ describe('buildLayersTreeRows', () => {
   const document: BoardDocument = {
     schemaVersion: BOARD_SCHEMA_VERSION,
     boardId: 'demo-board',
+    documentRevision: 1,
     camera: { worldX: 0, worldY: 0, zoom: 1 },
     frames: [{
       id: 'frame-1',
@@ -22,6 +23,8 @@ describe('buildLayersTreeRows', () => {
       refreshedScreenshotDataUrl: 'data:image/png;base64,',
       captureHash: 'hash-1',
       revision: 1,
+      kind: 'captured-route',
+      lifeState: 'active',
       elements: [{
         id: 'frame-1-el-1',
         label: 'plan-keep',
@@ -31,6 +34,7 @@ describe('buildLayersTreeRows', () => {
     }],
     annotations: [{
       kind: 'review',
+      role: 'review',
       id: 'ann-1',
       frameId: 'frame-1',
       status: 'draft' as const,
@@ -46,6 +50,10 @@ describe('buildLayersTreeRows', () => {
       madeAgainstCaptureHash: 'hash-1',
       madeAgainstRevision: 1,
     }],
+    units: [],
+    zones: [],
+    verdicts: [],
+    reviewSummaries: [],
   }
 
   it('lists board, frame, element, and mark rows in hierarchy order', () => {
