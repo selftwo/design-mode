@@ -76,27 +76,31 @@ test('reactflow: select mode breaks the screen into design elements for commenti
   await expect(page.getByTestId('element-hover-pick-frame-el-1')).toBeVisible()
   await expect(page.getByTestId('element-hover-pick-frame-el-1')).toContainText('Pay now')
 
-  // Clicking the element pools a comment bound to it and opens the editor.
+  // Clicking the element pools a comment bound to it and opens the bloom editor.
   await page.mouse.click(ctaCenter.x, ctaCenter.y)
   await expect(page.getByTestId('annotation-count')).toHaveText('1 annotation')
+  await expect(page.getByTestId(`bloom-${(await board(page)).annotations.at(-1)!.id}`)).toBeVisible()
   await expect(page.getByTestId('instruction-input')).toBeFocused()
   const created = (await board(page)).annotations.at(-1)!
   expect(created.mark).toMatchObject({ kind: 'element', elementId: 'pick-frame-el-1', label: 'Pay now' })
   await expect(page.getByTestId(`comment-item-${created.id}`)).toContainText('Pay now')
 
-  // The pool collapses out of the way and reopens when a comment is picked again.
-  await page.getByTestId('toggle-comments-panel').click()
+  // The jump-list rail collapses out of the way and reopens when a comment is picked again.
+  await page.getByTestId('toggle-comments-panel').focus()
+  await page.keyboard.press('Enter')
   await expect(page.getByTestId(`comment-item-${created.id}`)).toHaveCount(0)
 
   // Picking the same element again returns to the existing note instead of duplicating it.
   await page.getByTestId('surface-pick-frame').click({ position: { x: 4, y: 4 } })
   await expect(page.getByTestId('selected-annotation')).toHaveText('none selected')
   await page.mouse.click(ctaCenter.x, ctaCenter.y)
-  await expect(page.getByTestId('selected-annotation')).toHaveText(created.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveAttribute('title', created.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveText(/^#\d+$/)
   await expect(page.getByTestId('annotation-count')).toHaveText('1 annotation')
   await expect(page.getByTestId(`comment-item-${created.id}`)).toBeVisible()
 
   // A second element pools a second comment; copy-all validates the pool first.
+  await page.getByTestId('summoned-inspector-island-dismiss').click()
   const paneCenter = await elementPoint(page, [0.7, 0.65])
   await page.mouse.click(paneCenter.x, paneCenter.y)
   await expect(page.getByTestId('annotation-count')).toHaveText('2 annotations')

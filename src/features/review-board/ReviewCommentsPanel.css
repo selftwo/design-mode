@@ -1,72 +1,72 @@
-.comments-panel {
-  display: flex;
-  flex-direction: column;
-  width: 320px;
-  min-height: 0;
-  border-left: 1px solid var(--border);
-  background: var(--surface);
+/* Jump-list comments rail — summoned island; no docked panel column. */
+.comments-rail-island.summoned-island {
+  top: calc(var(--space-4) + var(--space-10));
+  left: var(--space-4);
+  width: 20rem;
+  max-width: calc(100vw - var(--space-8));
+  min-width: 13rem;
 }
 
-.comments-panel.collapsed {
-  width: 44px;
+.comments-rail-collapsed {
+  position: fixed;
+  z-index: 45;
+  top: calc(var(--space-4) + var(--space-10));
+  left: var(--space-4);
+  display: flex;
   align-items: center;
-  padding-top: 8px;
+  justify-content: center;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: var(--space-1);
+}
+
+.comments-rail-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(24rem, calc(100vh - var(--space-16)));
+}
+
+.comments-rail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-2);
+}
+
+.comments-rail-head .comments-toggle {
+  margin-left: auto;
 }
 
 .comments-toggle {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 4px;
+  gap: var(--space-1);
+  min-height: 1.75rem;
+  padding: var(--space-1);
   border: 0;
   background: transparent;
   color: var(--ink-secondary);
+  cursor: pointer;
 }
 
 .comments-toggle:hover {
   border: 0;
-  background: #f4f6fa;
+  background: var(--surface-hover);
 }
 
 .comments-toggle svg {
-  width: 16px;
-  height: 16px;
-}
-
-.comments-header .comments-toggle {
-  flex-direction: row;
-  margin-left: auto;
-}
-
-.comments-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.comments-header h2 {
-  margin: 0;
-  font-size: 14px;
+  width: 1rem;
+  height: 1rem;
 }
 
 .comments-count {
-  padding: 1px 8px;
+  padding: 1px var(--space-2);
   border-radius: 999px;
-  background: #eef1f5;
+  background: var(--surface-sunken);
   color: var(--ink-secondary);
-  font-size: 12px;
-}
-
-.comments-empty {
-  margin: 0;
-  padding: 16px 14px;
-  color: var(--ink-muted);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--text-xs);
 }
 
 .comments-list {
@@ -74,10 +74,10 @@
   min-height: 0;
   overflow-y: auto;
   margin: 0;
-  padding: 8px;
+  padding: 0 var(--space-3) var(--space-2);
   list-style: none;
   display: grid;
-  gap: 6px;
+  gap: var(--space-1);
   align-content: start;
 }
 
@@ -95,8 +95,8 @@
 .comment-item-row {
   display: flex;
   align-items: stretch;
-  gap: 4px;
-  padding: 6px;
+  gap: var(--space-1);
+  padding: var(--space-1);
 }
 
 .comment-item-open {
@@ -104,28 +104,29 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 0;
-  padding: 4px 6px;
+  padding: var(--space-1) var(--space-2);
   border: 0;
   background: transparent;
   text-align: left;
+  cursor: pointer;
 }
 
 .comment-item-open:hover {
   border: 0;
-  background: #f4f6fa;
+  background: var(--surface-hover);
 }
 
 .comment-ordinal {
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: 50%;
-  background: var(--mark);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
+  background: var(--mark-pin);
+  color: var(--accent-ink);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -139,8 +140,8 @@
 
 .comment-subject {
   overflow: hidden;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -148,7 +149,7 @@
 .comment-excerpt {
   overflow: hidden;
   color: var(--ink-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -160,65 +161,83 @@
 
 .comment-chip {
   flex: none;
-  padding: 1px 6px;
-  border: 1px solid var(--danger-border);
-  border-radius: 4px;
-  background: #fff8f7;
-  color: var(--danger);
-  font-size: 11px;
-  font-weight: 600;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
 }
 
 .comment-chip.intent {
-  border-color: var(--info-border);
-  background: var(--info-bg);
-  color: var(--info);
+  border-color: var(--border-strong);
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
+
+.comment-chip.teach {
+  border-color: var(--teach-border);
+  background: var(--teach-well);
+  color: var(--teach-ink);
+}
+
+.comment-item--teach .comment-item-open {
+  border-left: 2px solid var(--teach-ink);
 }
 
 .comment-copy {
   flex: none;
   align-self: center;
-  min-height: 24px;
-  padding: 2px 8px;
-  font-size: 12px;
-}
-
-.comment-item .annotation-editor {
-  border-top: 1px solid var(--border);
+  min-height: 1.5rem;
+  padding: 2px var(--space-2);
+  font-size: var(--text-xs);
 }
 
 .comments-actions {
   display: flex;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-3);
   border-top: 1px solid var(--border);
 }
 
 .comments-actions button {
   flex: 1;
-  padding: 6px 10px;
-  font-size: 13px;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
 }
 
 .dispatch-agent-select {
   flex: none;
-  max-width: 118px;
-  padding: 5px 6px;
+  max-width: 7.5rem;
+  padding: 5px var(--space-2);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .comments-actions [data-testid="export-annotation"] {
-  color: #ffffff;
+  color: var(--accent-ink);
   border-color: var(--accent);
   background: var(--accent);
 }
 
 .comments-actions [data-testid="export-annotation"]:hover {
-  border-color: var(--accent);
-  background: var(--accent-ring);
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+@media (max-width: 40rem) {
+  .comments-rail-island.summoned-island,
+  .comments-rail-collapsed {
+    top: calc(var(--space-2) + var(--space-10));
+    left: var(--space-2);
+  }
+
+  .comments-rail-island.summoned-island {
+    width: min(20rem, calc(100vw - var(--space-4)));
+  }
 }

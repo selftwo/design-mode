@@ -1,0 +1,52 @@
+/* Runs island — layout only; DLS .dm-run-row / .dm-dot carry the skin. */
+.runs-island.summoned-island {
+  right: var(--space-4);
+  bottom: calc(var(--space-4) + var(--space-10));
+  width: 19rem;
+  max-width: calc(100vw - var(--space-8));
+  min-width: 13rem;
+  padding-bottom: var(--space-2);
+}
+
+.runs-island-body {
+  max-height: min(18rem, calc(100vh - var(--space-16) * 2));
+  overflow-y: auto;
+}
+
+.runs-island-run {
+  display: grid;
+}
+
+.runs-row-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.runs-row-button:hover {
+  background: var(--surface-hover);
+}
+
+.runs-output-tail {
+  margin: var(--space-1) var(--space-3) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  line-height: 1.7;
+  color: var(--ink-muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+@media (max-width: 40rem) {
+  .runs-island.summoned-island {
+    right: var(--space-2);
+    bottom: calc(var(--space-2) + var(--space-10));
+    width: min(19rem, calc(100vw - var(--space-4)));
+  }
+}

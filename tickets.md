@@ -161,3 +161,7 @@ Work the **frontier**: any ticket whose blockers are all done. Use the `implemen
 - [x] Run and capture events stream to the canvas; the activity rail shows agent presence and output.
 - [x] A finished run re-captures screens with a merge that preserves layout and annotations.
 - [x] Live view proxies any registered project page with an injected handshake.
+
+## Host runtime
+
+- [ ] `npm run host` (`node host/start-host.ts`) fails on node v25.9: extensionless TS imports throw ERR_MODULE_NOT_FOUND even with `--experimental-transform-types`. `./node_modules/.bin/vite-node host/start-host.ts` works. Fix the script or add explicit extensions.

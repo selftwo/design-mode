@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { ElementAspectsSchema } from './element-aspects.schema'
+import { ThreadReplySchema } from './thread-reply.schema'
 
 export const BOARD_SCHEMA_VERSION = 1 as const
 
@@ -27,6 +29,7 @@ export const FrameElementSchema = z.object({
   label: z.string().min(1),
   role: z.string().min(1),
   bounds: z.tuple([NormalizedPointSchema, NormalizedPointSchema]),
+  aspects: ElementAspectsSchema.optional(),
 })
 
 export const ScreenFrameSchema = z.object({
@@ -89,6 +92,7 @@ export const AnnotationIntentSchema = z.enum([
 ])
 
 export const ReviewAnnotationSchema = z.object({
+  kind: z.literal('review'),
   id: z.string().min(1),
   frameId: z.string().min(1),
   status: z.literal('draft'),
@@ -96,17 +100,46 @@ export const ReviewAnnotationSchema = z.object({
   intent: AnnotationIntentSchema.optional(),
   anchor: NormalizedPointSchema,
   mark: AnnotationMarkSchema.nullable(),
+  replies: z.array(ThreadReplySchema).optional(),
+  resolvedAt: z.string().datetime().optional(),
   createdAt: z.string().datetime(),
   madeAgainstCaptureHash: z.string().min(1),
   madeAgainstRevision: z.number().int().positive(),
 })
+
+export const TeachAnnotationSchema = z.object({
+  kind: z.literal('teach'),
+  id: z.string().min(1),
+  frameId: z.string().min(1),
+  status: z.literal('draft'),
+  instruction: z.string().min(1),
+  question: z.string().min(1),
+  provenanceRunId: z.string().min(1),
+  anchor: NormalizedPointSchema,
+  mark: ElementMarkSchema,
+  resolvedAt: z.string().datetime().optional(),
+  createdAt: z.string().datetime(),
+  madeAgainstCaptureHash: z.string().min(1),
+  madeAgainstRevision: z.number().int().positive(),
+})
+
+function migrateBoardAnnotation(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  if (!('kind' in value)) return { ...value, kind: 'review' }
+  return value
+}
+
+export const BoardAnnotationSchema = z.preprocess(
+  migrateBoardAnnotation,
+  z.discriminatedUnion('kind', [ReviewAnnotationSchema, TeachAnnotationSchema]),
+)
 
 export const BoardDocumentSchema = z.object({
   schemaVersion: z.literal(BOARD_SCHEMA_VERSION),
   boardId: z.string().min(1),
   camera: BoardCameraSchema,
   frames: z.array(ScreenFrameSchema),
-  annotations: z.array(ReviewAnnotationSchema),
+  annotations: z.array(BoardAnnotationSchema),
 })
 
 export type EngineName = z.infer<typeof EngineNameSchema>
@@ -121,4 +154,6 @@ export type PathMark = z.infer<typeof PathMarkSchema>
 export type ElementMark = z.infer<typeof ElementMarkSchema>
 export type AnnotationMark = z.infer<typeof AnnotationMarkSchema>
 export type ReviewAnnotation = z.infer<typeof ReviewAnnotationSchema>
+export type TeachAnnotation = z.infer<typeof TeachAnnotationSchema>
+export type BoardAnnotation = z.infer<typeof BoardAnnotationSchema>
 export type BoardDocument = z.infer<typeof BoardDocumentSchema>

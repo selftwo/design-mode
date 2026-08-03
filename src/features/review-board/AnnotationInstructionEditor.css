@@ -1,41 +1,38 @@
-/* Rendered inline inside the selected comments panel item. */
+/* Inline editor inside the selected comment row. */
 .annotation-editor {
   display: grid;
-  gap: 8px;
-  padding: 10px 12px 12px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-3);
 }
 
 .annotation-editor-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
 }
 
 .annotation-editor-header label {
   color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .annotation-editor [data-testid="selected-annotation-id"] {
   max-width: 100%;
   overflow: hidden;
-  color: var(--ink-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .annotation-stale {
-  padding: 2px 6px;
-  border: 1px solid var(--danger-border);
-  border-radius: 4px;
-  background: #fff8f7;
-  color: var(--danger);
-  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-weight: var(--weight-semibold);
 }
 
 .annotation-incomplete {
@@ -48,49 +45,12 @@
   color: var(--ok);
 }
 
-.annotation-editor textarea {
-  min-height: 88px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-control);
-  resize: vertical;
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.annotation-editor textarea:focus-visible {
-  outline: 2px solid var(--accent-ring);
-  outline-offset: 1px;
-}
-
-.annotation-editor textarea[aria-invalid="true"] {
-  border-color: var(--danger-border);
-  background: #fff8f7;
-}
-
 .annotation-intents {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-}
-
-.intent-chip {
-  min-height: 22px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  color: var(--ink-secondary);
-  font-size: 12px;
+  gap: var(--space-1);
 }
 
 .annotation-editor [data-testid="delete-annotation"] {
   justify-self: end;
-  padding: 4px 12px;
-  color: var(--danger);
-  border-color: var(--danger-border);
-}
-
-.annotation-editor [data-testid="delete-annotation"]:hover {
-  background: var(--danger-bg);
-  border-color: var(--danger-border);
 }

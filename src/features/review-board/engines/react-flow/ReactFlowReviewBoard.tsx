@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   Background,
   Controls,
   ReactFlow,
   applyNodeChanges,
   useNodesState,
+  useReactFlow,
   type Node,
   type NodeChange,
   type OnMove,
@@ -27,6 +28,44 @@ const ARROW_KEY_DELTAS: Record<string, readonly [number, number]> = {
 }
 
 const MINIMUM_CIRCLE_EXTENT = 0.02
+
+function AnnotationViewportFocuser({
+  board,
+  annotationId,
+  onJumpHandled,
+}: {
+  board: CanvasEngineProps['document']
+  annotationId: string | null
+  onJumpHandled: () => void
+}) {
+  const { setCenter } = useReactFlow()
+  const boardRef = useRef(board)
+  boardRef.current = board
+
+  useEffect(() => {
+    if (!annotationId) return
+    const currentBoard = boardRef.current
+    const annotation = currentBoard.annotations.find((item) => item.id === annotationId)
+    const frame = annotation ? currentBoard.frames.find((item) => item.id === annotation.frameId) : null
+    if (!annotation || !frame) {
+      onJumpHandled()
+      return
+    }
+    const point = annotation.mark
+      ? [
+        ((annotation.mark.points[0]?.[0] ?? annotation.anchor[0]) + (annotation.mark.points[1]?.[0] ?? annotation.anchor[0])) / 2,
+        ((annotation.mark.points[0]?.[1] ?? annotation.anchor[1]) + (annotation.mark.points[1]?.[1] ?? annotation.anchor[1])) / 2,
+      ]
+      : annotation.anchor
+    setCenter(frame.x + point[0] * frame.width, frame.y + point[1] * frame.height, {
+      zoom: currentBoard.camera.zoom,
+      duration: 240,
+    })
+    const timer = window.setTimeout(onJumpHandled, 280)
+    return () => window.clearTimeout(timer)
+  }, [annotationId, onJumpHandled, setCenter])
+  return null
+}
 
 function inflateToMinimumExtent(start: NormalizedPoint, end: NormalizedPoint): [NormalizedPoint, NormalizedPoint] {
   const axis = (a: number, b: number): [number, number] => {
@@ -51,15 +90,25 @@ function documentViewport(document: CanvasEngineProps['document']): Viewport {
 export default function ReactFlowReviewBoard({
   document,
   tool,
+  learnLensOpen,
   focusedFrameId,
   liveFrameConfig,
   selectedFrameId,
   selectedAnnotationId,
+  pendingJumpAnnotationId,
+  selectedElementId,
+  outlinedTarget,
+  resolvedAnnotationIds,
   onDocumentChange,
   onFocusFrame,
   onSelectFrame,
+  onSelectElement,
+  onLearnElementPick,
   onSelectAnnotation,
   onAnnotationCreated,
+  onDeleteTeachAnnotation,
+  onResolveTeachAnnotation,
+  onJumpHandled,
   onReady,
 }: CanvasEngineProps) {
   const addCircle = useCallback((frameId: string, start: NormalizedPoint, end: NormalizedPoint) => {
@@ -68,6 +117,7 @@ export default function ReactFlowReviewBoard({
     // A click without a drag would create an invisible zero-size ellipse.
     const [markStart, markEnd] = inflateToMinimumExtent(start, end)
     onAnnotationCreated({
+      kind: 'review',
       id: crypto.randomUUID(),
       frameId,
       status: 'draft',
@@ -85,6 +135,7 @@ export default function ReactFlowReviewBoard({
     if (!frame) return
     const [start, end] = normalizedPathBounds(points)
     onAnnotationCreated({
+      kind: 'review',
       id: crypto.randomUUID(),
       frameId,
       status: 'draft',
@@ -104,12 +155,14 @@ export default function ReactFlowReviewBoard({
       && annotation.mark.elementId === element.id)
     if (existing) {
       onSelectAnnotation(existing.id)
+      onSelectElement(frameId, element.id)
       return
     }
     const frame = document.frames.find((item) => item.id === frameId)
     if (!frame) return
     const [start, end] = element.bounds
     onAnnotationCreated({
+      kind: 'review',
       id: crypto.randomUUID(),
       frameId,
       status: 'draft',
@@ -120,12 +173,13 @@ export default function ReactFlowReviewBoard({
       madeAgainstCaptureHash: frame.captureHash,
       madeAgainstRevision: frame.revision,
     })
-  }, [document.annotations, document.frames, onAnnotationCreated, onSelectAnnotation])
+  }, [document.annotations, document.frames, onAnnotationCreated, onSelectAnnotation, onSelectElement])
 
   const addComment = useCallback((frameId: string, anchor: NormalizedPoint) => {
     const frame = document.frames.find((item) => item.id === frameId)
     if (!frame) return
     onAnnotationCreated({
+      kind: 'review',
       id: crypto.randomUUID(),
       frameId,
       status: 'draft',
@@ -159,19 +213,32 @@ export default function ReactFlowReviewBoard({
         frame,
         annotations: document.annotations.filter((annotation) => annotation.frameId === frame.id),
         tool,
+        learnLensOpen,
         focused: focusedFrameId === frame.id,
         liveFrameConfig: focusedFrameId === frame.id ? liveFrameConfig : null,
         selectedAnnotationId,
+        selectedElementId,
+        outlinedTarget,
+        resolvedAnnotationIds,
         onCircle: addCircle,
         onPath: addPath,
         onComment: addComment,
         onElementPick: pickElement,
+        onLearnElementPick,
         onFocus: onFocusFrame,
         onResize: resizeFrame,
+        onDeleteTeachAnnotation,
+        onResolveTeachAnnotation,
+        onSelectFrame: (frameId) => {
+          onSelectFrame(frameId)
+          onSelectElement(frameId, null)
+          onSelectAnnotation(null)
+        },
+        onSelectElement,
         onSelectAnnotation,
       },
     }))
-  }, [addCircle, addComment, addPath, document, focusedFrameId, liveFrameConfig, onFocusFrame, onSelectAnnotation, pickElement, resizeFrame, selectedAnnotationId, selectedFrameId, tool])
+  }, [addCircle, addComment, addPath, document, focusedFrameId, learnLensOpen, liveFrameConfig, onDeleteTeachAnnotation, onFocusFrame, onLearnElementPick, onResolveTeachAnnotation, onSelectAnnotation, onSelectElement, onSelectFrame, outlinedTarget, pickElement, resizeFrame, resolvedAnnotationIds, selectedAnnotationId, selectedElementId, selectedFrameId, tool])
 
   const [nodes, setNodes] = useNodesState<Node<ScreenFrameNodeData>>(buildNodes())
 
@@ -191,6 +258,10 @@ export default function ReactFlowReviewBoard({
     }))
   }, [onDocumentChange])
 
+  const handleMove: OnMove = useCallback(() => {
+    window.dispatchEvent(new Event('design-review:viewport-moving'))
+  }, [])
+
   const handleMoveEnd: OnMove = useCallback((_, viewport) => {
     onDocumentChange((current) => ({
       ...current,
@@ -200,6 +271,7 @@ export default function ReactFlowReviewBoard({
         zoom: viewport.zoom,
       },
     }))
+    window.dispatchEvent(new Event('design-review:viewport-moving'))
   }, [onDocumentChange])
 
   const initialViewport = useMemo(() => documentViewport(document), [document.boardId])
@@ -207,8 +279,9 @@ export default function ReactFlowReviewBoard({
   const handlePaneClick = useCallback((event: React.MouseEvent) => {
     if ((event.target as Element).closest('[data-annotation-id]')) return
     onSelectFrame(null)
+    onSelectElement(null, null)
     onSelectAnnotation(null)
-  }, [onSelectAnnotation, onSelectFrame])
+  }, [onSelectAnnotation, onSelectElement, onSelectFrame])
 
   const handleCanvasKeyDown = useCallback((event: React.KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement
@@ -217,6 +290,7 @@ export default function ReactFlowReviewBoard({
 
     if (event.key === 'Escape') {
       onSelectFrame(null)
+      onSelectElement(null, null)
       onSelectAnnotation(null)
       return
     }
@@ -225,6 +299,7 @@ export default function ReactFlowReviewBoard({
       event.preventDefault()
       if (tool === 'select') {
         onSelectFrame(frameId)
+        onSelectElement(frameId, null)
         onSelectAnnotation(null)
         return
       }
@@ -250,7 +325,7 @@ export default function ReactFlowReviewBoard({
           : frame),
       }))
     }
-  }, [addCircle, addComment, document.frames, focusedFrameId, onDocumentChange, onSelectAnnotation, onSelectFrame, selectedFrameId, tool])
+  }, [addCircle, addComment, document.frames, focusedFrameId, onDocumentChange, onSelectAnnotation, onSelectElement, onSelectFrame, selectedFrameId, tool])
 
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node<ScreenFrameNodeData>) => {
     if (tool !== 'select') return
@@ -269,8 +344,9 @@ export default function ReactFlowReviewBoard({
       }
     }
     onSelectFrame(node.id)
+    onSelectElement(node.id, null)
     onSelectAnnotation(null)
-  }, [onSelectAnnotation, onSelectFrame, selectedAnnotationId, tool])
+  }, [onSelectAnnotation, onSelectElement, onSelectFrame, selectedAnnotationId, tool])
 
   return (
     <main className="canvas-shell" data-testid="reactflow-canvas" onKeyDown={handleCanvasKeyDown}>
@@ -283,6 +359,7 @@ export default function ReactFlowReviewBoard({
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
+        onMove={handleMove}
         onMoveEnd={handleMoveEnd}
         defaultViewport={initialViewport}
         minZoom={0.25}
@@ -296,7 +373,12 @@ export default function ReactFlowReviewBoard({
         disableKeyboardA11y
         onlyRenderVisibleElements
       >
-        <Background gap={24} size={1} color="#d5dae3" />
+        <AnnotationViewportFocuser
+          board={document}
+          annotationId={pendingJumpAnnotationId}
+          onJumpHandled={onJumpHandled}
+        />
+        <Background gap={24} size={1} color="var(--border-strong)" />
         <Controls showInteractive={false} />
       </ReactFlow>
     </main>

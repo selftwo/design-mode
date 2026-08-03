@@ -1,13 +1,13 @@
-import type { NormalizedPoint, ReviewAnnotation } from './board-document.schema'
+import type { BoardAnnotation, NormalizedPoint } from './board-document.schema'
 import { clampUnit, normalizedPathBounds } from './board-geometry'
 
 const COMMENT_HIT_RADIUS = 0.04
 const PATH_HIT_PADDING = 0.01
 
 function annotationPaintOrder(
-  annotations: ReviewAnnotation[],
+  annotations: BoardAnnotation[],
   selectedAnnotationId: string | null,
-): ReviewAnnotation[] {
+): BoardAnnotation[] {
   return [...annotations].sort((left, right) => {
     if (left.id === selectedAnnotationId) return 1
     if (right.id === selectedAnnotationId) return -1
@@ -44,7 +44,7 @@ function hitsBounds(
     && point[1] >= bounds[0][1] - padding && point[1] <= bounds[1][1] + padding
 }
 
-function hitsAnnotation(annotation: ReviewAnnotation, point: NormalizedPoint): boolean {
+function hitsAnnotation(annotation: BoardAnnotation, point: NormalizedPoint): boolean {
   if (!annotation.mark) return hitsComment(annotation.anchor, point)
   if (annotation.mark.kind === 'circle') return hitsCircle(annotation.mark.points, point)
   if (annotation.mark.kind === 'element') return hitsBounds(annotation.mark.points, point)
@@ -52,7 +52,7 @@ function hitsAnnotation(annotation: ReviewAnnotation, point: NormalizedPoint): b
 }
 
 export function pickAnnotationAtNormalizedPoint(
-  annotations: ReviewAnnotation[],
+  annotations: BoardAnnotation[],
   point: NormalizedPoint,
   selectedAnnotationId: string | null = null,
 ): string | null {
@@ -76,7 +76,7 @@ export function normalizedPointFromClientRect(
 }
 
 export function pickAnnotationAtClientPoint(
-  annotations: ReviewAnnotation[],
+  annotations: BoardAnnotation[],
   clientX: number,
   clientY: number,
   surfaceRect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,

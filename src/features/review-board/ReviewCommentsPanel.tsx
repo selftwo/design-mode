@@ -1,9 +1,12 @@
-import { useEffect } from 'react'
-import { AnnotationInstructionEditor } from './AnnotationInstructionEditor'
+import { useEffect, useLayoutEffect, useState } from 'react'
+import type { Rect } from './island-placement'
 import { useCollapsedPanelState } from './use-collapsed-panel-state'
 import { isInstructionIncomplete } from './model/annotation-instruction'
 import { isAnnotationStale } from './model/is-annotation-stale'
 import type { AnnotationIntent, BoardDocument } from './model/board-document.schema'
+import { isReviewAnnotation, isTeachAnnotation } from './is-board-annotation'
+import { readSelectionBounds } from './read-selection-bounds'
+import { SummonedIsland } from './SummonedIsland'
 import './ReviewCommentsPanel.css'
 
 export type PoolCopyState = 'idle' | 'copied' | 'failed'
@@ -24,13 +27,11 @@ const DISPATCH_AGENT_LABELS: Record<DispatchAgentOption['id'], string> = {
 export function ReviewCommentsPanel({
   document,
   selectedAnnotationId,
-  editorFocusId,
+  selectedFrameId,
+  selectedElementId,
   copiedAnnotationId,
   poolCopyState,
   onJump,
-  onSaveDraft,
-  onSetIntent,
-  onDelete,
   onCopyAnnotation,
   onCopyAll,
   onExport,
@@ -40,13 +41,11 @@ export function ReviewCommentsPanel({
 }: {
   document: BoardDocument
   selectedAnnotationId: string | null
-  editorFocusId: string | null
+  selectedFrameId: string | null
+  selectedElementId: string | null
   copiedAnnotationId: string | null
   poolCopyState: PoolCopyState
   onJump: (annotationId: string) => void
-  onSaveDraft: (instruction: string) => void
-  onSetIntent: (intent: AnnotationIntent | undefined) => void
-  onDelete: () => void
   onCopyAnnotation: (annotationId: string) => void
   onCopyAll: () => void
   onExport: () => void
@@ -55,15 +54,50 @@ export function ReviewCommentsPanel({
   onDispatchAgent?: (agent: DispatchAgentOption['id']) => void
 }) {
   const [collapsed, setCollapsed] = useCollapsedPanelState('design-review-comments-collapsed', false)
+  const open = document.annotations.length > 0 && !collapsed
+  const [selectionBounds, setSelectionBounds] = useState<Rect | null>(null)
 
-  // Jumping to a comment (mark click, blocked-export banner) must reveal its editor.
   useEffect(() => {
     if (selectedAnnotationId) setCollapsed(false)
   }, [selectedAnnotationId])
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setSelectionBounds(null)
+      return
+    }
+    let cancelled = false
+    let outerFrame = 0
+    let innerFrame = 0
+    const read = () => {
+      if (cancelled) return
+      const rect = readSelectionBounds(selectedFrameId, selectedElementId, selectedAnnotationId)
+      if (!rect) {
+        setSelectionBounds(null)
+        return
+      }
+      setSelectionBounds({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      })
+    }
+    outerFrame = window.requestAnimationFrame(() => {
+      innerFrame = window.requestAnimationFrame(read)
+    })
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(outerFrame)
+      window.cancelAnimationFrame(innerFrame)
+    }
+  }, [open, selectedAnnotationId, selectedElementId, selectedFrameId])
+
+  if (document.annotations.length === 0) return null
+
   if (collapsed) {
     return (
-      <aside className="comments-panel collapsed" data-testid="comments-panel" aria-label="Pooled review comments">
+      <aside className="comments-rail-collapsed dm-island" data-testid="comments-panel" aria-label="Pooled review comments">
         <button
           type="button"
           className="comments-toggle"
@@ -83,27 +117,31 @@ export function ReviewCommentsPanel({
   }
 
   return (
-    <aside className="comments-panel" data-testid="comments-panel" aria-label="Pooled review comments">
-      <header className="comments-header">
-        <h2>Comments</h2>
-        <span className="comments-count" data-testid="comments-count">{document.annotations.length}</span>
-        <button
-          type="button"
-          className="comments-toggle"
-          aria-expanded
-          aria-label="Collapse comments"
-          title="Collapse comments"
-          data-testid="toggle-comments-panel"
-          onClick={() => setCollapsed(true)}
-        >
-          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-            <path d="M6.2 3.5 10.7 8l-4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </header>
-      {document.annotations.length === 0 ? (
-        <p className="comments-empty">Draw on a screen, pick an element, or drop a comment pin to start the pool.</p>
-      ) : (
+    <SummonedIsland
+      open={open}
+      selectionBounds={selectionBounds}
+      ariaLabel="Pooled review comments"
+      title="Comments"
+      testId="comments-panel"
+      className="comments-rail-island"
+    >
+      <div className="comments-rail-body">
+        <div className="comments-rail-head">
+          <span className="comments-count" data-testid="comments-count">{document.annotations.length}</span>
+          <button
+            type="button"
+            className="comments-toggle"
+            aria-expanded
+            aria-label="Collapse comments"
+            title="Collapse comments"
+            data-testid="toggle-comments-panel"
+            onClick={() => setCollapsed(true)}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M6.2 3.5 10.7 8l-4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
         <ol className="comments-list">
           {document.annotations.map((annotation) => {
             const frame = document.frames.find((item) => item.id === annotation.frameId)
@@ -112,15 +150,16 @@ export function ReviewCommentsPanel({
               .filter((item) => item.frameId === annotation.frameId)
               .indexOf(annotation) + 1
             const selected = annotation.id === selectedAnnotationId
-            const incomplete = isInstructionIncomplete(annotation.instruction)
+            const incomplete = isReviewAnnotation(annotation) && isInstructionIncomplete(annotation.instruction)
             const stale = isAnnotationStale(annotation, frame)
+            const teach = isTeachAnnotation(annotation)
             const subject = annotation.mark?.kind === 'element'
               ? `${annotation.mark.label} · ${frame.label}`
               : frame.label
             return (
               <li
                 key={annotation.id}
-                className={`comment-item ${selected ? 'selected' : ''}`}
+                className={`comment-item ${selected ? 'selected' : ''} ${teach ? 'comment-item--teach' : ''}`}
                 data-testid={`comment-item-${annotation.id}`}
               >
                 <div className="comment-item-row">
@@ -132,12 +171,13 @@ export function ReviewCommentsPanel({
                   >
                     <span className="comment-ordinal">{ordinal}</span>
                     <span className="comment-item-text">
-                      <span className="comment-subject">{subject}</span>
+                      <span className="comment-subject">{teach ? `⌁ ${subject}` : subject}</span>
                       <span className={`comment-excerpt ${incomplete ? 'incomplete' : ''}`}>
-                        {annotation.instruction.trim() || 'No instruction yet'}
+                        {annotation.instruction.trim() || (teach ? 'Teach note' : 'No instruction yet')}
                       </span>
                     </span>
-                    {annotation.intent ? <span className="comment-chip intent">{annotation.intent}</span> : null}
+                    {isReviewAnnotation(annotation) && annotation.intent ? <span className="comment-chip intent">{annotation.intent}</span> : null}
+                    {teach ? <span className="comment-chip teach">teach</span> : null}
                     {stale ? <span className="comment-chip">stale</span> : null}
                   </button>
                   <button
@@ -149,44 +189,34 @@ export function ReviewCommentsPanel({
                     {copiedAnnotationId === annotation.id ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                {selected ? (
-                  <AnnotationInstructionEditor
-                    annotation={annotation}
-                    frame={frame}
-                    autoFocus={annotation.id === editorFocusId}
-                    onSaveDraft={onSaveDraft}
-                    onSetIntent={onSetIntent}
-                    onDelete={onDelete}
-                  />
-                ) : null}
               </li>
             )
           })}
         </ol>
-      )}
-      <footer className="comments-actions">
-        <button type="button" onClick={onCopyAll} data-testid="copy-all-comments">
-          {poolCopyState === 'copied' ? 'Copied' : poolCopyState === 'failed' ? 'Copy failed, retry' : 'Copy all'}
-        </button>
-        {dispatchAgents ? (
-          <select
-            className="dispatch-agent-select"
-            aria-label="Coding agent"
-            value={dispatchAgent}
-            onChange={(event) => onDispatchAgent?.(event.target.value as DispatchAgentOption['id'])}
-            data-testid="dispatch-agent"
-          >
-            {dispatchAgents.map((agent) => (
-              <option key={agent.id} value={agent.id} disabled={!agent.available}>
-                {DISPATCH_AGENT_LABELS[agent.id]}{agent.available ? '' : ' (not installed)'}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <button type="button" onClick={onExport} data-testid="export-annotation">
-          {dispatchAgents ? `Send to ${DISPATCH_AGENT_LABELS[dispatchAgent]}` : 'Send to host'}
-        </button>
-      </footer>
-    </aside>
+        <footer className="comments-actions">
+          <button type="button" onClick={onCopyAll} data-testid="copy-all-comments">
+            {poolCopyState === 'copied' ? 'Copied' : poolCopyState === 'failed' ? 'Copy failed, retry' : 'Copy all'}
+          </button>
+          {dispatchAgents ? (
+            <select
+              className="dispatch-agent-select"
+              aria-label="Coding agent"
+              value={dispatchAgent}
+              onChange={(event) => onDispatchAgent?.(event.target.value as DispatchAgentOption['id'])}
+              data-testid="dispatch-agent"
+            >
+              {dispatchAgents.map((agent) => (
+                <option key={agent.id} value={agent.id} disabled={!agent.available}>
+                  {DISPATCH_AGENT_LABELS[agent.id]}{agent.available ? '' : ' (not installed)'}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <button type="button" onClick={onExport} data-testid="export-annotation">
+            {dispatchAgents ? `Send to ${DISPATCH_AGENT_LABELS[dispatchAgent]}` : 'Send to host'}
+          </button>
+        </footer>
+      </div>
+    </SummonedIsland>
   )
 }

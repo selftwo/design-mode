@@ -23,12 +23,14 @@ describe('buildReviewBatch', () => {
       annotations: [
         {
           ...board.annotations[0]!,
+          kind: 'review' as const,
           id: 'ink-note',
           instruction: 'Tighten the drawn area',
           mark: { kind: 'path' as const, points: [[0.2, 0.2], [0.5, 0.25], [0.4, 0.5], [0.21, 0.22]] as [number, number][] },
         },
         {
           ...board.annotations[0]!,
+          kind: 'review' as const,
           id: 'element-note',
           instruction: 'Align this pane with the grid',
           mark: {
@@ -113,5 +115,35 @@ describe('buildReviewBatch', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.batch.annotations).toEqual([])
+  })
+
+  it('never exports teach annotations into a review batch', () => {
+    const board = createPressureTestBoard()
+    const frame = board.frames[0]!
+    const teachAnnotation = {
+      kind: 'teach' as const,
+      id: 'teach-1',
+      frameId: frame.id,
+      status: 'draft' as const,
+      instruction: 'The filled button carries the weight.',
+      question: 'Why heavier?',
+      provenanceRunId: 'run-142',
+      anchor: [0.5, 0.5] as [number, number],
+      mark: {
+        kind: 'element' as const,
+        elementId: 'el-1',
+        label: 'plan-keep',
+        points: [[0.4, 0.4], [0.6, 0.6]] as [[number, number], [number, number]],
+      },
+      createdAt: '2026-07-13T00:00:00.000Z',
+      madeAgainstCaptureHash: frame.captureHash,
+      madeAgainstRevision: frame.revision,
+    }
+    const withTeach = { ...board, annotations: [...board.annotations, teachAnnotation] }
+    const result = buildReviewBatch(withTeach)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.batch.annotations.some((item) => item.id === 'teach-1')).toBe(false)
+    expect(result.batch.annotations).toHaveLength(board.annotations.length)
   })
 })

@@ -33,6 +33,7 @@ function existingBoard(): BoardDocument {
     frames: [frame],
     annotations: [
       {
+        kind: 'review',
         id: 'note-1',
         frameId: 'home',
         status: 'draft',

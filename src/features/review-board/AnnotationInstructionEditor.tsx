@@ -9,6 +9,7 @@ export function AnnotationInstructionEditor({
   annotation,
   frame,
   autoFocus,
+  compact = false,
   onSaveDraft,
   onSetIntent,
   onDelete,
@@ -16,6 +17,7 @@ export function AnnotationInstructionEditor({
   annotation: ReviewAnnotation
   frame: ScreenFrame
   autoFocus: boolean
+  compact?: boolean
   onSaveDraft: (instruction: string) => void
   onSetIntent: (intent: AnnotationIntent | undefined) => void
   onDelete: () => void
@@ -24,10 +26,12 @@ export function AnnotationInstructionEditor({
   const incomplete = isInstructionIncomplete(annotation.instruction)
   const stale = isAnnotationStale(annotation, frame)
 
-  // Focus is requested for deliberate navigation (creation, banner jump), not for
-  // inspecting an existing mark, so selection never yanks focus away from the mark.
   useEffect(() => {
-    if (autoFocus) textareaRef.current?.focus()
+    if (!autoFocus) return
+    const frame = window.requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [autoFocus, annotation.id])
 
   return (
@@ -37,25 +41,28 @@ export function AnnotationInstructionEditor({
       aria-label="Annotation instruction"
     >
       <header className="annotation-editor-header">
-        <label htmlFor="annotation-instruction">Instruction</label>
-        <span data-testid="selected-annotation-id">{annotation.id}</span>
+        {compact ? null : (
+          <label className="dm-field-label" htmlFor="annotation-instruction">Instruction</label>
+        )}
+        <span className="dm-mono" data-testid="selected-annotation-id">{annotation.id}</span>
         {stale ? (
-          <span className="annotation-stale" role="status" data-testid="annotation-stale">
+          <span className="annotation-stale dm-badge" data-tone="muted" role="status" data-testid="annotation-stale">
             Stale capture
           </span>
         ) : null}
         {incomplete ? (
-          <span className="annotation-incomplete" role="status" data-testid="instruction-incomplete">
+          <span className="annotation-incomplete dm-badge" data-tone="danger" role="status" data-testid="instruction-incomplete">
             Incomplete draft
           </span>
         ) : (
-          <span className="annotation-complete" role="status" data-testid="instruction-complete">
+          <span className="annotation-complete dm-badge" data-tone="ok" role="status" data-testid="instruction-complete">
             Draft saved
           </span>
         )}
       </header>
       <textarea
         id="annotation-instruction"
+        className="dm-textarea"
         ref={textareaRef}
         data-testid="instruction-input"
         aria-invalid={incomplete}
@@ -68,7 +75,7 @@ export function AnnotationInstructionEditor({
           <button
             key={intent}
             type="button"
-            className="intent-chip"
+            className="intent-chip dm-chip"
             aria-pressed={annotation.intent === intent}
             title={ANNOTATION_INTENT_GUIDANCE[intent]}
             data-testid={`intent-${intent}`}
@@ -78,7 +85,7 @@ export function AnnotationInstructionEditor({
           </button>
         ))}
       </div>
-      <button type="button" data-testid="delete-annotation" onClick={onDelete}>
+      <button type="button" className="dm-btn dm-btn--danger dm-btn--sm" data-testid="delete-annotation" onClick={onDelete}>
         Delete annotation
       </button>
     </aside>

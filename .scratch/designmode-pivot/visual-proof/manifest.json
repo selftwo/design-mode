@@ -1,0 +1,30 @@
+{
+  "artifact": ".scratch/designmode-pivot/visual-proof/index.html",
+  "after": [
+    "01-board-at-rest.png",
+    "02-theme-dark.png",
+    "03-layers-aspects-island.png",
+    "04-bloom-open.png",
+    "05-comments-jump-list.png",
+    "06-learn-lens.png",
+    "07-teach-pinned.png"
+  ],
+  "gifs": [
+    "bloom-thread.gif",
+    "island-dodge.gif",
+    "learn-lens.gif",
+    "theme-toggle.gif"
+  ],
+  "phase_dirs": [
+    "after",
+    "after-phase1-reskin",
+    "before-phase1",
+    "gif-frames",
+    "gifs",
+    "phase2-light",
+    "phase3-dark",
+    "phase3-light",
+    "phase4-mweb-dark",
+    "phase4-mweb-light"
+  ]
+}

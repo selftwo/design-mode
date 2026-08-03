@@ -1,6 +1,6 @@
 # 08: The runs island
 
-Status: open
+Status: done
 Type: task
 Phase: 2 (restructure)
 Blocked by: 06
@@ -19,10 +19,33 @@ Replace the floating `AgentActivityRail` with the runs island: a floating list o
 
 ## Done when
 
-- [ ] Runs island appears when a run starts, lists rows per the catalog, and stays available as history.
-- [ ] Output tail expands per run; run states read as dot plus word.
-- [ ] The old activity rail is gone; its testids/ARIA names are preserved or deliberately migrated (record under Comments).
-- [ ] Queued, running, done, failed all render; done triggers refresh and notice as before.
+- [x] Runs island appears when a run starts, lists rows per the catalog, and stays available as history.
+- [x] Output tail expands per run; run states read as dot plus word.
+- [x] The old activity rail is gone; its testids/ARIA names are preserved or deliberately migrated (record under Comments).
+- [x] Queued, running, done, failed all render; done triggers refresh and notice as before.
+
+## Comments
+
+### Verify — 2026-07-17 (parent intervention)
+
+`npm run verify` **pass** (138 unit, 23 e2e).
+
+| Check | Result |
+|-------|--------|
+| gzip (reactflow route) | 156,822 B (cap 168,740 B) |
+| testids | `agent-activity`, `capture-activity`, `agent-run-*`, `agent-run-status-*` preserved |
+| ARIA | `aria-label` migrated `Agent activity` → `Agent runs` (screen file `returned-run.html` wins) |
+
+### Changes
+
+- **`RunsIsland.tsx` / `.css`:** Replaces `AgentActivityRail`. Summoned island with dodge/drag; `.dm-run-row` + `.dm-dot` rows; expandable output tail; open while runs exist or capture is active.
+- **`App.tsx`:** Mounts `RunsIsland` from the same SSE `agentRuns` / `captureActive` state; refresh + reload-board lifecycle unchanged.
+- **Deleted:** `AgentActivityRail.tsx` / `.css`.
+- **Recovery (blocking e2e):** Re-applied ticket 05 floating shell CSS (edge-to-edge canvas, `.toolbar-island`, status island, notice `top: 4.5rem`) and restored DLS tokens via `@import` of `design/tokens/tokens.css` after those edits had been lost from `app.css` while `App.tsx` kept the floating structure.
+
+### Leftover for ticket 09
+
+Untracked `AnnotationBloom.tsx` / `.css` remain from an early bloom attempt; not wired. Ticket 09 is next.
 
 ## Verify
 

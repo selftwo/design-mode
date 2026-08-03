@@ -6,6 +6,7 @@ import type { ExcalidrawElementSkeleton } from '@excalidraw/excalidraw/data/tran
 import type { ExcalidrawElement, FileId } from '@excalidraw/excalidraw/element/types'
 import type { BinaryFileData, BinaryFiles, DataURL } from '@excalidraw/excalidraw/types'
 import type { BoardDocument, ReviewAnnotation, ScreenFrame } from '../../model/board-document.schema'
+import { isReviewAnnotation } from '../../is-board-annotation'
 import { normalizedPathBounds } from '../../model/board-geometry'
 
 const groupId = (frameId: string) => `review-group-${frameId}`
@@ -80,7 +81,9 @@ export function projectDocument(document: BoardDocument): ExcalidrawElement[] {
   const skeletons: ExcalidrawElementSkeleton[] = []
   for (const frame of document.frames) {
     skeletons.push(frameSkeleton(frame))
-    for (const annotation of document.annotations.filter((item) => item.frameId === frame.id)) {
+    for (const annotation of document.annotations
+      .filter((item) => item.frameId === frame.id)
+      .filter(isReviewAnnotation)) {
       skeletons.push(annotationSkeleton(annotation, frame))
     }
   }

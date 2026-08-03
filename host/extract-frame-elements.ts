@@ -1,8 +1,41 @@
+export interface ExtractedAspectColorToken {
+  name: string
+  value: string
+}
+
+export interface ExtractedElementAspects {
+  layout: {
+    x: number
+    y: number
+    width: number
+    height: number
+    rotation: number
+  }
+  flex?: {
+    direction: string
+    gap: string
+    padding: string
+    align?: string
+  }
+  radius?: string
+  fills: ExtractedAspectColorToken[]
+  border?: {
+    width: string
+    color: ExtractedAspectColorToken
+  }
+  type?: {
+    sizeLeading: string
+    family: string
+    weight: string
+  }
+}
+
 export interface ExtractedFrameElement {
   id: string
   label: string
   role: string
   bounds: [[number, number], [number, number]]
+  aspects?: ExtractedElementAspects
 }
 
 // Runs inside the captured page via Playwright evaluate, so it must stay
@@ -20,6 +53,61 @@ export function collectFrameElementsInPage(prefix: string): ExtractedFrameElemen
   const compact = (text: string | null | undefined) => {
     const flat = (text ?? '').trim().replace(/\s+/g, ' ')
     return flat.length > 60 ? `${flat.slice(0, 57)}...` : flat
+  }
+  const px = (value: number) => `${Math.round(value)}px`
+  const tokenName = (kind: string, value: string) => {
+    if (!value || value === 'transparent' || value === 'rgba(0, 0, 0, 0)') return kind
+    if (kind === 'background') return 'card-bg'
+    if (kind === 'color') return value.includes('oklch') ? 'ink-soft' : 'ink-strong'
+    if (kind === 'border') return 'hairline'
+    return kind
+  }
+  const colorToken = (kind: string, value: string) => ({ name: tokenName(kind, value), value })
+  const aspectsFor = (element: Element, rect: DOMRect, style: CSSStyleDeclaration): ExtractedElementAspects => {
+    const layout = {
+      x: Math.round(rect.left),
+      y: Math.round(rect.top),
+      width: Math.max(1, Math.round(rect.width)),
+      height: Math.max(1, Math.round(rect.height)),
+      rotation: 0,
+    }
+    const fills: ExtractedAspectColorToken[] = []
+    if (style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+      fills.push(colorToken('background', style.backgroundColor))
+    }
+    if (style.color) fills.push(colorToken('color', style.color))
+    const flex = style.display.includes('flex')
+      ? {
+          direction: style.flexDirection || 'row',
+          gap: style.gap && style.gap !== 'normal' ? style.gap : '0px',
+          padding: `${style.paddingTop} / ${style.paddingLeft}`,
+          align: style.alignItems || undefined,
+        }
+      : undefined
+    const borderWidth = Number.parseFloat(style.borderTopWidth || '0')
+    const border = borderWidth > 0
+      ? {
+          width: px(borderWidth),
+          color: colorToken('border', style.borderTopColor || style.borderColor),
+        }
+      : undefined
+    const fontSize = Number.parseFloat(style.fontSize || '16')
+    const lineHeight = Number.parseFloat(style.lineHeight || '0')
+    const leading = Number.isFinite(lineHeight) && lineHeight > 0
+      ? Math.round(lineHeight)
+      : Math.round(fontSize * 1.3)
+    return {
+      layout,
+      flex,
+      radius: style.borderRadius && style.borderRadius !== '0px' ? style.borderRadius : undefined,
+      fills,
+      border,
+      type: {
+        sizeLeading: `${Math.round(fontSize)} / ${leading}`,
+        family: compact(style.fontFamily) || 'system-ui',
+        weight: style.fontWeight || '400',
+      },
+    }
   }
   // Containers concatenate every child's text, so name them by kind and heading instead.
   const containerNames: Record<string, string> = {
@@ -53,6 +141,7 @@ export function collectFrameElementsInPage(prefix: string): ExtractedFrameElemen
         [clamp(rect.left / viewportWidth), clamp(rect.top / viewportHeight)],
         [clamp(rect.right / viewportWidth), clamp(rect.bottom / viewportHeight)],
       ],
+      aspects: aspectsFor(element, rect, style),
     })
   }
   return elements

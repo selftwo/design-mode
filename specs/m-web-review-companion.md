@@ -27,7 +27,7 @@ Not included, and not reachable from this surface: mark authoring, frame capture
 
 ## Acceptance
 
-- [ ] The m-web surfaces render correctly at the mobile-web viewport widths represented in `design/screens/m-web/`.
-- [ ] Thread reading, reply, and approve flows work end to end against the same host and review-batch contract as desktop.
-- [ ] Nothing from the authoring toolset is reachable from this surface.
-- [ ] `npm run verify` passes, plus a Playwright or manual pass at the m-web breakpoints.
+- [x] The m-web surfaces render correctly at the mobile-web viewport widths represented in `design/screens/m-web/`.
+- [x] Thread reading, reply, and approve flows work end to end against the same host and review-batch contract as desktop.
+- [x] Nothing from the authoring toolset is reachable from this surface.
+- [x] `npm run verify` passes, plus a Playwright or manual pass at the m-web breakpoints.

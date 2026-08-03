@@ -1,0 +1,22 @@
+{
+  "gate": "phase-3-differentiators",
+  "verdict": "pass",
+  "capturedAt": "2026-07-17",
+  "deviations": [
+    {
+      "screen": "learn-lens.html",
+      "note": "Screen teach chip uses ✦; production uses ⌁ provenance glyph per HANDOFF and catalog.md Teach note row.",
+      "decisionsRef": "DECISIONS.md — Teach annotations pinned to canvas"
+    },
+    {
+      "screen": "board.html / learn-lens.html toolbar",
+      "note": "Screen toolbar markup omits a theme toggle; production ships Dark/Light in the toolbar actions group as a first-class phase-3 control.",
+      "decisionsRef": "DECISIONS.md — Theme toggle in toolbar actions"
+    },
+    {
+      "screen": "learn-lens.html",
+      "note": "Resolved/approved teach notes are session-local (approve/delete UI only); persisted resolved state deferred to m-web tickets 14–15.",
+      "decisionsRef": "DECISIONS.md — Teach annotations pinned to canvas"
+    }
+  ]
+}

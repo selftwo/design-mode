@@ -4,6 +4,7 @@ import type { ReviewAnnotation } from './board-document.schema'
 
 function comment(id: string, anchor: [number, number]): ReviewAnnotation {
   return {
+    kind: 'review',
     id,
     frameId: 'frame-01',
     status: 'draft',
@@ -21,6 +22,7 @@ function circle(
   points: [[number, number], [number, number]],
 ): ReviewAnnotation {
   return {
+    kind: 'review',
     id,
     frameId: 'frame-01',
     status: 'draft',

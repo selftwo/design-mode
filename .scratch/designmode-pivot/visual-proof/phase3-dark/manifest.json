@@ -1,0 +1,15 @@
+{
+  "theme": "dark",
+  "baseUrl": "http://127.0.0.1:4173",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "surfaces": [
+    "learn-lens-open",
+    "learn-lens-answered",
+    "teach-pinned",
+    "theme-toggle"
+  ],
+  "capturedAt": "2026-07-17T05:56:05.450Z"
+}

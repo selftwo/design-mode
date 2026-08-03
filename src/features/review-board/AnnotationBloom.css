@@ -1,0 +1,26 @@
+/* Viewport-fixed bloom anchored at its mark; DLS .dm-bloom carries the skin. */
+.annotation-bloom.dm-bloom {
+  position: fixed;
+  z-index: 60;
+  width: 304px;
+}
+
+.annotation-bloom .annotation-editor {
+  padding: 0;
+}
+
+.annotation-bloom .annotation-editor-header {
+  gap: var(--space-1);
+}
+
+.annotation-bloom .annotation-editor [data-testid="selected-annotation-id"] {
+  display: none;
+}
+
+.annotation-bloom .annotation-editor [data-testid="delete-annotation"] {
+  justify-self: start;
+}
+
+.annotation-bloom-resolve {
+  justify-self: start;
+}

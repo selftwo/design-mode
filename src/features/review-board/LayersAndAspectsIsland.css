@@ -1,0 +1,268 @@
+.layers-aspects-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--space-3);
+}
+
+.layers-aspects-island .dm-tree {
+  max-height: 8.5rem;
+  flex: none;
+  overflow-y: auto;
+  padding-bottom: var(--space-2);
+}
+
+.dm-tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 3px var(--space-3) 3px calc(var(--space-4) + var(--lvl, 0) * 14px);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  text-align: left;
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+
+.dm-tree-row:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.dm-tree-row[aria-selected="true"] {
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+}
+
+.dm-tree-row--frame {
+  font-weight: var(--weight-medium);
+}
+
+.dm-tree-glyph {
+  width: 14px;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}
+
+.dm-tree-row--mark .dm-tree-glyph {
+  color: var(--mark-text);
+}
+
+.dm-tree-row--stale .dm-tree-glyph {
+  color: var(--ink-faint);
+}
+
+.dm-tree-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.dm-sect {
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.dm-arow {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 3px var(--space-4);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+
+.dm-arow .dm-alabel {
+  color: var(--ink-muted);
+}
+
+.dm-arow .dm-aval {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.dm-insp-sect {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-top: 1px solid var(--hairline);
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+
+.dm-insp-sect--first {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: var(--space-2);
+}
+
+.dm-well {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius-control);
+  background: var(--well-fill);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+
+.dm-well .dm-well-l {
+  color: var(--ink-muted);
+}
+
+.dm-well .dm-well-v {
+  color: var(--ink);
+}
+
+.dm-well-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding: 0 var(--space-4);
+}
+
+.dm-well-solo {
+  margin: var(--space-1) var(--space-4) 0;
+}
+
+.dm-flex-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 var(--space-4) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-secondary);
+}
+
+.dm-flex-dir .dm-flex-glyph {
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.dm-align-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 4.5rem;
+  margin: var(--space-1) var(--space-4) var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius-control);
+  background: var(--well-fill);
+}
+
+.dm-align-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  justify-self: center;
+  align-self: center;
+}
+
+.dm-align-dot[data-active="true"] {
+  background: var(--accent);
+  width: 8px;
+  height: 8px;
+}
+
+.dm-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+
+.dm-swatch {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+}
+
+.dm-swatch-name {
+  color: var(--ink);
+}
+
+.dm-swatch-val {
+  margin-left: auto;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.dm-type-rows {
+  padding: 0 var(--space-4);
+  display: grid;
+  gap: 2px;
+}
+
+.dm-type-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+}
+
+.dm-type-row .dm-tlabel {
+  color: var(--ink-muted);
+}
+
+.dm-type-row .dm-tval {
+  color: var(--ink);
+}
+
+.design-context-in-island {
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-2);
+}
+
+.design-context-in-island .context-tabs {
+  padding: 0 var(--space-4);
+}
+
+.design-context-in-island .context-body {
+  margin: var(--space-2) var(--space-4) 0;
+  max-height: 8rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: var(--text-2xs);
+  color: var(--ink-secondary);
+}
+
+.design-context-in-island .context-empty,
+.design-context-in-island .context-error {
+  margin: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+@media (max-width: 640px) {
+  .layers-aspects-island .dm-tree {
+    max-height: 8rem;
+  }
+}

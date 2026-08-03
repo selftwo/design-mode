@@ -4,6 +4,7 @@ import type { BoardDocument } from './board-document.schema'
 // process, which runs TypeScript through native type stripping.
 import { isInstructionIncomplete } from './annotation-instruction.ts'
 import { AgentAnnotationSchema, exportAgentAnnotation, isAbsoluteScreenshotPath } from './export-agent-annotation.ts'
+import { isReviewAnnotation } from '../is-board-annotation.ts'
 
 export const REVIEW_BATCH_SCHEMA_VERSION = 1 as const
 
@@ -30,6 +31,7 @@ export type ReviewBatchBuildResult =
 export function collectReviewBatchBlocks(document: BoardDocument): ReviewBatchBlock[] {
   const blocks: ReviewBatchBlock[] = []
   for (const annotation of document.annotations) {
+    if (!isReviewAnnotation(annotation)) continue
     if (isInstructionIncomplete(annotation.instruction)) {
       blocks.push({ annotationId: annotation.id, reason: 'incomplete-instruction' })
       continue
@@ -46,11 +48,12 @@ export function buildReviewBatch(document: BoardDocument, exportedAt: string = n
   const blocks = collectReviewBatchBlocks(document)
   if (blocks.length > 0) return { ok: false, blocks }
 
+  const reviewAnnotations = document.annotations.filter(isReviewAnnotation)
   const batch = ReviewBatchSchema.parse({
     schemaVersion: REVIEW_BATCH_SCHEMA_VERSION,
     boardId: document.boardId,
     exportedAt,
-    annotations: document.annotations.map((annotation) => exportAgentAnnotation(document, annotation.id)),
+    annotations: reviewAnnotations.map((annotation) => exportAgentAnnotation(document, annotation.id)),
   })
   return { ok: true, batch }
 }

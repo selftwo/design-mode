@@ -46,6 +46,7 @@ function fixtureAnnotations(frames: ScreenFrame[]): ReviewAnnotation[] {
   const annotations: ReviewAnnotation[] = []
   for (let index = 0; index < 10; index += 1) {
     annotations.push({
+      kind: 'review',
       id: `annotation-${index}`,
       frameId: frames[index]?.id ?? 'frame-00',
       status: 'draft',
@@ -63,6 +64,7 @@ function fixtureAnnotations(frames: ScreenFrame[]): ReviewAnnotation[] {
     const x = 0.06 + column * 0.18
     const y = 0.08 + row * 0.2
     annotations.push({
+      kind: 'review',
       id: `stress-${index}`,
       frameId: 'frame-00',
       status: 'draft',

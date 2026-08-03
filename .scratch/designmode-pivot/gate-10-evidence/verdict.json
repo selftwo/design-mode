@@ -1,0 +1,22 @@
+{
+  "gate": "phase-2-restructure",
+  "verdict": "pass",
+  "capturedAt": "2026-07-17",
+  "deviations": [
+    {
+      "screen": "returned-run.html",
+      "note": "Gate capture shows delivered export bloom only; agent reply with ⌁, stale marks, reload notice, and expanded runs tail require live host SSE (see host/design-mode-host.test.ts and AnnotationBloom).",
+      "decisionsRef": "DECISIONS.md — Bloom threads at marks; Runs island reuses SummonedIsland"
+    },
+    {
+      "screen": "board.html",
+      "note": "Runs island hidden until local host is active and runs exist; spec shows a collapsed runs pill at rest.",
+      "decisionsRef": "DECISIONS.md — Runs island reuses SummonedIsland"
+    },
+    {
+      "screen": "aspects.html",
+      "note": "Status island stays bottom-left; spec patch shows bottom-right.",
+      "decisionsRef": "DECISIONS.md — Status island keeps e2e focus-state and export-status contracts"
+    }
+  ]
+}

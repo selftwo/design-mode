@@ -1,6 +1,6 @@
 # 01: Adopt the DLS token set and the dark theme toggle
 
-Status: open
+Status: done
 Type: task
 Phase: 1 (re-skin)
 Blocked by: none
@@ -16,11 +16,20 @@ Add a theme toggle: set `data-theme` on the document root, default light, persis
 
 ## Done when
 
-- [ ] `src/app/app.css` `:root` is the DLS token set verbatim (values, not a paraphrase); the dark block is present.
-- [ ] Every existing surface still renders correctly on the new tokens in light theme.
-- [ ] Toggling to dark restyles the chrome; the choice survives reload.
-- [ ] No `data-testid` or ARIA role/name changed.
+- [x] `src/app/app.css` `:root` is the DLS token set verbatim (values, not a paraphrase); the dark block is present.
+- [x] Every existing surface still renders correctly on the new tokens in light theme.
+- [x] Toggling to dark restyles the chrome; the choice survives reload.
+- [x] No `data-testid` or ARIA role/name changed.
 
 ## Verify
 
 `npm run verify`. Then load the pressure board and flip themes: no unreadable text, no vanished borders in either theme.
+
+## Comments
+
+- Replaced `src/app/app.css` `:root` with verbatim DLS tokens from `design/tokens/tokens.css` (light block, dark `[data-theme="dark"]` block, typography/spacing/motion `:root`, reduced-motion contract).
+- Added `src/features/review-board/use-theme-state.ts` (+ unit tests): persists `design-review-theme` in localStorage, applies `data-theme` on `document.documentElement`.
+- `src/app/main.tsx` applies stored theme before React render to avoid flash.
+- `ReviewToolbar` ships minimal `data-testid="theme-toggle"` button (`aria-pressed` reflects dark mode).
+- `npm run verify` — **pass** (126 unit tests, 19 e2e, build OK).
+- `npm run measure` — reactflow gzip **148,346 B** (cap 168,740 B).
