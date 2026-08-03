@@ -92,7 +92,22 @@ export async function installFakeBoardHost(
           schemaVersion: 1,
           requestId: data.requestId,
         }, window.location.origin)
+        return
+      }
+
+      if (data.type === 'design-review/ask-teach-question' && data.schemaVersion === 1) {
+        window.postMessage({
+          type: 'design-review/teach-answer',
+          schemaVersion: 1,
+          requestId: data.requestId,
+          answer: {
+            answer: 'The filled button is the only solid-ink block in either card, so Keep carries more visual weight.',
+            runId: 'teach-run-e2e',
+          },
+        }, window.location.origin)
       }
     })
+
+    localStorage.removeItem('design-review-comments-collapsed')
   }, { serializedBoard: board, liveFixturePath, reviewBatchDelivery })
 }

@@ -1,0 +1,18 @@
+{
+  "theme": "dark",
+  "baseUrl": "http://127.0.0.1:4173",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "surfaces": [
+    "boards",
+    "capture",
+    "thread-open",
+    "thread-approved",
+    "runs",
+    "notices",
+    "theme-toggle"
+  ],
+  "capturedAt": "2026-07-17T06:26:25.316Z"
+}

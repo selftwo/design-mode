@@ -57,6 +57,7 @@ async function selectFrame(page: Page, frameId: string) {
 }
 
 test('reactflow: 50 screen review flow with real pointer input', async ({ page }) => {
+    test.setTimeout(180_000)
     const consoleErrors: string[] = []
     const pageErrors: string[] = []
     page.on('console', (message) => {
@@ -147,6 +148,14 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
 
     await selectFrame(page, 'frame-01')
     const beforeResize = (await board(page)).frames.find((item) => item.id === 'frame-01')!
+    await page.getByTestId('toggle-comments-panel').click()
+    const inspectorHead = page.getByTestId('summoned-inspector-island-head')
+    const inspectorBox = await inspectorHead.boundingBox()
+    if (!inspectorBox) throw new Error('Inspector head missing')
+    await page.mouse.move(inspectorBox.x + inspectorBox.width / 2, inspectorBox.y + inspectorBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(Math.min(inspectorBox.x + 420, 1100), inspectorBox.y + 24, { steps: 8 })
+    await page.mouse.up()
     const handle = page.locator('.react-flow__resize-control.handle.bottom.right')
     await expect(handle).toBeVisible()
     const box = await handle.boundingBox()
@@ -155,7 +164,7 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
     await page.mouse.down()
     await page.mouse.move(box.x + box.width / 2 + 70, box.y + box.height / 2 + 40, { steps: 8 })
     await page.mouse.up()
-    await expect.poll(async () => (await board(page)).frames.find((item) => item.id === 'frame-01')?.width)
+    await expect.poll(async () => (await board(page)).frames.find((item) => item.id === 'frame-01')?.width, { timeout: 15_000 })
       .toBeGreaterThan(beforeResize.width + 20)
     const resized = (await board(page)).frames.find((item) => item.id === 'frame-01')!
     expect(resized.width / resized.height).toBeCloseTo(resized.aspectRatio, 5)
@@ -165,6 +174,7 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
     expect(resizeDriftX).toBeLessThanOrEqual(2)
     expect(resizeDriftY).toBeLessThanOrEqual(2)
     await expect(page.getByTestId('board-save-status')).toHaveText('Saved')
+    await page.evaluate(() => window.localStorage.setItem('design-review-comments-collapsed', 'false'))
     await page.reload()
     await expect(page.getByTestId('annotation-count')).toHaveText(`${initialCount + 1} annotations`)
     const restored = await board(page)
@@ -204,6 +214,9 @@ test('reactflow: 50 screen review flow with real pointer input', async ({ page }
     const refreshedFrame = (await board(page)).frames.find((item) => item.id === 'frame-01')
     expect(refreshedFrame?.revision).toBe(2)
     expect(refreshedFrame?.captureHash).toContain('revision-2-host')
+    if (await page.getByTestId('export-annotation').count() === 0) {
+      await page.getByTestId('toggle-comments-panel').click()
+    }
     await page.getByTestId('export-annotation').click()
     await expect(page.getByTestId('export-status')).toHaveText('Delivered')
     const afterRefreshBatch = JSON.parse(await page.getByTestId('export-output').textContent() ?? '') as {

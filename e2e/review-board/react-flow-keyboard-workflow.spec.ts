@@ -114,7 +114,8 @@ test('reactflow: completes the review workflow with keyboard input', async ({ pa
   await mark.focus()
   await expect(mark).toBeFocused()
   await page.keyboard.press('Enter')
-  await expect(page.getByTestId('selected-annotation')).toHaveText(created.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveAttribute('title', created.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveText(/^#\d+$/)
 
   // Delete it with the keyboard.
   await page.getByTestId('delete-annotation').focus()
@@ -133,6 +134,8 @@ test('reactflow: completes the review workflow with keyboard input', async ({ pa
 
   // Dirty the board again so reset needs confirmation, then confirm it with the keyboard.
   await frameNode.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('selected-annotation')).toHaveText('none selected')
   await page.keyboard.press('ArrowRight')
   await expect.poll(async () => (await board(page)).frames.find((item) => item.id === 'kb-frame-a')?.x)
     .not.toBe(120)
@@ -158,6 +161,7 @@ test('reactflow: completes the review workflow with keyboard input', async ({ pa
   await activateToolbarButton(page, 'tool-comment')
   await frameNode.focus()
   await page.keyboard.press('Enter')
+  await expect(page.getByTestId('instruction-input')).toBeFocused()
   await page.keyboard.type('Final keyboard review note')
   await activateToolbarButton(page, 'tool-select')
 

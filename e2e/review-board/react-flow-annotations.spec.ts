@@ -76,7 +76,8 @@ test('reactflow: create, edit, select, delete annotations with stable marks', as
   const circle = afterCircle.annotations.at(-1)!
   expect(circle.instruction).toBe('')
   expect(circle.mark).not.toBeNull()
-  await expect(page.getByTestId('selected-annotation')).toHaveText(circle.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveAttribute('title', circle.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveText(/^#\d+$/)
 
   await page.getByTestId('instruction-input').fill('Check spacing inside the circled header')
   await expect(page.getByTestId('instruction-complete')).toBeVisible()
@@ -106,7 +107,7 @@ test('reactflow: create, edit, select, delete annotations with stable marks', as
   const zoomAt = await framePoint(page, reviewFrame, circle.anchor)
   await page.mouse.move(zoomAt.x, zoomAt.y)
   await page.keyboard.down('Control')
-  await page.mouse.wheel(0, -160)
+  await page.mouse.wheel(0, -320)
   await page.keyboard.up('Control')
   await expect.poll(async () => (await board(page)).camera.zoom).toBeGreaterThan(zoomBefore)
   const afterZoom = await board(page)
@@ -159,11 +160,13 @@ test('reactflow: create, edit, select, delete annotations with stable marks', as
   const afterComment = await board(page)
   const comment = afterComment.annotations.at(-1)!
   expect(comment.mark).toBeNull()
-  await expect(page.getByTestId('selected-annotation')).toHaveText(comment.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveAttribute('title', comment.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveText(/^#\d+$/)
 
   await page.getByTestId('tool-select').click()
   await clickMarkCenter(page, comment.id)
-  await expect(page.getByTestId('selected-annotation')).toHaveText(comment.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveAttribute('title', comment.id)
+  await expect(page.getByTestId('selected-annotation')).toHaveText(/^#\d+$/)
   const countBeforeDelete = (await board(page)).annotations.length
   await page.getByTestId('delete-annotation').click()
   await expect(page.getByTestId('annotation-count')).toHaveText(`${countBeforeDelete - 1} annotations`)

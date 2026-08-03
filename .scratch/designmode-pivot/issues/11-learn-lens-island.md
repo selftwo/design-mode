@@ -1,6 +1,6 @@
 # 11: The learn lens island
 
-Status: open
+Status: done
 Type: task
 Phase: 3 (differentiators)
 Blocked by: 10
@@ -20,11 +20,23 @@ A hidden, invoked-on-demand floating island (`.dm-island` + `.dm-learn`), summon
 
 ## Done when
 
-- [ ] Learn tool summons the lens; clicking elements populates anatomy and vocabulary; content updates in place on each new click.
-- [ ] Lens drags, closes, and arrow-key nudges; position never resets while open.
-- [ ] A question round-trips through the host to an agent and renders inline; nothing in the answer is actionable.
-- [ ] The lens is teal throughout; no violet, coral, or green inside it.
-- [ ] Playwright: open the lens, drag it, click a second element, assert content updated and position held.
+- [x] Learn tool summons the lens; clicking elements populates anatomy and vocabulary; content updates in place on each new click.
+- [x] Lens drags, closes, and arrow-key nudges; position never resets while open.
+- [x] A question round-trips through the host to an agent and renders inline; nothing in the answer is actionable.
+- [x] The lens is teal throughout; no violet, coral, or green inside it.
+- [x] Playwright: open the lens, drag it, click a second element, assert content updated and position held.
+
+## Comments
+
+**Verify (2026-07-17):** `npm run verify` passed — 146 unit tests, 26 e2e tests, build clean.
+
+**Gzip:** React Flow route `161,564` B (cap `168,740` B; reference ×1.2).
+
+**Playwright:** `e2e/review-board/react-flow-learn-lens.spec.ts` — open lens, drag, pick second element, assert `learn-lens-sub` / `learn-lens-term` update and island position holds.
+
+**Host:** `POST /api/projects/:id/teach` with `TeachQuestionSchema`; `buildTeachPrompt` + synchronous agent stdout; host test `answers a teach question through the configured agent`.
+
+**Manual:** Compare against `design/screens/learn-lens.html` in light and dark (teal `.dm-learn*` only; ask form + inline answer non-actionable).
 
 ## Verify
 

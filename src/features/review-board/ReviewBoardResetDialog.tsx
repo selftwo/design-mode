@@ -31,7 +31,7 @@ export function ReviewBoardResetDialog({
   return (
     <dialog
       ref={dialogRef}
-      className="reset-confirm-dialog"
+      className="reset-confirm-dialog dm-dialog"
       data-testid="reset-confirm-dialog"
       aria-labelledby="reset-confirm-title"
       aria-describedby="reset-confirm-description"
@@ -41,11 +41,11 @@ export function ReviewBoardResetDialog({
       }}
     >
       <form method="dialog">
-        <h2 id="reset-confirm-title">Reset board?</h2>
-        <p id="reset-confirm-description">Reset the board to the host copy? Unsaved changes will be lost.</p>
-        <div className="reset-confirm-actions">
-          <button type="button" onClick={onCancel} data-testid="reset-cancel">Cancel</button>
-          <button type="button" onClick={onConfirm} data-testid="reset-confirm">Reset board</button>
+        <h2 id="reset-confirm-title" className="dm-dialog-title">Reset board?</h2>
+        <p id="reset-confirm-description" className="dm-dialog-body">Reset the board to the host copy? Unsaved changes will be lost.</p>
+        <div className="reset-confirm-actions dm-dialog-actions">
+          <button type="button" className="dm-btn dm-btn--quiet" onClick={onCancel} data-testid="reset-cancel">Cancel</button>
+          <button type="button" className="dm-btn dm-btn--danger" onClick={onConfirm} data-testid="reset-confirm">Reset board</button>
         </div>
       </form>
     </dialog>

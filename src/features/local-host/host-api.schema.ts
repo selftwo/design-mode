@@ -3,6 +3,7 @@ import { z } from 'zod'
 // process, which runs TypeScript through native type stripping.
 import { BoardDocumentSchema, NormalizedPointSchema, ReviewAnnotationSchema } from '../review-board/model/board-document.schema.ts'
 import { ReviewBatchSchema } from '../review-board/model/review-batch.ts'
+import { TeachAnswerSchema, TeachQuestionSchema } from '../review-board/model/teach-question.schema.ts'
 
 export const HOST_API_VERSION = 1 as const
 
@@ -122,6 +123,16 @@ export const BoardConflictResponseSchema = z.object({
   board: BoardDocumentSchema,
 })
 
+export const BoardReplyRequestSchema = z.object({
+  annotationId: z.string().min(1),
+  body: z.string().min(1),
+  author: z.string().min(1).optional(),
+})
+
+export const BoardResolveRequestSchema = z.object({
+  annotationId: z.string().min(1),
+})
+
 export const LiveSessionResponseSchema = z.object({
   liveUrl: z.string().min(1),
   allowedOrigin: z.string().min(1),
@@ -129,6 +140,15 @@ export const LiveSessionResponseSchema = z.object({
 })
 
 export const CaptureRefreshResponseSchema = z.object({ board: BoardDocumentSchema })
+
+export const TeachQuestionRequestSchema = z.object({
+  question: TeachQuestionSchema,
+  agent: AgentIdSchema.optional(),
+})
+
+export const TeachQuestionResponseSchema = z.object({
+  answer: TeachAnswerSchema,
+})
 
 export const HostErrorSchema = z.object({ error: z.string().min(1) })
 

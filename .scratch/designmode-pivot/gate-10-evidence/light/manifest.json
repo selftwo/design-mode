@@ -1,0 +1,17 @@
+{
+  "theme": "light",
+  "baseUrl": "http://127.0.0.1:4173",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "surfaces": [
+    "board",
+    "aspects",
+    "review-dispatch",
+    "returned-run",
+    "states-picker",
+    "states-reset-dialog"
+  ],
+  "capturedAt": "2026-07-17T05:32:57.588Z"
+}

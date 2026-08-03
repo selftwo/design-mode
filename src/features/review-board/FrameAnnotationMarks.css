@@ -38,8 +38,9 @@
 }
 
 .annotation-svg .annotation-mark.selected {
-  stroke: var(--accent-ring);
+  stroke: var(--mark);
   stroke-width: 3;
+  filter: drop-shadow(0 0 0 1.5px var(--accent-ring));
 }
 
 .annotation-svg polyline.annotation-mark.selected {
@@ -47,13 +48,18 @@
 }
 
 .annotation-svg .annotation-mark.stale {
-  stroke: var(--warn);
+  stroke: var(--border-strong);
   stroke-dasharray: 4 3;
 }
 
 .annotation-svg .annotation-mark:focus-visible {
   outline: none;
-  stroke: var(--accent-ring);
+  stroke: var(--mark);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 0 1.5px var(--accent-ring));
+}
+
+.annotation-svg polyline.annotation-mark:focus-visible {
   stroke-width: 4;
 }
 
@@ -71,71 +77,73 @@
   position: absolute;
   pointer-events: none;
   border: 1.5px dashed var(--accent-ring);
-  border-radius: 3px;
-  background: rgb(76 111 255 / 0.06);
+  border-radius: var(--radius-control);
+  background: var(--accent-wash);
 }
 
 .element-hover-label {
   position: absolute;
-  top: -22px;
-  left: -2px;
-  max-width: 240px;
+  top: calc(-1 * var(--space-6));
+  left: calc(-1 * var(--space-1));
+  max-width: calc(var(--space-16) * 3 + var(--space-12));
   overflow: hidden;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
   background: var(--accent);
-  color: #ffffff;
-  font-size: 11px;
-  line-height: 1.4;
+  color: var(--accent-ink);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-tight);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.comment-pin,
-.comment-pin[aria-pressed="true"] {
+.element-selected,
+.element-tree-outline {
+  position: absolute;
+  pointer-events: none;
+  border-radius: var(--radius-control);
+}
+
+.element-selected {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+.element-tree-outline {
+  outline: 1px solid var(--accent-ring);
+  outline-offset: -1px;
+  background: var(--accent-wash);
+}
+
+.comment-pin {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
   min-height: 0;
   padding: 0;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  background: var(--mark);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgb(24 32 44 / 0.35);
 }
 
 .comment-pin:hover {
   transform: translate(-50%, -50%) scale(1.12);
-  border-color: #ffffff;
-  background: var(--mark);
 }
 
 .comment-pin.selected,
 .comment-pin.selected:hover {
-  border-color: #ffffff;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-ring), 0 1px 4px rgb(24 32 44 / 0.35);
+  background: var(--mark-pin);
+  color: var(--accent-ink);
+  box-shadow: var(--focus-ring), var(--shadow-raise);
 }
 
 .comment-pin.stale,
 .comment-pin.stale:hover {
-  border-color: #ffffff;
-  background: var(--warn-strong);
-  border-style: dashed;
+  border: 1.5px dashed var(--border-strong);
+  background: var(--mark-pin);
+  color: var(--accent-ink);
 }
 
 .comment-pin:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--accent-ring), 0 1px 4px rgb(24 32 44 / 0.35);
+  box-shadow: var(--focus-ring), var(--shadow-raise);
 }
 
 .annotation-mark.role-agent-question,

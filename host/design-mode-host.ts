@@ -12,16 +12,22 @@ import {
   BoardConflictResponseSchema,
   BoardPutRequestSchema,
   BoardPutSuccessSchema,
+  BoardReplyRequestSchema,
+  BoardResolveRequestSchema,
   BoardResponseSchema,
   DispatchRequestSchema,
   GenerateOptionsRequestSchema,
   LearnRequestSchema,
   LiveSessionResponseSchema,
   ProjectRegistrationSchema,
+  TeachQuestionRequestSchema,
+  TeachQuestionResponseSchema,
   type AgentId,
   type AgentRun,
   type Project,
 } from '../src/features/local-host/host-api.schema.ts'
+import { appendThreadReply } from '../src/features/review-board/append-thread-reply.ts'
+import { resolveBoardAnnotation } from '../src/features/review-board/resolve-board-annotation.ts'
 import { resolveAgentCommand, probeAgentAvailability, type AgentCommandSpec } from './agent-adapters.ts'
 import { buildAgentPrompt } from './build-agent-prompt.ts'
 import { buildTeachPrompt } from './build-teach-prompt.ts'
@@ -139,6 +145,11 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     activeRuns.set(run.id, run)
     store.writeRun(run)
     events.publish({ type: 'run-updated', run })
+  }
+
+  function writeBoardAndPublish(projectId: string, board: z.infer<typeof BoardDocumentSchema>) {
+    store.writeBoard(projectId, board)
+    events.publish({ type: 'board-updated', projectId })
   }
 
   async function recaptureProject(project: Project) {
@@ -449,6 +460,109 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
     return run
   }
 
+  function runTeachQuestion(
+    project: Project,
+    agent: z.infer<typeof DispatchRequestSchema>['agent'],
+    question: z.infer<typeof TeachQuestionRequestSchema>['question'],
+  ): Promise<z.infer<typeof TeachQuestionResponseSchema>> {
+    const run: AgentRun = {
+      id: randomUUID(),
+      projectId: project.id,
+      agent,
+      status: 'queued',
+      annotationIds: [],
+      startedAt: new Date().toISOString(),
+      outputTail: '',
+    }
+    updateRun(run)
+
+    const assetDir = store.runAssetDir(run.id)
+    mkdirSync(assetDir, { recursive: true })
+    const contextFiles = readProjectContext(project)
+    const prompt = buildTeachPrompt({ project, question, contextFiles })
+    writeFileSync(path.join(assetDir, 'prompt.md'), prompt)
+    writeFileSync(path.join(assetDir, 'question.json'), JSON.stringify(question, null, 2))
+
+    const command = resolveAgentCommand(agent, prompt, options.agentCommands)
+    const child = spawn(command.executable, command.args, { cwd: project.path, env: spawnEnvironment() })
+    if (command.stdin !== null) {
+      child.stdin.write(command.stdin)
+    }
+    child.stdin.end()
+
+    let tail = ''
+    const collect = (chunk: Buffer) => {
+      tail = (tail + chunk.toString('utf8')).slice(-OUTPUT_TAIL_LIMIT)
+      updateRun({ ...run, status: 'running', outputTail: tail })
+    }
+    child.stdout.on('data', collect)
+    child.stderr.on('data', collect)
+    updateRun({ ...run, status: 'running' })
+
+    return new Promise((resolve, reject) => {
+      child.on('error', (error) => {
+        const failed = {
+          ...run,
+          status: 'failed' as const,
+          outputTail: tail,
+          finishedAt: new Date().toISOString(),
+          error: errorMessage(error),
+        }
+        updateRun(failed)
+        reject(error)
+      })
+      child.on('close', (code) => {
+        try {
+          if (code === 0) {
+            const trimmed = tail.trim()
+            if (!trimmed) {
+              const failed = {
+                ...run,
+                status: 'failed' as const,
+                outputTail: tail,
+                finishedAt: new Date().toISOString(),
+                error: 'Agent returned no output',
+              }
+              updateRun(failed)
+              reject(new Error(failed.error))
+              return
+            }
+            const done = {
+              ...run,
+              status: 'done' as const,
+              outputTail: trimmed,
+              finishedAt: new Date().toISOString(),
+            }
+            updateRun(done)
+            resolve(TeachQuestionResponseSchema.parse({
+              answer: { answer: trimmed, runId: run.id },
+            }))
+            return
+          }
+          const failed = {
+            ...run,
+            status: 'failed' as const,
+            outputTail: tail,
+            finishedAt: new Date().toISOString(),
+            error: `${command.executable} exited with code ${String(code)}`,
+          }
+          updateRun(failed)
+          reject(new Error(failed.error))
+        } catch (error) {
+          const failed = {
+            ...run,
+            status: 'failed' as const,
+            outputTail: tail,
+            finishedAt: new Date().toISOString(),
+            error: errorMessage(error),
+          }
+          updateRun(failed)
+          reject(error instanceof Error ? error : new Error(errorMessage(error)))
+        }
+      })
+    })
+  }
+
   function readProjectContext(project: Project) {
     return CONTEXT_FILE_NAMES.flatMap((name) => {
       const file = path.join(project.path, name)
@@ -463,15 +577,16 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
       response.end('The canvas is not built yet. Run: npm run build')
       return
     }
+    const mWebFallback = path.join(distDir, 'm-web.html')
+    const isMWebRoute = pathname === '/m-web' || pathname === '/m-web.html' || pathname.startsWith('/m-web/')
     const relative = pathname === '/' ? 'index.html' : pathname.slice(1)
     const file = path.resolve(distDir, relative)
-    const fallback = path.join(distDir, 'index.html')
+    const fallback = isMWebRoute && existsSync(mWebFallback) ? mWebFallback : path.join(distDir, 'index.html')
     const target = file.startsWith(distDir + path.sep) && existsSync(file) ? file : fallback
     const extension = path.extname(target)
     if (extension === '.html' || target === fallback) {
-      // The marker tells the canvas it is running inside the local app, so it
-      // uses the HTTP board host instead of waiting for a window host.
-      const html = readFileSync(fallback, 'utf8')
+      const htmlFile = target === fallback && isMWebRoute ? mWebFallback : fallback
+      const html = readFileSync(htmlFile, 'utf8')
         .replace('<head>', '<head><script>window.__designModeHost = { version: 1 }</script>')
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
       response.end(html)
@@ -640,7 +755,38 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
       return
     }
 
-    const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)\/(board|capture|context|dispatch|generate-options|learn|live|refresh)$/)
+    const boardMutationMatch = pathname.match(/^\/api\/projects\/([^/]+)\/board\/(reply|resolve)$/)
+    if (boardMutationMatch) {
+      const project = store.getProject(boardMutationMatch[1]!)
+      if (!project) {
+        sendJson(response, 404, { error: `Unknown project: ${boardMutationMatch[1]!}` })
+        return
+      }
+      const mutation = boardMutationMatch[2]!
+      const board = store.readBoard(project.id)
+      if (!board) {
+        sendJson(response, 404, { error: `No board captured yet for ${project.name}` })
+        return
+      }
+      if (mutation === 'reply' && method === 'POST') {
+        const replyRequest = BoardReplyRequestSchema.parse(JSON.parse(await readBody(request)))
+        const next = appendThreadReply(board, replyRequest.annotationId, replyRequest.body, replyRequest.author)
+        writeBoardAndPublish(project.id, next)
+        sendJson(response, 200, BoardResponseSchema.parse({ board: next }))
+        return
+      }
+      if (mutation === 'resolve' && method === 'POST') {
+        const resolveRequest = BoardResolveRequestSchema.parse(JSON.parse(await readBody(request)))
+        const next = resolveBoardAnnotation(board, resolveRequest.annotationId)
+        writeBoardAndPublish(project.id, next)
+        sendJson(response, 200, BoardResponseSchema.parse({ board: next }))
+        return
+      }
+      sendJson(response, 404, { error: `Unknown API route: ${method} ${pathname}` })
+      return
+    }
+
+    const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)\/(board|capture|context|dispatch|generate-options|learn|live|refresh|teach)$/)
     if (!projectMatch) {
       sendJson(response, 404, { error: `Unknown API route: ${method} ${pathname}` })
       return
@@ -788,6 +934,19 @@ export async function startDesignModeHost(options: DesignModeHostOptions = {}) {
       }
       const run = launchLofiGenerateRun(project, generateRequest, eligibility.unit, board!)
       sendJson(response, 202, { run })
+      return
+    }
+
+    if (action === 'teach' && method === 'POST') {
+      const body = TeachQuestionRequestSchema.parse(JSON.parse(await readBody(request)))
+      const agents = probeAgentAvailability(options.agentCommands)
+      const agent = body.agent ?? agents.find((item) => item.available)?.id ?? 'claude'
+      try {
+        const result = await runTeachQuestion(project, agent, body.question)
+        sendJson(response, 200, result)
+      } catch (error) {
+        sendJson(response, 500, { error: errorMessage(error) })
+      }
       return
     }
 

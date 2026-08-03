@@ -2,6 +2,7 @@ import { z } from 'zod'
 // The .ts extension keeps this file loadable by the Node host process, which
 // runs TypeScript through native type stripping.
 import { AnnotationIntentSchema, AnnotationMarkSchema, NormalizedPointSchema, ViewportSchema, type BoardDocument } from './board-document.schema.ts'
+import { isReviewAnnotation } from '../is-board-annotation.ts'
 
 export function isAbsoluteScreenshotPath(value: string): boolean {
   return value.startsWith('/') || value.startsWith('\\\\') || /^[a-zA-Z]:[\\/]/.test(value)
@@ -39,7 +40,7 @@ export type AgentAnnotation = z.infer<typeof AgentAnnotationSchema>
 
 export function exportAgentAnnotation(document: BoardDocument, annotationId: string): AgentAnnotation {
   const annotation = document.annotations.find((item) => item.id === annotationId)
-  if (!annotation) throw new Error(`Unknown annotation: ${annotationId}`)
+  if (!annotation || !isReviewAnnotation(annotation)) throw new Error(`Unknown review annotation: ${annotationId}`)
   const frame = document.frames.find((item) => item.id === annotation.frameId)
   if (!frame) throw new Error(`Unknown frame: ${annotation.frameId}`)
   return AgentAnnotationSchema.parse({

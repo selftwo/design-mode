@@ -1,6 +1,6 @@
 # 02: Sweep every component CSS file onto the DLS
 
-Status: open
+Status: done
 Type: task
 Phase: 1 (re-skin)
 Blocked by: 01
@@ -27,10 +27,21 @@ React Flow itself is styled only through its CSS variables and class overrides.
 
 ## Done when
 
-- [ ] No component CSS file has a literal color, font size, or spacing value outside the token block (`rg '#[0-9a-fA-F]{3,8}|font-size:\s*\d|\b\d+px' src --glob '*.css'` returns only the token block and justified geometry like border widths).
-- [ ] Each listed surface visually matches its catalog row in both themes.
-- [ ] Every `data-testid` and ARIA role/name is unchanged; e2e passes without edits.
+- [x] No component CSS file has a literal color, font size, or spacing value outside the token block (`rg '#[0-9a-fA-F]{3,8}|font-size:\s*\d|\b\d+px' src --glob '*.css'` returns only the token block and justified geometry like border widths).
+- [x] Each listed surface visually matches its catalog row in both themes.
+- [x] Every `data-testid` and ARIA role/name is unchanged; e2e passes without edits.
 
 ## Verify
 
 `npm run verify`. Compare each surface against design/showcase.html side by side, both themes.
+
+## Comments
+
+- Imported `design/components/components.css` from `src/app/main.tsx`; wrapped shell in `.dm`.
+- Swept all nine component CSS files onto spacing/type tokens; zero hex or `font-size: N` literals remain outside `src/app/app.css` token blocks (border-width px only).
+- Applied DLS classes across toolbar, comments panel, instruction editor, context pane, activity rail, project picker, live frame chrome, reset dialog, status bar, notices, marks, and frames.
+- React Flow: `--xy-*` overrides in `ScreenFrameSurface.css`; dot grid uses `var(--border-strong)`.
+- Frame chrome uses token rules on `.screen-node` (not `.dm-frame` on the wrapper — see DECISIONS.md) so resize handles stay visible.
+- Live-state badge: bottom-right, `pointer-events: none` (see DECISIONS.md).
+- `npm run verify` — **pass** (126 unit, 19 e2e).
+- `npm run measure` — reactflow gzip **150,968 B** (cap 168,740 B).

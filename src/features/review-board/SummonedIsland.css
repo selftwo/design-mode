@@ -1,0 +1,54 @@
+.summoned-island {
+  position: fixed;
+  z-index: 45;
+  width: var(--panel-width);
+  max-height: calc(100vh - var(--space-8));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.summoned-island:not([data-open="true"]) {
+  pointer-events: none;
+}
+
+.summoned-island-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3) var(--space-4);
+}
+
+.summoned-island-meta {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.summoned-island-meta + .summoned-island-meta {
+  margin-top: var(--space-2);
+}
+
+.summoned-island-meta .dm-mono {
+  color: var(--ink);
+}
+
+.dm-island-x {
+  margin-left: auto;
+  min-height: 1.5rem;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--ink-muted);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dm-island-x:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}

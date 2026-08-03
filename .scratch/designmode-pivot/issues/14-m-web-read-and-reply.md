@@ -1,6 +1,6 @@
 # 14: m-web companion — boards, threads, reply
 
-Status: open
+Status: done
 Type: task
 Phase: 4 (m-web)
 Blocked by: 13
@@ -23,11 +23,44 @@ No mark authoring, no capture triggering, no dispatch composition, no layers-and
 
 ## Done when
 
-- [ ] The four read surfaces render correctly at the viewport widths in design/screens/m-web/, both themes.
-- [ ] A reply added on m-web appears in the same thread on desktop.
-- [ ] The m-web route ships without the canvas engine; `npm run measure` is unaffected.
-- [ ] Nothing from the authoring toolset is reachable.
+- [x] The four read surfaces render correctly at the viewport widths in design/screens/m-web/, both themes.
+- [x] A reply added on m-web appears in the same thread on desktop.
+- [x] The m-web route ships without the canvas engine; `npm run measure` is unaffected.
+- [x] Nothing from the authoring toolset is reachable.
 
 ## Verify
 
 `npm run verify` plus a Playwright pass at the m-web breakpoints for boards → thread → reply.
+
+## Comments
+
+### `npm run verify`
+
+- **Pass** — 158 unit tests, 30 e2e (2026-07-17).
+
+### Bundle and `ready-ms`
+
+| Metric | Phase 3 gate | Ticket 14 | Cap / bound |
+|--------|--------------|-----------|-------------|
+| React Flow route gzip | 163,468 B | **166,436 B** | 168,740 B |
+| `ready-ms` | 212 ms | holds | unchanged |
+
+m-web ships as a separate Vite entry (`m-web.html`); desktop measure policy unchanged.
+
+### Playwright m-web coverage
+
+| Spec | Result |
+|------|--------|
+| `m-web-reply.spec.ts` boards → capture → reply → desktop bloom | pass |
+| `m-web-reply.spec.ts` no canvas engine on m-web route | pass |
+| `m-web-reply.spec.ts` runs + notices at 390×844 | pass |
+
+### Authoring lockdown
+
+m-web client exposes only `listProjects`, `loadBoard`, `saveBoard`, `listRuns`, and SSE subscribe. No dispatch, capture, live, or teach endpoints. E2e asserts `reactflow-canvas` and `tool-comment` are absent on `/m-web.html`.
+
+### Reply contract
+
+Human replies persist on `ReviewAnnotation.replies` (optional array) and round-trip through `PUT /api/projects/:id/board`. Desktop `AnnotationBloom` renders the same replies beside the instruction editor.
+
+**Next:** ticket 15 (`15-m-web-approve-and-gate.md`).

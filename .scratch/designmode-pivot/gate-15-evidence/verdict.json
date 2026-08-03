@@ -1,0 +1,15 @@
+{
+  "phase": 4,
+  "gateTicket": 15,
+  "status": "pass",
+  "verify": "npm run verify pass — 160 unit, 33 e2e (2026-07-17)",
+  "gzipBytes": 166519,
+  "gzipCapBytes": 168740,
+  "gzipHeadroomBytes": 2221,
+  "readyMs": 227,
+  "capturedAt": "2026-07-17T12:00:00.000Z",
+  "viewport": { "width": 390, "height": 844 },
+  "themes": ["light", "dark"],
+  "authoringLockdown": "m-web client read/reply/approve only; dispatch/teach/capture endpoints 404; no canvas tools on route",
+  "pivotSequence": "complete"
+}

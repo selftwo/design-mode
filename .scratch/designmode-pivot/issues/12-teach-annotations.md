@@ -1,6 +1,6 @@
 # 12: Teach annotations pinned to the canvas
 
-Status: open
+Status: done
 Type: task
 Phase: 3 (differentiators)
 Blocked by: 11
@@ -19,11 +19,19 @@ Let the reviewer pin an agent answer from the learn lens onto the canvas as an a
 
 ## Done when
 
-- [ ] Pinning an answer creates an anchored teal note with the `⌁` glyph at the element; it survives reload.
-- [ ] Teach annotations never appear in an exported review batch (schema test proves it).
-- [ ] Staleness flips on capture refresh like review annotations.
-- [ ] Playwright: ask in the lens, pin, assert the note on the canvas with the `⌁` glyph and teal hue.
-- [ ] Zod schema changes are versioned and validated at the host boundary like every other message.
+- [x] Pinning an answer creates an anchored teal note with the `⌁` glyph at the element; it survives reload.
+- [x] Teach annotations never appear in an exported review batch (schema test proves it).
+- [x] Staleness flips on capture refresh like review annotations.
+- [x] Playwright: ask in the lens, pin, assert the note on the canvas with the `⌁` glyph and teal hue.
+- [x] Zod schema changes are versioned and validated at the host boundary like every other message.
+
+## Comments
+
+- `BoardAnnotationSchema` discriminated union (`kind: 'review' | 'teach'`) with legacy migration (`kind: 'review'` default on deserialize).
+- `TeachAnnotationNote` renders `.dm-teach-note` on frame surfaces; pin from `LearnLensIsland`; approve/delete on select.
+- `buildReviewBatch()` filters teach annotations; `review-batch.test.ts` proves exclusion.
+- Embed-mode teach questions use `design-review/ask-teach-question` window messages (`ask-teach-question-via-window-host.ts`); fake host updated for e2e.
+- Verify: `npm run verify` passed — 151 unit, 27 e2e; React Flow gzip **163,468 B** (cap 168,740 B).
 
 ## Verify
 

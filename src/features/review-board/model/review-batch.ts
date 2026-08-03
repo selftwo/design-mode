@@ -1,10 +1,11 @@
 import { z } from 'zod'
-import type { BoardDocument } from './board-document.schema'
+import type { BoardDocument, ReviewAnnotation } from './board-document.schema'
 // Explicit .ts extensions keep this module graph loadable by the Node host
 // process, which runs TypeScript through native type stripping.
 import { isDispatchableAnnotation } from './apply-canvas-event.ts'
 import { isInstructionIncomplete } from './annotation-instruction.ts'
 import { AgentAnnotationSchema, exportAgentAnnotation, isAbsoluteScreenshotPath } from './export-agent-annotation.ts'
+import { isReviewAnnotation } from '../is-board-annotation.ts'
 
 export const REVIEW_BATCH_SCHEMA_VERSION = 1 as const
 
@@ -28,10 +29,13 @@ export type ReviewBatchBuildResult =
   | { ok: true; batch: ReviewBatch }
   | { ok: false; blocks: ReviewBatchBlock[] }
 
-function dispatchableAnnotations(document: BoardDocument) {
+function dispatchableAnnotations(document: BoardDocument): ReviewAnnotation[] {
   // Teach notes and agent questions are inbound from the agent; they never
   // leave as a code-change dispatch batch.
-  return document.annotations.filter(isDispatchableAnnotation)
+  return document.annotations.filter(
+    (annotation): annotation is ReviewAnnotation =>
+      isReviewAnnotation(annotation) && isDispatchableAnnotation(annotation),
+  )
 }
 
 export function collectReviewBatchBlocks(document: BoardDocument): ReviewBatchBlock[] {

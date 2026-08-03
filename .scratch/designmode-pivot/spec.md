@@ -58,7 +58,7 @@ Multi-reviewer pools, remote access, host round-trip board persistence beyond wh
 
 ## Acceptance for the whole effort
 
-- [ ] All fifteen issues in `.scratch/designmode-pivot/issues/` are `Status: done` with their acceptance lists checked.
-- [ ] The four phase gates (issues 04, 10, 13, 15) each passed `npm run verify` at the time they closed.
-- [ ] The desktop app matches `design/screens/*.html` and the mobile companion matches `design/screens/m-web/*.html`, both themes.
-- [ ] `DECISIONS.md` records any deviation from `design/HANDOFF.md` agreed along the way.
+- [x] All fifteen issues in `.scratch/designmode-pivot/issues/` are `Status: done` with their acceptance lists checked.
+- [x] The four phase gates (issues 04, 10, 13, 15) each passed `npm run verify` at the time they closed.
+- [x] The desktop app matches `design/screens/*.html` and the mobile companion matches `design/screens/m-web/*.html`, both themes.
+- [x] `DECISIONS.md` records any deviation from `design/HANDOFF.md` agreed along the way.

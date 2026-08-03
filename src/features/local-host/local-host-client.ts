@@ -4,6 +4,7 @@ import type { HostCaptureRefreshResult, HostLiveSessionResult } from '../review-
 import type { HostReviewBatchDeliveryResult } from '../review-board/host/host-review-batch-message.schema'
 import type { BoardDocument } from '../review-board/model/board-document.schema'
 import type { ReviewBatch } from '../review-board/model/review-batch'
+import type { TeachAnswer, TeachQuestion } from '../review-board/model/teach-question.schema'
 import {
   AgentListSchema,
   BoardConflictResponseSchema,
@@ -19,6 +20,8 @@ import {
   ProjectListSchema,
   ProjectSchema,
   RunListSchema,
+  TeachQuestionRequestSchema,
+  TeachQuestionResponseSchema,
   type AgentAvailability,
   type AgentId,
   type AgentRun,
@@ -313,6 +316,16 @@ export function createLocalHostClient(projectId: string | null) {
       const response = await fetch('/api/runs')
       if (!response.ok) throw new Error(await readError(response))
       return RunListSchema.parse(await response.json()).runs
+    },
+
+    async askTeachQuestion(question: TeachQuestion): Promise<TeachAnswer> {
+      const response = await fetch(`/api/projects/${projectId}/teach`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(TeachQuestionRequestSchema.parse({ question, agent: dispatchAgent })),
+      })
+      if (!response.ok) throw new Error(await readError(response))
+      return TeachQuestionResponseSchema.parse(await response.json()).answer
     },
 
     subscribeHostEvents(

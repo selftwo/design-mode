@@ -1,8 +1,22 @@
+.react-flow {
+  --xy-background-color: var(--canvas);
+  --xy-background-pattern-color: var(--border-strong);
+  --xy-background-pattern-dots-color: var(--border-strong);
+  --xy-node-border-radius: var(--radius-panel);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-border-color: var(--border-control);
+  --xy-controls-button-color: var(--ink-secondary);
+  --xy-controls-button-background-color-hover: var(--surface-hover);
+  --xy-controls-button-border-color-hover: var(--border-strong);
+  --xy-controls-button-color-hover: var(--ink);
+}
+
 .screen-node {
   position: relative;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
   background: var(--surface);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.1);
+  box-shadow: var(--shadow-raise);
 }
 
 .screen-node.is-zoned {
@@ -11,7 +25,12 @@
 }
 
 .react-flow__node.selected .screen-node {
-  box-shadow: 0 0 0 2px var(--accent-ring), 0 6px 16px rgba(16, 24, 40, 0.1);
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 2px var(--accent-ring), var(--shadow-raise);
+}
+
+.screen-node.screen-node-tree-outline {
+  box-shadow: 0 0 0 1px var(--accent-ring), var(--shadow-raise);
 }
 
 /* In select mode the whole frame is the grab target, so it reads as movable. */
@@ -40,7 +59,7 @@
 }
 
 .react-flow__node.selectable:focus-visible {
-  outline: 3px solid #4c6fff;
+  outline: 3px solid var(--accent-ring);
   outline-offset: 2px;
 }
 
@@ -49,9 +68,9 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border: 2px solid #fff;
-  border-radius: 8px;
-  background: #e7eaf0;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-panel);
+  background: var(--canvas);
 }
 
 .screen-content.draw-active {
@@ -71,14 +90,11 @@
 /* The label sits above the frame so it never covers the screen under review. */
 .screen-label {
   position: absolute;
-  top: -24px;
+  top: calc(-1 * var(--space-6));
   left: 0;
   max-width: 100%;
   overflow: hidden;
-  padding: 2px 0;
-  color: var(--ink-secondary);
-  font-size: 12px;
-  font-weight: 500;
+  padding: var(--space-1) 0;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;

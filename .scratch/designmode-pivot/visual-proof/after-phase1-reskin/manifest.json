@@ -1,0 +1,16 @@
+{
+  "label": "after",
+  "baseUrl": "http://127.0.0.1:4173",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "surfaces": [
+    "picker",
+    "board",
+    "annotation-editing",
+    "live-view",
+    "dispatch"
+  ],
+  "capturedAt": "2026-07-17T02:48:36.690Z"
+}

@@ -40,20 +40,30 @@ function semanticFingerprint(document: CanvasEngineProps['document']): string {
 export default function ExcalidrawReviewBoard({
   document,
   tool,
+  learnLensOpen: _learnLensOpen,
   focusedFrameId,
   liveFrameConfig,
   selectedFrameId: _selectedFrameId,
+  selectedElementId: _selectedElementId,
   selectedAnnotationId: _selectedAnnotationId,
   editorFocusId: _editorFocusId,
   playableFrameModes: _playableFrameModes,
+  pendingJumpAnnotationId: _pendingJumpAnnotationId,
+  outlinedTarget: _outlinedTarget,
+  resolvedAnnotationIds: _resolvedAnnotationIds,
   onDocumentChange,
   onFocusFrame: _onFocusFrame,
   onSelectFrame,
+  onSelectElement: _onSelectElement,
+  onLearnElementPick: _onLearnElementPick,
   onSelectAnnotation: _onSelectAnnotation,
   onAnnotationCreated: _onAnnotationCreated,
   onSaveAnnotationDraft: _onSaveAnnotationDraft,
   onSetAnnotationIntent: _onSetAnnotationIntent,
   onDeleteAnnotation: _onDeleteAnnotation,
+  onDeleteTeachAnnotation: _onDeleteTeachAnnotation,
+  onResolveTeachAnnotation: _onResolveTeachAnnotation,
+  onJumpHandled: _onJumpHandled,
   onReady,
 }: CanvasEngineProps) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
@@ -158,6 +168,7 @@ export default function ExcalidrawReviewBoard({
       const currentFrame = current.frames.find((item) => item.id === frame.id)
       if (!currentFrame) return current
       const annotation: ReviewAnnotation = {
+        kind: 'review',
         id: crypto.randomUUID(),
         frameId: frame.id,
         role: 'review',

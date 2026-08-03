@@ -1,6 +1,6 @@
 # 07: The layers-and-aspects island
 
-Status: open
+Status: done
 Type: task
 Phase: 2 (restructure)
 Blocked by: 06
@@ -20,12 +20,23 @@ The project context files currently shown in `DesignContextPane` need a home tha
 
 ## Done when
 
-- [ ] Selecting a frame, element, or mark summons the island without covering the selection.
-- [ ] Tree selection and canvas selection stay in sync both directions; hover outlines.
-- [ ] Aspects sections render the six sections in order with token-named fills for a picked element.
-- [ ] Empty selection shows board properties; the docked context pane is gone.
-- [ ] All prior context-pane testids/ARIA names preserved or migrated with e2e updated deliberately (additions only where the old surface is gone; record any removal under Comments).
+- [x] Selecting a frame, element, or mark summons the island without covering the selection.
+- [x] Tree selection and canvas selection stay in sync both directions; hover outlines.
+- [x] Aspects sections render the six sections in order with token-named fills for a picked element.
+- [x] Empty selection shows board properties; the docked context pane is gone.
+- [x] All prior context-pane testids/ARIA names preserved or migrated with e2e updated deliberately (additions only where the old surface is gone; record any removal under Comments).
 
 ## Verify
 
 `npm run verify`. Manual pass against design/screens/aspects.html, both themes.
+
+## Comments
+
+- Replaced `SelectionInspectorIsland` probe with `LayersAndAspectsIsland` (layers tree + aspects panels on `SummonedIsland` shell). `summoned-inspector-island` testid preserved.
+- Added `build-layers-tree.ts`, `LayersTree.tsx`, `ElementAspectsPanel.tsx`, `BoardAspectsPanel.tsx`, `FrameAspectsPanel.tsx`, `DesignContextInIsland.tsx`, `element-aspects.schema.ts`, `derive-element-aspects.ts`, `LayersAndAspectsIsland.css`.
+- Extended `FrameElementSchema` with optional `aspects`; `host/extract-frame-elements.ts` now captures computed CSS at capture time.
+- Removed docked `DesignContextPane`; context files render in island section with preserved `context-pane`, `context-tab-*`, `context-body` testids. Removed `toggle-context-pane` (collapsed dock control) — recorded in DECISIONS.md.
+- Board-level aspects open from the board row in the layers tree; empty-canvas click still closes the island (ticket 06 dodge contracts).
+- Canvas: `selectedElementId`, `outlinedTarget` props; tree-hover outlines and background-tap deselect fixes in `ScreenFrameNode`.
+- `npm run verify` — **pass** (136 unit, 23 e2e).
+- `npm run measure` — reactflow gzip **156,080 B** (cap 168,740 B).

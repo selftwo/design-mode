@@ -180,6 +180,198 @@ Rejected: The earlier draft's phase 2 of resizable docked panels with pointer-dr
 
 Revisit when: A later-phase trigger in `design/HANDOFF.md` fires, or the islands layout fails the phase 2 gate's keyboard workflow.
 
+## 2026-07-17: Frame chrome on `.screen-node`, not `.dm-frame` on the React Flow wrapper
+
+Status: Accepted
+
+Decision: Captured frames use token-aligned rules on `.screen-node` / `.screen-content` in `ScreenFrameSurface.css` (border, lift, violet selection ring, mono label via `.dm-frame-label`). The catalog class `.dm-frame` is not applied to the outer React Flow node wrapper.
+
+Reason: `.dm-frame` sets `overflow: hidden`, which clips React Flow `NodeResizer` handles and breaks the resize e2e workflow. The inner `.screen-content` keeps `overflow: hidden` for capture clipping only.
+
+Rejected: Applying `.dm-frame` to the node wrapper and patching resize handle z-index.
+
+Revisit when: Phase 2 moves frames to a bloom/island model that no longer uses React Flow resize handles on the same element.
+
+## 2026-07-17: Live frame state badge stays bottom-right and non-interactive
+
+Status: Accepted
+
+Decision: `.live-state` in `LiveReviewFrame.css` sits at the bottom-right of the frame with `pointer-events: none`.
+
+Reason: A bottom-left badge (matching some showcase layouts) sat over the fake-host increment control and blocked iframe clicks in the live-view e2e flow. Right placement matches the pre-pivot shell and keeps the badge readable without stealing hits from the proxied page.
+
+Rejected: Bottom-left placement without `pointer-events: none`.
+
+Revisit when: Live chrome moves to a dedicated island in phase 2.
+
+## 2026-07-17: Status island keeps e2e focus-state and export-status contracts
+
+Status: Accepted
+
+Decision: The floating status island uses `screenshot mode` (not design spec `live off`) for the idle `focus-state` testid, and renders `export-status` only when delivery succeeded — not on blocked or error states.
+
+Reason: Nineteen Playwright tests assert these exact strings and presence rules. The island layout and mono-line presentation change; the test contracts do not.
+
+Rejected: Renaming focus-state to `live off` or showing export-status on blocked/error.
+
+Revisit when: E2e contracts are updated alongside phase-2 island vocabulary.
+
+## 2026-07-17: Design context lives in the layers-and-aspects island
+
+Status: Accepted
+
+Decision: Ticket 07 removes the docked `DesignContextPane` and renders project context files (`DESIGN.md`, `PRODUCT.md`, `AGENTS.md`, `README.md`) in a `Design context` section at the bottom of the summoned layers-and-aspects island when the local host is active. `context-pane`, `context-tab-*`, and `context-body` testids move with that section. The collapsed `toggle-context-pane` control is removed because the island is already summoned on demand.
+
+Reason: Phase 2 forbids permanently docked panels. Context must stay reachable while reviewing without reserving a fixed column.
+
+Rejected: Moving context exclusively to the project picker, which hides it during review.
+
+Revisit when: Context files need a dedicated summoned surface separate from the inspector.
+
+## 2026-07-17: Board aspects open from the layers tree, not empty-canvas click
+
+Status: Accepted
+
+Decision: Clicking empty canvas still closes the summoned island (preserving ticket 06 dodge Playwright contracts). Board-level aspects appear when the reviewer selects the board row in the layers tree.
+
+Reason: Ticket 07 requires board properties without breaking `data-open="false"` on pane deselect or the deselect/reselect dodge reset.
+
+Rejected: Keeping the island open on empty-canvas click, which would leave `data-open="true"` and prevent dodge from re-arming.
+
+Revisit when: Product wants empty-canvas click to mean board selection instead of dismiss.
+
+## 2026-07-17: Import DLS tokens instead of inlining into app.css
+
+Status: Accepted
+
+Decision: `src/app/app.css` loads `design/tokens/tokens.css` via `@import` and keeps only app-shell layout rules. Ticket 01 originally inlined the token blocks; that copy drifted and was lost while `App.tsx` kept phase-2 structure, which broke floating layout (undefined `--space-*` made notice `top` calc invalid and covered the toolbar).
+
+Reason: One source of token truth prevents silent reversion to the pre-DLS `:root` seam.
+
+Rejected: Keeping a second verbatim copy of the token file inside `app.css`.
+
+Revisit when: Build tooling needs tokens without CSS `@import`.
+
+## 2026-07-17: Runs island reuses SummonedIsland; ARIA follows the screen
+
+Status: Accepted
+
+Decision: `RunsIsland` uses the ticket 06 `SummonedIsland` shell (dodge, drag, nudge) with default bottom-right CSS when nothing is selected. `data-testid="agent-activity"` stays; `aria-label` becomes `Agent runs` per `design/screens/returned-run.html`.
+
+Reason: Screen file wins over the old rail label when they disagree.
+
+Rejected: Keeping `Agent activity` as the accessible name.
+
+Revisit when: E2e asserts the runs island ARIA name explicitly.
+
+## 2026-07-17: Phase 2 gate — returned-run evidence via host contract, not fake-host capture
+
+Status: Accepted
+
+Decision: Phase 2 gate screenshots for `returned-run.html` capture the delivered-export bloom state in the fake-host Playwright fixture. Agent candidate replies with the `⌁` glyph, stale marks, reload notices, and expanded runs tails are verified through `AnnotationBloom`, `RunsIsland`, host API tests, and the live `host/` SSE contract instead of mocking run journals in e2e fixtures.
+
+Reason: The fake board host deliberately omits agent-run journaling; adding screenshot-only mocks would fork the host contract.
+
+Rejected: Extending the fake host with a parallel run-journal mock for gate captures only.
+
+Revisit when: Playwright fixtures need a lightweight run-journal stub for phase 3 learn-lens coverage.
+
+## 2026-07-17: Bloom threads at their marks
+
+Status: Accepted
+
+Decision: Selecting an annotation opens `AnnotationBloom` (viewport-fixed, dodge placement from ticket 06) with `AnnotationInstructionEditor` inside. `ReviewCommentsPanel` is a summoned jump-list island (no inline editor); copy/send actions stay in its footer. Thread resolve was session UI state (`resolvedAnnotationIds`) until ticket 15; see the persisted `resolvedAt` decision below. Agent candidate replies render from the newest `done` host run whose `annotationIds` includes the mark.
+
+Reason: Matches `design/screens/review-dispatch.html` and `returned-run.html`: threads bloom at marks; the rail is secondary navigation only.
+
+Rejected: Keeping the docked 320px comments column; duplicating a second bloom implementation.
+
+Revisit when: Resolved state and agent replies need to persist on the board document.
+
+## 2026-07-17: The learn lens island
+
+Status: Accepted
+
+Decision: The learn lens is a separate summoned island (`LearnLensIsland`) with fixed initial placement and no dodge-on-selection. Element picks while `learnLensOpen` route through `onLearnElementPick` instead of annotation creation. Teach questions use `TeachQuestionSchema` (agent-neutral payload) posted to `POST /api/projects/:id/teach`; the host builds prompts via `buildTeachPrompt` and returns the agent stdout as a non-actionable inline answer. Anatomy and vocabulary derive client-side in `derive-learn-content.ts` from extracted element data plus shared intent vocabulary.
+
+Reason: Matches `design/screens/learn-lens.html`: the lens floats free, updates content in place, never snaps back, and explains without routing work.
+
+Rejected: Reusing `SummonedIsland` dodge placement for the learn lens; folding teach into the review-batch dispatch schema.
+
+Revisit when: Ticket 12 pins teach answers to the canvas as anchored teach annotations.
+
+## 2026-07-17: Teach annotations pinned to the canvas
+
+Status: Accepted
+
+Decision: Teach annotations are a `kind: 'teach'` board-document variant with element anchor, machine provenance (`provenanceRunId`, `⌁` glyph), and the same capture-hash/revision staleness contract as review marks. They render on-canvas as `.dm-teach-note`, appear in the layers tree and comments jump list, support approve/delete, and are excluded from `buildReviewBatch()`. Pinning flows from `LearnLensIsland` after a teach question round-trip; embed mode uses the existing `design-review/ask-teach-question` window message when no local HTTP host is present.
+
+Reason: Matches `design/screens/learn-lens.html` and the Teach note row of `design/components/catalog.md`: agent voice on teal paper, reversed review-batch direction, no dispatch.
+
+Rejected: Folding teach notes into `ReviewAnnotation` without a discriminant; exporting teach notes in dispatch batches.
+
+Revisit when: m-web approve flows need persisted resolved state on teach annotations.
+
+## 2026-07-17: Dark theme toggle in the toolbar
+
+Status: Accepted
+
+Decision: The dark-theme toggle lives in the floating toolbar actions group (`data-testid="theme-toggle"`, `aria-pressed`, label switches Dark/Light). Theme persists in `design-review-theme` localStorage and applies `data-theme` on `document.documentElement`. Screen HTML specs (`board.html`, `learn-lens.html`) omit the control from toolbar markup; phase 3 ships it as a first-class reviewer affordance beside Import/Reset/Live.
+
+Reason: Phase 3 done-when requires the dark theme as a user-facing toggle beyond the phase-1 scaffold. Toolbar placement keeps it reachable on every surface without summoning an island.
+
+Rejected: A separate settings island; hiding the toggle on the project picker only.
+
+Revisit when: m-web needs its own theme entry point at mobile breakpoints.
+
+## 2026-07-17: m-web companion as a separate Vite entry
+
+Status: Accepted
+
+Decision: The mobile-web review companion ships as `m-web.html` → `src/app/m-web-main.tsx`, a second Vite entry under `src/features/m-web/`. It reads boards, captures, threads, runs, and notices per `design/screens/m-web/`, persists human thread replies on `ReviewAnnotation.replies` and approvals on optional `resolvedAt` via the existing `PUT /api/projects/:id/board` contract, and renders them in both `ThreadHistory`/`MWebCapturePage` and desktop `AnnotationBloom`/`TeachAnnotationNote`. The host serves `/m-web` paths from `m-web.html` with the same `__designModeHost` marker.
+
+Reason: Keeps React Flow and Excalidraw out of the m-web bundle and off the desktop `npm run measure` gate while reusing the board document and host API without forked endpoints.
+
+Rejected: Hash-routing inside the desktop `index.html` entry; m-web-only reply or approve API routes.
+
+Revisit when: m-web needs mark authoring or dispatch composition on the companion surface.
+
+## 2026-07-17: Persist thread approval on `resolvedAt`
+
+Status: Accepted
+
+Decision: Review and teach annotations carry an optional `resolvedAt` ISO datetime on the board document. m-web sets it through `resolveBoardAnnotation()` and `PUT /api/projects/:id/board`; desktop bloom and teach-note resolve write the same field while still mirroring into session `resolvedAnnotationIds` for immediate UI. `isAnnotationResolved()` is the shared read path; `bloomThreadStateWord` shows `✓ resolved` when either persisted or session-local.
+
+Reason: m-web approve must round-trip through the host and appear on the desktop canvas without a second reviewer at the desk. Session-only resolve could not survive a board reload or a cross-surface handoff.
+
+Rejected: A separate m-web-only approval store; a new `status: resolved` enum that would fork the agent export contract.
+
+Revisit when: Approval needs audit metadata beyond a timestamp (reviewer id, source surface).
+
+## 2026-07-17: Pivot QA placement, dispatch, and chrome decisions
+
+Status: Accepted
+
+Decision: Islands dodge every open island obstacle. Blooms re-anchor on every animation frame during camera movement, and off-screen annotations remain rendered so rail selection can reveal them. The bloom owns single-annotation dispatch; the comments rail remains the batch path. Desktop teach notes stay non-actionable and retain Delete as the removal path. Engine chrome stays behind `?dev=1`, while Reset sits at the end of the toolbar actions.
+
+Reason: These choices preserve the handed-off screens while keeping review work spatial, discoverable, and reversible.
+
+Rejected: Fading blooms during camera movement; rail-only dispatch; desktop teach approval; exposing the engine switcher in product chrome.
+
+Revisit when: A dedicated developer surface or persisted reviewer identity replaces these temporary affordances.
+
+## 2026-07-17: Pivot QA contract migrations
+
+Status: Accepted
+
+Decision: The engine badge/switcher remain available under `?dev=1`; the board pill is added; selected annotation status shows a human ordinal with the UUID in `title`; intent jump-list chips use neutral tokens; the removed `toggle-context-pane` testid and renamed `Agent runs` aria-label remain intentional compatibility migrations. E2e contracts that previously asserted the raw UUID in `selected-annotation` now read the ordinal text and the UUID from `title`.
+
+Reason: The visual contract is user-facing while test hooks remain stable where they support behavior.
+
+Rejected: Showing raw UUIDs and harness diagnostics as primary product copy.
+
+Revisit when: The browser contract can migrate from legacy status strings.
+
 ## 2026-07-22: Re-baseline the React Flow route bundle budget for the collaboration surface
 
 Status: Accepted

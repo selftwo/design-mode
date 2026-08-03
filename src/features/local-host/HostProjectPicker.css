@@ -1,35 +1,36 @@
 .project-picker {
   display: grid;
-  grid-template-columns: minmax(320px, 1.2fr) minmax(300px, 1fr);
-  gap: 40px;
-  max-width: 960px;
+  grid-template-columns: minmax(calc(5 * var(--space-16)), 1.2fr) minmax(calc(var(--panel-width) + var(--space-1)), 1fr);
+  gap: var(--space-10);
+  max-width: calc(var(--space-16) * 15);
   margin: 0 auto;
-  padding: 48px 32px;
+  padding: var(--space-12) var(--space-8);
   overflow-y: auto;
 }
 
 .picker-column h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 650;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
 }
 
 .picker-column h2 {
-  margin: 4px 0 6px;
-  font-size: 16px;
-  font-weight: 650;
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
 }
 
 .picker-hint {
-  margin: 0 0 14px;
+  margin: 0 0 var(--space-3);
   color: var(--ink-secondary);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
 }
 
 .picker-projects {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -38,8 +39,8 @@
 .picker-projects li {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   background: var(--surface);
@@ -47,19 +48,20 @@
 
 .picker-project-text {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
   flex: 1;
 }
 
 .picker-project-text strong {
-  font-size: 14px;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
 }
 
 .picker-project-text span {
   overflow: hidden;
   color: var(--ink-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -67,63 +69,14 @@
 .picker-project-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.picker-project-actions button {
-  padding: 4px 10px;
-  font-size: 12px;
-  white-space: nowrap;
+  gap: var(--space-2);
 }
 
 .picker-form {
   display: grid;
-  gap: 10px;
-}
-
-.picker-form label {
-  display: grid;
-  gap: 4px;
-  color: var(--ink-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.picker-form input,
-.picker-form textarea {
-  padding: 7px 9px;
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-control);
-  font: inherit;
-  font-size: 13px;
-  color: var(--ink);
-}
-
-.picker-form input:focus-visible,
-.picker-form textarea:focus-visible {
-  outline: 2px solid var(--accent-ring);
-  outline-offset: 1px;
-}
-
-.picker-form button[type="submit"] {
-  justify-self: start;
-  padding: 6px 14px;
-  color: #fff;
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.picker-form button[type="submit"]:hover {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
+  gap: var(--space-3);
 }
 
 .picker-error {
-  margin: 12px 0 0;
-  padding: 8px 12px;
-  border: 1px solid var(--danger-border);
-  border-radius: var(--radius-control);
-  color: var(--danger);
-  background: var(--danger-bg);
-  font-size: 13px;
+  margin: var(--space-3) 0 0;
 }

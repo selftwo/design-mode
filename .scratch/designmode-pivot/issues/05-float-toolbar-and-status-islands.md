@@ -1,6 +1,6 @@
 # 05: Float the toolbar and status strip as islands over an edge-to-edge canvas
 
-Status: open
+Status: done
 Type: task
 Phase: 2 (restructure)
 Blocked by: 04
@@ -18,9 +18,31 @@ The docked context and comments panels stay docked in this ticket; they move in 
 
 ## Done when
 
-- [ ] No fixed header or status band; the canvas fills the viewport behind floating chrome.
-- [ ] Toolbar and status render as islands matching the catalog rows, both themes.
-- [ ] All existing toolbar and status functionality still works; e2e passes without edits.
+- [x] No fixed header or status band; the canvas fills the viewport behind floating chrome.
+- [x] Toolbar and status render as islands matching the catalog rows, both themes.
+- [x] All existing toolbar and status functionality still works; e2e passes without edits.
+
+## Comments
+
+### Verify — 2026-07-17
+
+`npm run verify` **pass** (126 unit, 19 e2e).
+
+| Check | Result |
+|-------|--------|
+| gzip (reactflow route) | 150,937 B (cap 168,740 B) |
+| ready-ms | unchanged contract via `[data-testid="ready-ms"]` in status island |
+
+### Changes
+
+- **`src/app/app.css`:** Removed shell grid rows for toolbar/status bands; `.canvas-region` is `inset: 0` edge-to-edge. Added `.toolbar-island` (fixed top-center) and `.board-status` as `.dm-island.dm-status-island` (fixed bottom-left). Status banners offset below floating toolbar. Mobile wrap/position at 640px matches `design/screens/board.html`.
+- **`src/app/App.tsx`:** Canvas region renders first (full viewport); toolbar and status islands float over it. Status rebuilt as one mono line with `·` separators; added zoom (`board-zoom`); preserved every `data-testid` and `focus-state` wording.
+- **`src/features/review-board/ReviewToolbar.tsx`:** `.dm-island.dm-toolbar` floating island; icon tools → word buttons (Select/Circle/Comment) + disabled Learn placeholder; Import/Live with live-dot; all testids and `aria-label` names preserved.
+- **`src/features/local-host/AgentActivityRail.css`:** Moved runs rail to bottom-right to clear the status island.
+
+### Manual spot-check
+
+Pressure board (50 screens): pan and zoom work under floating toolbar and status island; context/comments panels remain docked on sides.
 
 ## Verify
 

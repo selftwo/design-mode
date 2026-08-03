@@ -25,5 +25,11 @@ export default defineConfig({
   build: {
     sourcemap: true,
     manifest: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(root, 'index.html'),
+        mweb: path.resolve(root, 'm-web.html'),
+      },
+    },
   },
 })

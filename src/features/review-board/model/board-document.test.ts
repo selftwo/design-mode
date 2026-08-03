@@ -62,6 +62,26 @@ describe('canonical board model', () => {
     expect(record.madeAgainst.revision).toBe(1)
   })
 
+  it('accepts legacy review annotations without an explicit kind field', () => {
+    const board = createPressureTestBoard()
+    const legacy = {
+      ...board,
+      annotations: [{
+        id: 'legacy-ann',
+        frameId: board.frames[0]!.id,
+        status: 'draft',
+        instruction: 'Legacy note',
+        anchor: [0.5, 0.5],
+        mark: null,
+        createdAt: '2026-07-13T00:00:00.000Z',
+        madeAgainstCaptureHash: board.frames[0]!.captureHash,
+        madeAgainstRevision: board.frames[0]!.revision,
+      }],
+    }
+    const restored = deserializeBoard(JSON.stringify(legacy))
+    expect(restored.annotations[0]?.kind).toBe('review')
+  })
+
   it('rejects annotations with out of range anchors', () => {
     const board = createPressureTestBoard()
     const invalid = { ...board, annotations: [{ ...board.annotations[0]!, anchor: [2, 0.5] }] }

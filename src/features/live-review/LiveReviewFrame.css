@@ -12,11 +12,18 @@
 
 .live-state {
   position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #cad0d9;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: var(--text-2xs);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--ink-secondary);
+  box-shadow: var(--shadow-raise);
+  pointer-events: none;
+}
+
+.live-frame[data-connection-state="connecting"] .live-state {
+  animation: waiting-pulse 1.6s var(--ease-settle) 1;
 }

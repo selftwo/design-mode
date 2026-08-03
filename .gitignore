@@ -11,3 +11,6 @@ playwright-report/
 test-results/
 .canvas-results/
 
+
+# Nested scratch checkout used as before-state baseline
+.scratch/designmode-pivot/worktree-before/

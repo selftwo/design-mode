@@ -1,108 +1,52 @@
-.runs-island {
-  position: absolute;
-  z-index: 45;
-  right: 16px;
-  bottom: 14px;
-  display: grid;
-  gap: 4px;
-  width: min(360px, calc(100% - 32px));
-  max-height: min(320px, calc(100% - 28px));
+/* Runs island — layout only; DLS .dm-run-row / .dm-dot carry the skin. */
+.runs-island.summoned-island {
+  right: var(--space-4);
+  bottom: calc(var(--space-4) + var(--space-10));
+  width: 19rem;
+  max-width: calc(100vw - var(--space-8));
+  min-width: 13rem;
+  padding-bottom: var(--space-2);
+}
+
+.runs-island-body {
+  max-height: min(18rem, calc(100vh - var(--space-16) * 2));
   overflow-y: auto;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-  box-shadow: var(--shadow-panel);
 }
 
-.runs-island-header {
-  display: flex;
-  align-items: center;
-  padding: 0 4px 2px;
-}
-
-.runs-island-header h2 {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-secondary);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.runs-island-row {
+.runs-island-run {
   display: grid;
-  grid-template-columns: 10px minmax(0, auto) minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
+}
+
+.runs-row-button {
   width: 100%;
-  min-height: 28px;
-  margin: 0;
-  padding: 4px 6px;
   border: 0;
-  border-radius: 6px;
   background: transparent;
-  color: var(--ink-secondary);
-  font-size: 12px;
+  font: inherit;
   text-align: left;
+  cursor: pointer;
 }
 
-button.runs-island-row:hover {
-  border: 0;
-  background: #f4f6fa;
+.runs-row-button:hover {
+  background: var(--surface-hover);
 }
 
-.runs-mono {
-  overflow: hidden;
-  color: var(--ink);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runs-note {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Green is the only hue on this island. Running never pulses. */
-.runs-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ink-faint);
-}
-
-.runs-dot[data-state='waiting'] {
-  background: #7a8a74;
-}
-
-.runs-dot[data-state='running'] {
-  background: #2f6b3a;
-}
-
-.runs-dot[data-state='done'] {
-  background: var(--ok, #2f6b3a);
-}
-
-.runs-dot[data-state='failed'] {
-  background: #5a6b55;
-  box-shadow: inset 0 0 0 2px #2f6b3a;
-}
-
-.runs-tail {
-  max-height: 140px;
-  overflow: auto;
-  margin: 0 6px 4px;
-  padding: 8px;
-  border-radius: 6px;
-  background: #f3f6f3;
-  color: var(--ink-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10.5px;
-  line-height: 1.5;
+.runs-output-tail {
+  margin: var(--space-1) var(--space-3) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-mono);
+  line-height: 1.7;
+  color: var(--ink-muted);
   white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+@media (max-width: 40rem) {
+  .runs-island.summoned-island {
+    right: var(--space-2);
+    bottom: calc(var(--space-2) + var(--space-10));
+    width: min(19rem, calc(100vw - var(--space-4)));
+  }
 }

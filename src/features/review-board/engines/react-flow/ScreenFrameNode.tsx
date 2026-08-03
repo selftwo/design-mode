@@ -9,20 +9,25 @@ import type {
   NormalizedPoint,
   ReviewAnnotation,
   ScreenFrame,
+  TeachAnnotation,
   ToolMode,
 } from '../../model/board-document.schema'
-import { normalizeLocalPoint, simplifyNormalizedPath } from '../../model/board-geometry'
+import type { LayersTreeTarget } from '../../build-layers-tree'
+import { clampUnit, normalizeLocalPoint, simplifyNormalizedPath } from '../../model/board-geometry'
 import { pickAnnotationAtClientPoint } from '../../model/pick-annotation-at-point'
 import { isAnnotationStale } from '../../model/is-annotation-stale'
 import { AgentQuestionBloom } from '../../AgentQuestionBloom'
+import { isReviewAnnotation, isTeachAnnotation } from '../../is-board-annotation'
+import { TeachAnnotationNotes } from '../../TeachAnnotationNote'
 import '../../FrameAnnotationMarks.css'
 import '../../AgentQuestionBloom.css'
 import './ScreenFrameSurface.css'
 
 export interface ScreenFrameNodeData extends Record<string, unknown> {
   frame: ScreenFrame
-  annotations: ReviewAnnotation[]
+  annotations: Array<ReviewAnnotation | TeachAnnotation>
   tool: ToolMode
+  learnLensOpen: boolean
   focused: boolean
   liveFrameConfig: LiveReviewFrameConfig | null
   // Playable-option live mount: whether this frame is in the capped active set,
@@ -30,24 +35,35 @@ export interface ScreenFrameNodeData extends Record<string, unknown> {
   isPlayableLiveEligible: boolean
   playableMode: PlayableInteractionMode
   selectedAnnotationId: string | null
+  selectedElementId: string | null
+  outlinedTarget: LayersTreeTarget | null
+  resolvedAnnotationIds: ReadonlySet<string>
   onCircle: (frameId: string, start: NormalizedPoint, end: NormalizedPoint) => void
   onPath: (frameId: string, points: NormalizedPoint[]) => void
   onComment: (frameId: string, at: NormalizedPoint) => void
   onElementPick: (frameId: string, element: FrameElement) => void
+  onLearnElementPick: (frameId: string, element: FrameElement) => void
   onFocus: (frameId: string) => void
   onResize: (frameId: string, width: number) => void
+  onSelectFrame: (frameId: string) => void
+  onSelectElement: (frameId: string, elementId: string | null) => void
   onSelectAnnotation: (annotationId: string | null) => void
+  onDeleteTeachAnnotation: (annotationId: string) => void
+  onResolveTeachAnnotation: (annotationId: string) => void
   isNominee: boolean
   onToggleNominee: (frameId: string) => void
 }
 
 function annotationAriaLabel(
-  annotation: ReviewAnnotation,
-  annotations: ReviewAnnotation[],
+  annotation: ReviewAnnotation | TeachAnnotation,
+  annotations: Array<ReviewAnnotation | TeachAnnotation>,
   frame: ScreenFrame,
   stale: boolean,
 ): string {
   const ordinal = annotations.indexOf(annotation) + 1
+  if (isTeachAnnotation(annotation)) {
+    return `Teach note ${ordinal} of ${annotations.length} on ${annotation.mark.label} in ${frame.label}${stale ? ', stale capture' : ''}`
+  }
   const subject = annotation.mark?.kind === 'element' ? ` on ${annotation.mark.label}` : ''
   const kind = annotation.role === 'agent-question'
     ? 'Agent question'
@@ -205,7 +221,7 @@ function CommentPins({
           <button
             key={annotation.id}
             type="button"
-            className={`comment-pin ${markClassName(selected, stale, annotation.role)}`}
+            className={`comment-pin dm-mark dm-mark-pin ${markClassName(selected, stale, annotation.role)}`}
             style={{ left: `${annotation.anchor[0] * 100}%`, top: `${annotation.anchor[1] * 100}%` }}
             data-testid={`mark-${annotation.id}`}
             data-annotation-id={annotation.id}
@@ -234,12 +250,47 @@ function CommentPins({
   )
 }
 
+function elementOutlineStyle(element: FrameElement): React.CSSProperties {
+  const [start, end] = element.bounds
+  return {
+    left: `${start[0] * 100}%`,
+    top: `${start[1] * 100}%`,
+    width: `${(end[0] - start[0]) * 100}%`,
+    height: `${(end[1] - start[1]) * 100}%`,
+  }
+}
+
+function ElementOutline({
+  element,
+  frameId,
+  className,
+  testId,
+}: {
+  element: FrameElement
+  frameId: string
+  className: string
+  testId: string
+}) {
+  return (
+    <div
+      className={className}
+      data-testid={testId}
+      data-element-id={element.id}
+      data-frame-id={frameId}
+      style={elementOutlineStyle(element)}
+    />
+  )
+}
+
+const DRAG_THRESHOLD_PX = 3
+
 export const ScreenFrameNode = memo(function ScreenFrameNode({
   data: node,
   selected,
 }: NodeProps<Node<ScreenFrameNodeData>>) {
   const drawPathRef = useRef<NormalizedPoint[] | null>(null)
   const consumeClickRef = useRef(false)
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null)
   const [inkPreview, setInkPreview] = useState<readonly NormalizedPoint[] | null>(null)
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
   const frame = node.frame
@@ -267,7 +318,11 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
   }
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    consumeClickRef.current = false
     if (node.focused) return
+    if (node.tool === 'select') {
+      pointerDownRef.current = { x: event.clientX, y: event.clientY }
+    }
     const surface = event.currentTarget
     if (node.tool === 'select') {
       const picked = pickAnnotationAtClientPoint(
@@ -290,7 +345,12 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
         event.preventDefault()
         event.stopPropagation()
         consumeClickRef.current = true
-        node.onElementPick(frame.id, element)
+        if (node.learnLensOpen) {
+          node.onLearnElementPick(frame.id, element)
+          node.onSelectElement(frame.id, element.id)
+        } else {
+          node.onElementPick(frame.id, element)
+        }
       }
       return
     }
@@ -314,6 +374,35 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const path = drawPathRef.current
+    const clearBackgroundPointer = pointerDownRef.current
+    pointerDownRef.current = null
+    if (
+      node.tool === 'select'
+      && !node.focused
+      && clearBackgroundPointer
+      && !consumeClickRef.current
+      && Math.hypot(event.clientX - clearBackgroundPointer.x, event.clientY - clearBackgroundPointer.y) < DRAG_THRESHOLD_PX
+    ) {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const picked = pickAnnotationAtClientPoint(
+        node.annotations,
+        event.clientX,
+        event.clientY,
+        rect,
+        node.selectedAnnotationId,
+      )
+      if (!picked) {
+        const point: NormalizedPoint = [
+          clampUnit((event.clientX - rect.left) / rect.width),
+          clampUnit((event.clientY - rect.top) / rect.height),
+        ]
+        if (!elementAtNormalizedPoint(frame.elements, point)) {
+          node.onSelectFrame(frame.id)
+          node.onSelectElement(frame.id, null)
+          node.onSelectAnnotation(null)
+        }
+      }
+    }
     cancelDrawing()
     if (!path || node.tool === 'select' || node.focused) return
     if (node.tool === 'circle') {
@@ -342,6 +431,16 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
   const hoveredElement = node.tool === 'select' && hoveredElementId
     ? frame.elements.find((element) => element.id === hoveredElementId) ?? null
     : null
+  const selectedElement = node.selectedElementId
+    ? frame.elements.find((element) => element.id === node.selectedElementId) ?? null
+    : null
+  const outlined = node.outlinedTarget
+  const treeOutlinedElement = outlined?.kind === 'element' && outlined.frameId === frame.id
+    ? frame.elements.find((element) => element.id === outlined.elementId) ?? null
+    : null
+  const treeOutlinedFrame = outlined?.kind === 'frame' && outlined.frameId === frame.id
+  const reviewAnnotations = node.annotations.filter(isReviewAnnotation)
+  const teachAnnotations = node.annotations.filter(isTeachAnnotation)
 
   const isOption = frame.kind === 'option-snapshot' || frame.kind === 'playable-option'
   const isZoned = frame.lifeState === 'archived' || frame.lifeState === 'killed'
@@ -352,7 +451,7 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
   // present but inert so the live layer takes pointer input.
   return (
     <div
-      className={`screen-node ${isOption ? 'lofi-option' : ''} ${node.isNominee ? 'is-preferred' : ''} ${isZoned ? 'is-zoned' : ''}`.trim()}
+      className={`screen-node ${isOption ? 'lofi-option' : ''} ${node.isNominee ? 'is-preferred' : ''} ${isZoned ? 'is-zoned' : ''} ${treeOutlinedFrame ? 'screen-node-tree-outline' : ''}`.trim()}
       style={{ width: frame.width, height: frame.height }}
       data-testid={`frame-${frame.id}`}
       data-frame-id={frame.id}
@@ -419,29 +518,51 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
           </div>
         ) : null}
         <FrameMarksSvg
-          annotations={node.annotations}
+          annotations={reviewAnnotations}
           frame={frame}
           selectable={node.tool === 'select' && !liveInteractive}
           selectedAnnotationId={node.selectedAnnotationId}
           preview={inkPreview}
           onSelectAnnotation={node.onSelectAnnotation}
         />
+        <TeachAnnotationNotes
+          annotations={teachAnnotations}
+          frame={frame}
+          selectedAnnotationId={node.selectedAnnotationId}
+          onSelectAnnotation={node.onSelectAnnotation}
+          onDelete={node.onDeleteTeachAnnotation}
+        />
         {hoveredElement && !playableLive ? (
           <div
             className="element-hover"
             data-testid={`element-hover-${hoveredElement.id}`}
-            style={{
-              left: `${hoveredElement.bounds[0][0] * 100}%`,
-              top: `${hoveredElement.bounds[0][1] * 100}%`,
-              width: `${(hoveredElement.bounds[1][0] - hoveredElement.bounds[0][0]) * 100}%`,
-              height: `${(hoveredElement.bounds[1][1] - hoveredElement.bounds[0][1]) * 100}%`,
-            }}
+            data-element-id={hoveredElement.id}
+            data-frame-id={frame.id}
+            style={elementOutlineStyle(hoveredElement)}
           >
             <span className="element-hover-label">{hoveredElement.label}</span>
           </div>
         ) : null}
+        {selectedElement && selectedElement.id !== hoveredElement?.id ? (
+          <ElementOutline
+            element={selectedElement}
+            frameId={frame.id}
+            className="element-selected"
+            testId={`element-selected-${selectedElement.id}`}
+          />
+        ) : null}
+        {treeOutlinedElement
+          && treeOutlinedElement.id !== hoveredElement?.id
+          && treeOutlinedElement.id !== selectedElement?.id ? (
+            <ElementOutline
+              element={treeOutlinedElement}
+              frameId={frame.id}
+              className="element-tree-outline"
+              testId={`element-tree-outline-${treeOutlinedElement.id}`}
+            />
+          ) : null}
         <CommentPins
-          annotations={node.annotations}
+          annotations={reviewAnnotations}
           frame={frame}
           selectedAnnotationId={node.selectedAnnotationId}
           onSelectAnnotation={node.onSelectAnnotation}
@@ -450,9 +571,8 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
       {/* Agent questions bloom at their mark anchors. Review editors are hosted
           outside React Flow (App) so keyboard focus is not eaten by the canvas. */}
       {(() => {
-        const selected = node.annotations.find((item) => item.id === node.selectedAnnotationId)
-        if (!selected) return null
-        if (selected.role !== 'agent-question' && selected.role !== 'teach') return null
+        const selected = reviewAnnotations.find((item) => item.id === node.selectedAnnotationId)
+        if (!selected || selected.role !== 'agent-question') return null
         return (
           <div
             className="annotation-bloom-anchor nodrag nopan nowheel at-anchor"
@@ -461,7 +581,7 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
             data-testid={`annotation-bloom-${selected.id}`}
           >
             <AgentQuestionBloom
-              kind={selected.role === 'teach' ? 'teach' : 'agent-question'}
+              kind="agent-question"
               instruction={selected.instruction}
               runId={selected.runId}
               onClose={() => node.onSelectAnnotation(null)}
@@ -470,7 +590,7 @@ export const ScreenFrameNode = memo(function ScreenFrameNode({
         )
       })()}
       {/* Outside .screen-content so the label can sit above the clipped surface. */}
-      <span className="screen-label">{frame.label}</span>
+      <span className="screen-label dm-frame-label dm-mono">{frame.label}</span>
     </div>
   )
 })

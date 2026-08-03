@@ -96,11 +96,12 @@ export function HostProjectPicker({ client }: { client: LocalHostClient }) {
                 <span>{project.routes.length} route{project.routes.length === 1 ? '' : 's'} · port {project.devPort}</span>
               </div>
               <div className="picker-project-actions">
-                <button type="button" onClick={() => openBoard(project.id)} data-testid={`open-project-${project.id}`}>
+                <button type="button" className="dm-btn dm-btn--quiet dm-btn--sm" onClick={() => openBoard(project.id)} data-testid={`open-project-${project.id}`}>
                   Open board
                 </button>
                 <button
                   type="button"
+                  className="dm-btn dm-btn--quiet dm-btn--sm"
                   disabled={capturingId !== null}
                   onClick={() => void capture(project.id)}
                   data-testid={`capture-project-${project.id}`}
@@ -115,29 +116,29 @@ export function HostProjectPicker({ client }: { client: LocalHostClient }) {
       <section className="picker-column">
         <h2>Register a project</h2>
         <form className="picker-form" onSubmit={(event) => void register(event)}>
-          <label>
+          <label className="dm-field-label">
             Name
-            <input value={name} onChange={(event) => setName(event.target.value)} required data-testid="project-name" />
+            <input className="dm-input" value={name} onChange={(event) => setName(event.target.value)} required data-testid="project-name" />
           </label>
-          <label>
+          <label className="dm-field-label">
             Absolute path
-            <input value={path} onChange={(event) => setPath(event.target.value)} required placeholder="/Users/you/code/app" data-testid="project-path" />
+            <input className="dm-input" value={path} onChange={(event) => setPath(event.target.value)} required placeholder="/Users/you/code/app" data-testid="project-path" />
           </label>
-          <label>
+          <label className="dm-field-label">
             Dev command
-            <input value={devCommand} onChange={(event) => setDevCommand(event.target.value)} required data-testid="project-dev-command" />
+            <input className="dm-input" value={devCommand} onChange={(event) => setDevCommand(event.target.value)} required data-testid="project-dev-command" />
           </label>
-          <label>
+          <label className="dm-field-label">
             Dev port
-            <input value={devPort} onChange={(event) => setDevPort(event.target.value)} required inputMode="numeric" data-testid="project-dev-port" />
+            <input className="dm-input" value={devPort} onChange={(event) => setDevPort(event.target.value)} required inputMode="numeric" data-testid="project-dev-port" />
           </label>
-          <label>
+          <label className="dm-field-label">
             Routes to capture (one per line: /path Label)
-            <textarea value={routesText} onChange={(event) => setRoutesText(event.target.value)} rows={4} data-testid="project-routes" />
+            <textarea className="dm-textarea" value={routesText} onChange={(event) => setRoutesText(event.target.value)} rows={4} data-testid="project-routes" />
           </label>
-          <button type="submit" data-testid="register-project">Register project</button>
+          <button type="submit" className="dm-btn dm-btn--primary" data-testid="register-project">Register project</button>
         </form>
-        {error ? <p role="alert" className="picker-error" data-testid="picker-error">{error}</p> : null}
+        {error ? <p role="alert" className="picker-error dm-notice" data-tone="error" data-testid="picker-error">{error}</p> : null}
       </section>
     </main>
   )

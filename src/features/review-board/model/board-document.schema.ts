@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { addBoardRelationIssues } from './board-relations'
+import { ElementAspectsSchema } from './element-aspects.schema'
+import { ThreadReplySchema } from './thread-reply.schema'
 
 export const BOARD_SCHEMA_VERSION = 2 as const
 
@@ -28,6 +30,7 @@ export const FrameElementSchema = z.object({
   label: z.string().min(1),
   role: z.string().min(1),
   bounds: z.tuple([NormalizedPointSchema, NormalizedPointSchema]),
+  aspects: ElementAspectsSchema.optional(),
 })
 
 // What a frame's pixels are and how they behave on the board:
@@ -183,6 +186,7 @@ export const AnnotationIntentSchema = z.enum([
 export const AnnotationRoleSchema = z.enum(['review', 'agent-question', 'teach'])
 
 export const ReviewAnnotationSchema = z.object({
+  kind: z.literal('review'),
   id: z.string().min(1),
   frameId: z.string().min(1),
   // Defaulted so boards written before item 4b keep parsing without a bump.
@@ -192,6 +196,8 @@ export const ReviewAnnotationSchema = z.object({
   intent: AnnotationIntentSchema.optional(),
   anchor: NormalizedPointSchema,
   mark: AnnotationMarkSchema.nullable(),
+  replies: z.array(ThreadReplySchema).optional(),
+  resolvedAt: z.string().datetime().optional(),
   createdAt: z.string().datetime(),
   madeAgainstCaptureHash: z.string().min(1),
   madeAgainstRevision: z.number().int().positive(),
@@ -259,6 +265,33 @@ export const ReviewSummarySchema = z.object({
   playedLive: z.boolean(),
 })
 
+export const TeachAnnotationSchema = z.object({
+  kind: z.literal('teach'),
+  id: z.string().min(1),
+  frameId: z.string().min(1),
+  status: z.literal('draft'),
+  instruction: z.string().min(1),
+  question: z.string().min(1),
+  provenanceRunId: z.string().min(1),
+  anchor: NormalizedPointSchema,
+  mark: ElementMarkSchema,
+  resolvedAt: z.string().datetime().optional(),
+  createdAt: z.string().datetime(),
+  madeAgainstCaptureHash: z.string().min(1),
+  madeAgainstRevision: z.number().int().positive(),
+})
+
+function migrateBoardAnnotation(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  if (!('kind' in value)) return { ...value, kind: 'review' }
+  return value
+}
+
+export const BoardAnnotationSchema = z.preprocess(
+  migrateBoardAnnotation,
+  z.discriminatedUnion('kind', [ReviewAnnotationSchema, TeachAnnotationSchema]),
+)
+
 const BoardDocumentObjectSchema = z.object({
   schemaVersion: z.literal(BOARD_SCHEMA_VERSION),
   boardId: z.string().min(1),
@@ -268,7 +301,7 @@ const BoardDocumentObjectSchema = z.object({
   documentRevision: z.number().int().positive(),
   camera: BoardCameraSchema,
   frames: z.array(ScreenFrameSchema),
-  annotations: z.array(ReviewAnnotationSchema),
+  annotations: z.array(BoardAnnotationSchema),
   units: z.array(DesignUnitSchema),
   zones: z.array(BoardZoneSchema),
   verdicts: z.array(UnitVerdictSchema),
@@ -309,3 +342,5 @@ export type PathMark = z.infer<typeof PathMarkSchema>
 export type ElementMark = z.infer<typeof ElementMarkSchema>
 export type AnnotationMark = z.infer<typeof AnnotationMarkSchema>
 export type ReviewAnnotation = z.infer<typeof ReviewAnnotationSchema>
+export type TeachAnnotation = z.infer<typeof TeachAnnotationSchema>
+export type BoardAnnotation = z.infer<typeof BoardAnnotationSchema>

@@ -1,6 +1,6 @@
 # 09: Bloom threads at their marks
 
-Status: open
+Status: done
 Type: task
 Phase: 2 (restructure)
 Blocked by: 06
@@ -21,12 +21,39 @@ Move comment threads out of the docked comments panel onto the canvas. Selecting
 
 ## Done when
 
-- [ ] Selecting a mark opens its thread at the mark; editing, intent chips, delete, and reply all work inside the bloom.
-- [ ] Machine-authored entries show the agent avatar and `⌁` glyph; thread states render as words.
-- [ ] Stale marks and threads show the neutral stale treatment.
-- [ ] No docked comments panel remains; the rail is a jump list that opens blooms.
-- [ ] Existing annotation and export e2e flows pass with edits only where the panel-bound interaction moved (record every migrated testid under Comments).
-- [ ] New Playwright coverage: open a bloom, edit an instruction, pick an intent, resolve; jump-list click opens the right bloom.
+- [x] Selecting a mark opens its thread at the mark; editing, intent chips, delete, and reply all work inside the bloom.
+- [x] Machine-authored entries show the agent avatar and `⌁` glyph; thread states render as words.
+- [x] Stale marks and threads show the neutral stale treatment.
+- [x] No docked comments panel remains; the rail is a jump list that opens blooms.
+- [x] Existing annotation and export e2e flows pass with edits only where the panel-bound interaction moved (record every migrated testid under Comments).
+- [x] New Playwright coverage: open a bloom, edit an instruction, pick an intent, resolve; jump-list click opens the right bloom.
+
+## Comments
+
+### Verify — 2026-07-17
+
+`npm run verify` **pass** (142 unit, 24 e2e).
+
+| Check | Result |
+|-------|--------|
+| gzip (reactflow route) | 158,551 B (cap 168,740 B) |
+| testids | All preserved: `comments-panel`, `toggle-comments-panel`, `comments-count`, `comment-item-*`, `open-comment-*`, `copy-comment-*`, `copy-all-comments`, `export-annotation`, `dispatch-agent`, `annotation-instruction-editor`, `instruction-input`, `intent-*`, `delete-annotation`, `annotation-stale`, `resolve-annotation` (new), `bloom-*` (new) |
+| ARIA | `aria-label="Pooled review comments"` unchanged on rail |
+
+### Migrated testids / e2e edits
+
+- Editor moved from panel row to bloom: tests still target `annotation-instruction-editor`, `instruction-input`, `delete-annotation` inside the open bloom.
+- `react-flow-island-drag-persist.spec.ts`: first selection is frame-only (not element pick) so the bloom does not cover the layers island drag handle.
+- `react-flow-keyboard-workflow.spec.ts`: deselect annotation before frame arrow-key nudge; wait for `instruction-input` focus before post-reset typing.
+
+### Changes
+
+- **`AnnotationBloom.tsx` / `.css`:** Wired at mark with dodge placement, thread head/state/scope chip, instruction editor, agent reply from done runs, resolve button, stale read-only body + foot.
+- **`ReviewCommentsPanel.tsx` / `.css`:** Summoned jump-list island (left below toolbar); inline editor removed; copy/send footer kept.
+- **`App.tsx`:** Renders bloom for selected annotation; session `resolvedAnnotationIds`; rail gets selection bounds for dodge.
+- **`app.css`:** Removed docked comments grid column from `.canvas-region`.
+- **`bloom-thread-state.test.ts`**, **`e2e/review-board/react-flow-bloom.spec.ts`:** New coverage.
+- **`DECISIONS.md`:** Bloom-at-mark + jump-list rail decision recorded.
 
 ## Verify
 
