@@ -2,9 +2,15 @@
 
 The ambition: a personal design tool that works like a cursor for design. Invokable from any terminal or browser, neutral to whichever coding agent does the work, good enough looking to trust with taste, and a teacher: point at anything on the canvas and ask, and an agent answers in place.
 
-The design source of truth is the handed-off design language system in `design/` (read `design/HANDOFF.md` first). The current effort is the designmode pivot, ticketed at `.scratch/designmode-pivot/`; its four phases come first, in order. Later items graduate into a spec (`specs/`) with a decision entry when their trigger fires.
+The design source of truth is the handed-off design language system in `design/` (read `design/HANDOFF.md` first). Pointed in-page feedback is outsourced to Agentation; this repo stays the review canvas (see `docs/plans/hybrid-agentation-designmode-2026-08-03.md` and `DECISIONS.md`).
 
-## The pivot (in flight)
+## Now
+
+1. **Collaboration surface (on `main`).** Playable options, units/zones/verdicts, agent blooms, decision ledger — `docs/plans/canvas-design-collaboration-surface-2026-07-21.md`.
+2. **Integrate the DLS pivot.** Branch `pivot/designmode-islands-wip` holds the completed islands / learn-teach / m-web work. Next engineering task: merge onto `main` per the hybrid plan’s conflict order, then `npm run verify`.
+3. **Pivot QA polish.** `.scratch/designmode-pivot-qa/` after the merge.
+
+## The pivot (implemented on branch; not yet on main)
 
 1. **Re-skin.** `specs/redesign-visual-system.md`, issues 01–04. DLS tokens, component sweep, DLS icons, dark theme toggle.
 2. **Restructure.** `specs/redesign-visual-system.md`, issues 05–10. Islands over an edge-to-edge canvas; dodge-by-default, drag wins; bloom threads at their marks.

@@ -191,3 +191,15 @@ Reason: The 140,617 reference predated the entire six-item collaboration-surface
 Rejected: Shaving telemetry bytes to stay under the stale cap by dropping a plan requirement such as viewport-fraction dwell or cross-session totals. Removing the budget, which would stop catching optional engine code leaking into the default route.
 
 Revisit when: The route grows another 20 percent without a matching feature decision.
+
+## 2026-08-03: Hybrid tooling — Agentation for pointed feedback, design-mode for canvas
+
+Status: Accepted
+
+Decision: Use Agentation for Cursor-style pointed feedback on a live webapp (annotate → MCP/markdown → agent). Keep design-mode as the multi-screen review canvas (captures, playable options, verdicts, bloom history, teach/learn, m-web). Do not rebuild an in-page Agentation-class toolbar inside design-mode. Plan: `docs/plans/hybrid-agentation-designmode-2026-08-03.md`.
+
+Reason: The jobs diverge. Agentation is refined for in-page annotate-fix; design-mode is refined for spatial judgment and collaboration. Building both jobs in one surface would dilute the canvas product and lag Agentation on the overlay loop.
+
+Rejected: Replacing design-mode with Agentation. Pausing Agentation to finish a custom in-page overlay first. Merging the uncommitted pivot onto collaboration without a conflict plan (pivot is preserved on `pivot/designmode-islands-wip`; `main` matches `origin/main`).
+
+Revisit when: A target app cannot use Agentation (non-React, license, or desktop-only limits) and still needs pointed feedback, or the canvas product clearly needs an in-page bridge that Agentation cannot supply.
